@@ -1,0 +1,171 @@
+
+#include <stdlib.h>
+
+#include "import_merger.h"
+#include "utils/palrup_utils.h"
+#include "utils/checker_utils.h"
+#include "file_reader.h"
+
+#define TYPE int
+#define TYPED(THING) int_##THING
+#include "vec.h"
+#undef TYPED
+#undef TYPE
+
+struct merger_stats {
+    u64 nb_read;
+    u64 nb_duplicates;
+} merger_stats_init = {0, 0};
+struct merger_stats stats;
+
+const u64 _im_empty_ID = -1;
+
+size_t _im_n_files;
+// used to store nb_clauses left to read in a file.
+// redesigned to act as "eof-reached" flag
+int* _im_left_clauses;
+u64* _im_clause_ids;
+struct int_vec** _im_all_lits;
+struct file_reader** _im_import_files;
+struct siphash** _im_check_hash;
+struct comm_sig** _im_check_comm_sig;
+int last_index_to_load = 0;
+// Buffering.
+
+u64* _im_current_id;  // is -1 if no clause is available (end of files)
+int** _im_current_literals_data;
+u64* _im_current_literals_size;
+
+void read_literals_index(int index, int nb_lits) {
+    struct int_vec* buf_lits = _im_all_lits[index];
+    int_vec_resize(buf_lits, nb_lits);
+    file_reader_read_ints(buf_lits->data, nb_lits, _im_import_files[index]);
+}
+
+void load_clause_if_available(int index) {
+    if (LIKELY(_im_left_clauses[index] > 0)) {
+        struct file_reader* file = _im_import_files[index];
+        _im_clause_ids[index] = file_reader_read_ul(file);
+        // no clauses left
+        if (_im_clause_ids[index] == 0) {
+            _im_clause_ids[index] = -1;
+            return;
+        }
+        int nb_lits = file_reader_read_int(file);
+        read_literals_index(index, nb_lits);
+        //_im_left_clauses[index] -= 1;
+        if (_im_check_hash != NULL) {
+            siphash_cls_update(_im_check_hash[index], (const u8*)&_im_clause_ids[index], sizeof(u64));
+            siphash_cls_update(_im_check_hash[index], (const u8*)_im_all_lits[index]->data, _im_all_lits[index]->size * sizeof(int));
+        } else if (_im_check_comm_sig != NULL) {
+            comm_sig_update_clause(_im_check_comm_sig[index], _im_clause_ids[index], _im_all_lits[index]->data, nb_lits);
+        }
+        stats.nb_read++;
+    } else {
+        _im_clause_ids[index] = -1;
+    }
+}
+
+void copy_lits(int* dest, int* src, int nb_lits) {
+    for (int i = 0; i < nb_lits; i++) {
+        dest[i] = src[i];
+    }
+}
+
+void import_merger_init(int count_input_files, char** file_paths, u64* current_id, int** current_literals_data, u64* current_literals_size, u64 read_buffer_size, struct siphash** import_check_hash, struct comm_sig** comm_sig_compute) {
+    _im_n_files = count_input_files;
+    _im_check_hash = import_check_hash;
+    _im_check_comm_sig = comm_sig_compute;
+    _im_current_id = current_id;              // output location
+    _im_current_literals_data = current_literals_data;  // output location
+    _im_current_literals_size = current_literals_size;  // output location
+    _im_clause_ids = palrup_utils_malloc(sizeof(u64) * _im_n_files);
+    _im_all_lits = palrup_utils_malloc(sizeof(struct int_vec*) * _im_n_files);
+    _im_import_files = palrup_utils_malloc(sizeof(struct file_reader*) * _im_n_files);
+    _im_left_clauses = palrup_utils_malloc(sizeof(int) * _im_n_files);
+    stats = merger_stats_init;
+    for (size_t i = 0; i < _im_n_files; i++) {
+        // palrup_utils_log(file_paths[i]);
+        
+        _im_import_files[i] = file_reader_init(read_buffer_size, fopen(file_paths[i], "rb"), -1);
+        if (!(_im_import_files[i])) palrup_utils_exit_eof();
+        _im_all_lits[i] = int_vec_init(1);
+        _im_left_clauses[i] = 1; //file_reader_read_int(_im_import_files[i]);
+        
+    }
+    // load the first clause of each file exept for 0
+    // that way import_merger_next does not need an if statement at start (if "last_index_to_load is invalid")
+    for (size_t i = 1; i < _im_n_files; i++) {
+        load_clause_if_available(i);
+    }
+}
+
+static void print_stats() {
+    char msg[512];
+    snprintf(msg, 512, "merger_stats nb_read:%lu, nb_duplicates:%lu", stats.nb_read, stats.nb_duplicates);
+    palrup_utils_log(msg);
+}
+
+void import_merger_end() {
+    for (size_t i = 0; i < _im_n_files; i++) {
+        file_reader_end(_im_import_files[i]);
+        int_vec_free(_im_all_lits[i]);
+    }
+    free(_im_import_files);
+    free(_im_all_lits);
+    free(_im_clause_ids);
+    free(_im_left_clauses);
+    print_stats();
+}
+
+void import_merger_next() {
+    load_clause_if_available(last_index_to_load);  
+    bool imports_left = false;
+    u64 current_id = _im_empty_ID;
+    *_im_current_id = _im_empty_ID;
+    size_t index_to_load = -1;
+    struct int_vec candidate_lits;
+    // find the smallest clause id
+    for (size_t i = 0; i < _im_n_files; i++) {
+        u64 temp_id = _im_clause_ids[i];
+        
+
+        if (temp_id < current_id && temp_id != _im_empty_ID) {
+            current_id = temp_id;
+            index_to_load = i;
+            candidate_lits = *_im_all_lits[index_to_load];
+            imports_left = true;
+        } else if (temp_id == current_id && current_id != _im_empty_ID) { // check and skip duplicates
+            candidate_lits = *_im_all_lits[index_to_load];
+            const struct int_vec* temp_lits = _im_all_lits[i];
+            if (UNLIKELY(!checker_utils_compare_lits(candidate_lits.data, temp_lits->data, candidate_lits.size, temp_lits->size))) {
+                char err_str[512];
+                snprintf(err_str, 512, "literals do not match \nID:%lu index_to_load:%lu i:%lu", current_id, index_to_load, i);
+                palrup_utils_log_err(err_str);
+                exit(1);
+            }
+            stats.nb_duplicates++;
+            load_clause_if_available(i);
+        }
+    }
+
+    //char msg[512];
+    //snprintf(msg, 512, "current_ID:%lu index_to_load:%lu imports_left:%d", *_im_current_id, index_to_load, imports_left);
+    //palrup_utils_log(msg);
+    if (!imports_left) {
+        return;
+    }
+    // load the lits
+    // char err_str1[512];
+    // snprintf(err_str1, 512, "HERE WE HAVE:%lu", index_to_load);
+    // palrup_utils_log_err(err_str1);
+    *_im_current_literals_size = candidate_lits.size;
+    *_im_current_literals_data = candidate_lits.data;
+    *_im_current_id = current_id;
+    last_index_to_load = index_to_load;
+    
+}
+
+void import_merger_read_sig(int* sig_res_reported, int index) {
+    file_reader_read_ints(sig_res_reported, 4, _im_import_files[index]);
+}
