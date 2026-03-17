@@ -81,10 +81,10 @@ if (( $id < $num_solvers )); then
     echo "READ_PALRUP_SIZE=$(wc -c $proof_palrup/$dir_hierarchy/$id/out.palrup)" &>> "$log"
 
     # run first pass
-    cmd="./build/plrat_first_pass \
-    -formula-path=$formula_path -proofs-path-in=$proof_palrup \
-    -proofs-path-out=$proof_working -num-solvers=$num_solvers \
-    -solver-id=$id -read-buffer-KB=524288 -redistribution-strategy=3 \
+    cmd="./build/palrup_local_check \
+    -formula-path=$formula_path -palrup-path=$proof_palrup \
+    -working-path=$proof_working -num-solvers=$num_solvers \
+    -pal-id=$id -read-buffer-KB=524288 -redist-strat=3 \
     -palrup-binary=1"
     echo "run $cmd" &>> "$log" &>> "$log"
     start=$(date +%s.%N)
@@ -120,9 +120,9 @@ if [[ $expected_proxy == "0" ]]; then
     # skip reroute if nothing is done regardless
     cp out.palrup_import.dummy $proof_working/$dir_hierarchy/$id/out.palrup_import
 else
-    cmd="./build/plrat_reroute \
-    -proofs-path=$proof_working -num-solvers=$num_solvers -solver-id=$id \
-    -read-buffer-KB=16384 -redistribution-strategy=3"
+    cmd="./build/palrup_redistribute \
+    -working-path=$proof_working -num-solvers=$num_solvers -pal-id=$id \
+    -read-buffer-KB=16384 -redist-strat=3"
     echo "run $cmd" &>> "$log"
     start=$(date +%s.%N)
     $cmd &>> "$log"
@@ -151,11 +151,10 @@ if (( $id < $num_solvers )); then
     echo "LP_WC_WAIT_TIME=$elapsed" &>> "$log"
 
     # run last pass
-    cmd="./build/plrat_last_pass \
-    -formula-path=$formula_path -proofs-path=$proof_palrup \
-    -imports-path=$proof_working -num-solvers=$num_solvers \
-    -solver-id=$id -read-buffer-KB=16384 -redistribution-strategy=3 \
-    -palrup-binary=1"
+    cmd="./build/palrup_confirm \
+    -palrup-path=$proof_palrup -working_path=$proof_working \
+    -num-solvers=$num_solvers -pal-id=$id -read-buffer-KB=16384 \
+    -redistribution-strategy=3 -palrup-binary=1"
     echo "run $cmd" &>> "$log" &>> "$log"
     start=$(date +%s.%N)
     $cmd &>> "$log"
