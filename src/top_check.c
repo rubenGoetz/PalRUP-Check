@@ -51,12 +51,6 @@ bool top_check_end_load() {
     u8* sig_from_chk;
     valid = valid && lrat_check_end_load(&sig_from_chk);
     if (!valid) return false;
-    // TODO: check if necessary
-    // Check against provided signature
-//#if !IMPCHECK_PLRAT
-//    valid = palrup_utils_equal_signatures(sig_from_chk, formula_signature);
-//    if (!valid) snprintf(palrup_utils_msgstr, 512, "Formula signature check failed");
-//#endif
     return valid;
 }
 

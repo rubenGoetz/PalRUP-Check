@@ -11,8 +11,6 @@
 #define DEFAULT_MAX_NB_LITS 100
 #define FILENAME "flat_clause_test_file"
 
-// TODO: make correct
-
 // Number of clauses and max number of lits per clause used in tests
 unsigned int N;
 unsigned int MAX_NB_LITS;
@@ -62,49 +60,6 @@ static void check_flat_clauses() {
     for (size_t i = 0; i < N; i++)
         check_lits(flat_clauses[i], nb_lits[i], lits[i]);
 }
-
-/*static void check_file_io() {
-    printf("   * write clauses to file\n");
-    for (size_t i = 0; i < N; i++) 
-        write_flat_clause_to_file(flat_clauses[i], file);
-    
-    printf("   * write signature to file\n");
-    fwrite(sig, sizeof(char), 16, file);
-    
-    printf("   * read clauses from file and check for validity\n");
-    rewind(file);
-    for (size_t i = 0; i < N; i++) {
-        clause_ptr clause = read_next_flat_clause_from_file(file);
-        check_id(clause, ids[i]);
-        check_nb_lits(clause, nb_lits[i]);
-        check_lits(clause, nb_lits[i], lits[i]);
-        delete_flat_clause(clause);
-    }
-    
-    printf("   * check signature handling\n");
-    char* sig_clause = read_next_flat_clause_from_file(file);
-    do_assert(fgetc(file) == EOF);
-    do_assert(read_next_flat_clause_from_file(file) == NULL);
-    do_assert(!memcmp(sig_clause, sig, 16));
-}*/
-
-/*static void check_parse_lrat_import() {
-    printf("   * parse previously written file\n");
-    clause_ptr parsed_clauses[N];
-    u8 file_sig[16];
-    rewind(file);
-    parse_lrat_import(file, parsed_clauses, file_sig);
-
-    printf("   * check parsed clauses and signature\n");
-    for (size_t i = 0; i < N; i++) {
-        clause_ptr clause = parsed_clauses[i];
-        check_id(clause, ids[i]);
-        check_nb_lits(clause, nb_lits[i]);
-        check_lits(clause, nb_lits[i], lits[i]);
-        delete_flat_clause(clause);
-    }
-    do_assert(!memcmp(file_sig, sig, 16));
-}*/
 
 // ----- INIT -----
 

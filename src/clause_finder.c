@@ -124,8 +124,6 @@ void parse(bool* found_T) {
 
             // check if the clause is the same
             if (id == current_ID) {
-                // TODO: make possible for differently sorted lits
-                //       Or let Mallob print sorted lits
                 if (checker_utils_compare_semi_sorted_lits(current_literals_data, proof_lits->data, current_literals_size, nb_lits)) {
                     break;
                 } else {

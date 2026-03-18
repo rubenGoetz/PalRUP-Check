@@ -215,8 +215,7 @@ unit_static void skip_heap_duplicates(clause_ptr c, struct clause_heap* heap) {
     while (next_c != NULL && get_clause_id(c) == get_clause_id(next_c)) {
         if (!compare_flat_clause(c, next_c)) {
             palrup_utils_log_err("differing clauses with same id detected");
-            // TODO: correctly mark proof as faulty
-            exit(1);
+            abort();
         }
         
         delete_flat_clause(heap_pop_min(heap));

@@ -27,8 +27,3 @@ int* get_clause_lits(clause_ptr ptr);
 size_t get_clause_size(clause_ptr ptr);
 
 bool compare_flat_clause(clause_ptr c1, clause_ptr c2);
-
-// TODO: Depricated
-//clause_ptr read_next_flat_clause_from_file(FILE* file);
-//void write_flat_clause_to_file(clause_ptr clause, FILE* file);
-//unsigned int parse_lrat_import(FILE* file, clause_ptr* clauses, u8* sig);
