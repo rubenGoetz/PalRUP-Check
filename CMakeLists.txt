@@ -4,72 +4,129 @@ project(palrup-checker)
 
 add_definitions("-std=gnu99 -Wall -Wextra -Werror -pedantic-errors -flto -lm") 
 
-add_executable(palrup_local_check
-    src/utils/palrup_utils.c
-    src/utils/checker_utils.c
-    src/main_local_check.c
-    src/local_checker.c
-    src/file_reader.c
-    src/import_handler.c
-    src/secret.c
-    src/siphash_cls.c
-    src/siphash.c
-    src/top_check.c
-    src/heap.c
-    src/merge_buffer.c
-    src/vectors.c
-    src/lrat_check.c
-    src/comm_sig.c
-    src/confirm.c
-    src/clause_flat.c
-    src/hash.c)
+# Module Libraries
 
-add_executable(palrup_redistribute
-    src/utils/palrup_utils.c
-    src/utils/checker_utils.c
-    src/main_redistribute.c
-    src/redist_handler.c
-    src/comm_sig.c
-    src/import_merger.c
-    src/secret.c
-    src/siphash_cls.c
-    src/siphash.c
-    src/vectors.c
-    src/lrat_check.c
-    src/file_reader.c
-    src/hash.c)
+add_library(import_handler
+            src/utils/palrup_utils.c
+            src/import_handler.c
+            src/secret.c
+            src/comm_sig.c
+            src/heap.c
+            src/merge_buffer.c
+            src/vectors.c
+            src/clause_flat.c)
+target_link_libraries(import_handler m)
 
-add_executable(palrup_confirm
-    src/utils/palrup_utils.c
-    src/utils/checker_utils.c
-    src/main_confirm.c
-    src/clause_finder.c
-    src/import_merger.c
-    src/file_reader.c
-    src/secret.c
-    src/siphash_cls.c
-    src/siphash.c
-    src/lrat_check.c
-    src/vectors.c
-    src/comm_sig.c
-    src/hash.c
-)
+add_library(local_checker
+            src/utils/palrup_utils.c
+            src/utils/checker_utils.c
+            src/local_checker.c
+            src/file_reader.c
+            src/secret.c
+            src/siphash_cls.c
+            src/top_check.c
+            src/lrat_check.c
+            src/siphash.c
+            src/confirm.c
+            src/vectors.c
+            src/hash.c)
+target_link_libraries(local_checker m import_handler)
 
-target_link_libraries(palrup_local_check m)
-target_link_libraries(palrup_redistribute m)
-target_link_libraries(palrup_confirm m)
+add_library(import_merger
+            src/utils/palrup_utils.c
+            src/utils/checker_utils.c
+            src/import_merger.c
+            src/file_reader.c
+            src/vectors.c
+            src/comm_sig.c)
 
-#add_custom_command(
-#    TARGET palrup_local_check POST_BUILD
-#    COMMAND ${CMAKE_COMMAND} -E copy_directory
-#            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/pal/
-#            ${CMAKE_CURRENT_BINARY_DIR}/)
+add_library(redist_handler
+            src/utils/palrup_utils.c
+            src/utils/checker_utils.c
+            src/redist_handler.c
+            src/comm_sig.c
+            src/secret.c
+            src/siphash_cls.c
+            src/vectors.c)
+target_link_libraries(redist_handler m import_merger)
+
+add_library(clause_finder
+            src/utils/palrup_utils.c
+            src/utils/checker_utils.c
+            src/clause_finder.c
+            src/file_reader.c
+            src/secret.c
+            src/siphash_cls.c
+            src/vectors.c)
+target_link_libraries(clause_finder m import_merger)
+
+# Executables
+
+add_executable(palrup_local_check src/main_local_check.c)
+target_link_libraries(palrup_local_check local_checker)
+
+add_executable(palrup_redistribute src/main_redistribute.c)
+target_link_libraries(palrup_redistribute redist_handler)
+
+add_executable(palrup_confirm src/main_confirm.c)
+target_link_libraries(palrup_confirm clause_finder)
 
 add_custom_target(copy_scripts ALL
   COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/scripts/pal
     ${CMAKE_CURRENT_BINARY_DIR}/
   COMMENT "Copying pal*.sh scripts"  
-)  
+)
 
-#add_dependencies( copy_configs)
+# Tests
+include(CTest)
+add_library(test_utils
+            src/utils/palrup_utils.c
+            src/utils/checker_utils.c
+            test/test_utils.c)
+
+add_executable(test_clause_flat
+               src/clause_flat.c
+               test/test_clause_flat.c)
+target_link_libraries(test_clause_flat test_utils)
+add_test(NAME Test_Clause_Flat
+         COMMAND test_clause_flat)
+
+add_executable(test_file_reader
+               src/file_reader.c
+               test/test_file_reader.c)
+target_link_libraries(test_file_reader test_utils)
+add_test(NAME Test_File_Reader
+         COMMAND test_file_reader)
+
+add_executable(test_hash
+               src/hash.c
+               test/test_hash.c)
+target_link_libraries(test_hash test_utils)
+add_test(NAME Test_Hash
+         COMMAND test_hash)
+
+add_executable(test_heap 
+  src/clause_flat.c 
+  src/heap.c 
+  test/test_heap.c)
+target_link_libraries(test_heap test_utils)
+add_test(NAME Test_Heap
+         COMMAND test_heap)
+
+add_library(test_import_handler_lib src/import_handler.c)
+target_compile_definitions(test_import_handler_lib PRIVATE UNIT_TEST)
+target_link_libraries(test_import_handler_lib import_handler)
+add_executable(test_import_handler
+               test/test_import_handler.c)
+target_link_libraries(test_import_handler test_import_handler_lib test_utils)
+add_test(NAME Test_Import_Handler
+         COMMAND test_import_handler)
+
+add_executable(test_merge_buffer 
+  src/merge_buffer.c
+  src/clause_flat.c
+  test/test_merge_buffer.c)
+target_link_libraries(test_merge_buffer test_utils)
+add_test(NAME Test_Merge_Buffer
+         COMMAND test_merge_buffer)

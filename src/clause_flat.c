@@ -65,41 +65,6 @@ void delete_flat_clause(clause_ptr ptr) {
 
 // ----- UTILS -----
 
-/*
-Reads the next flat clause from a file, copies it and returns a pointer to the copied clause in memory.
-Returns NULL if points to EOF. The file signature is returned as a clause_ptr and can be detected by 
-checking for EOF. (i.e. by recieving NULL whenn reading the next clause)
-*/
-clause_ptr read_next_flat_clause_from_file(FILE* file) {
-    int c = fgetc(file);
-    if (c == EOF)
-        return NULL;
-    ungetc(c, file);
-    
-    id_type id = palrup_utils_read_ul(file);
-    nb_lits_type nb_lits = (nb_lits_type)palrup_utils_read_int(file);
-
-    int first_lit = palrup_utils_read_int(file);
-    c = fgetc(file);
-    if (c == EOF) {   // signature detected
-        clause_ptr clause = create_flat_clause(id, 1, &first_lit);
-        set_nb_lits(clause, nb_lits);
-        return clause;
-    }
-    ungetc(c, file);
-
-    clause_ptr clause = create_flat_clause(id, nb_lits, NULL);
-    
-    *(get_clause_lits(clause)) = first_lit;
-    palrup_utils_read_ints(get_clause_lits(clause) + 1, nb_lits - 1, file);
-    
-    return clause;
-}
-
-inline void write_flat_clause_to_file(clause_ptr clause, FILE* file) {
-    palrup_utils_write_flat_clause(clause, get_clause_size(clause), file);
-}
-
 bool compare_flat_clause(clause_ptr c1, clause_ptr c2) {
     if (c1 == c2)
         return true;
@@ -108,24 +73,4 @@ bool compare_flat_clause(clause_ptr c1, clause_ptr c2) {
         return false;
     
     return !memcmp(c1, c2, sizeof(id_type) + sizeof(nb_lits_type) + (get_clause_nb_lits(c1) * sizeof(lit_type)));
-}
-
-unsigned int parse_lrat_import(FILE* file, clause_ptr* clauses, u8* sig) {
-    if (feof(file))
-        return 0;
-
-    unsigned int clause_count = 0;
-    clause_ptr clause = read_next_flat_clause_from_file(file);
-
-    while (clause) {
-        clauses[clause_count++] = clause;
-        clause = read_next_flat_clause_from_file(file);
-    }
-
-    // Last clause contains the files signature. Copy and clean up clause
-    clause = clauses[--clause_count];
-    memcpy(sig, clause, 16);
-    delete_flat_clause(clause);
-
-    return clause_count;
 }
