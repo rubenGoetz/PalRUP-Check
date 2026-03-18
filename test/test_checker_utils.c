@@ -3,9 +3,9 @@
 #include <string.h>
 #include <time.h>
 
-#include "test.h"
-#include "../src/trusted/trusted_utils.h"
-#include "../src/trusted/plrat_utils.h"
+#include "test_utils.h"
+#include "../src/utils/palrup_utils.h"
+#include "../src/utils/checker_utils.h"
 
 #define DEFAULT_ELEM_COUNT 1000
 
@@ -15,7 +15,7 @@ static void test_bin_search() {
     printf("   * init array\n");
     size_t elem_count = DEFAULT_ELEM_COUNT;
     //elem_count = (elem_count / 2) * 2;  // erase possible int div problems
-    int* a = trusted_utils_calloc(elem_count, sizeof(int));
+    int* a = palrup_utils_calloc(elem_count, sizeof(int));
     for (size_t i = 0; i < elem_count; i++)
         a[i] = (i - (elem_count / 2)) * 3; // i+1 to leave some positive integers before sart
 
@@ -41,15 +41,15 @@ static void test_bin_search() {
     free(a);
 }
 
-static void test_plrat_utils_compare_semi_sorted_lits() {
+static void test_palrup_utils_compare_semi_sorted_lits() {
     printf("   * create array of sorted lits\n");
     size_t elem_count = DEFAULT_ELEM_COUNT;
-    int* a = trusted_utils_calloc(elem_count, sizeof(int));
+    int* a = palrup_utils_calloc(elem_count, sizeof(int));
     for (size_t i = 0; i < elem_count; i++)
         a[i] = i - (elem_count / 2);
     
     printf("   * creae shuffled copy of array\n");
-    int* b = trusted_utils_calloc(elem_count, sizeof(int));
+    int* b = palrup_utils_calloc(elem_count, sizeof(int));
     memcpy(b, a, elem_count * sizeof(int));
     for (size_t i = elem_count - 1; i > 0; i--) {
         size_t j = (size_t) (drand48()*(i+1));
@@ -59,10 +59,10 @@ static void test_plrat_utils_compare_semi_sorted_lits() {
     }
 
     printf("   * check comparison between arrays\n");
-    do_assert(plrat_utils_compare_semi_sorted_lits(a, b, elem_count, elem_count));
-    do_assert(!plrat_utils_compare_semi_sorted_lits(a, b, elem_count, elem_count - 1));
+    do_assert(checker_utils_compare_semi_sorted_lits(a, b, elem_count, elem_count));
+    do_assert(!checker_utils_compare_semi_sorted_lits(a, b, elem_count, elem_count - 1));
     b[(size_t)drand48()*elem_count] = elem_count;   // alter b
-    do_assert(!plrat_utils_compare_semi_sorted_lits(a, b, elem_count, elem_count));
+    do_assert(!checker_utils_compare_semi_sorted_lits(a, b, elem_count, elem_count));
 
     printf("   * free arrays\n");
     free(a);
@@ -89,8 +89,8 @@ int main(int argc, char const *argv[])
     printf("** test bin_search\n");
     test_bin_search();
     
-    printf("** test plrat_utils_compare_semi_sorted_lits\n");
-    test_plrat_utils_compare_semi_sorted_lits();
+    printf("** test palrup_utils_compare_semi_sorted_lits\n");
+    test_palrup_utils_compare_semi_sorted_lits();
 
     printf("** wrap tests up\n");
     wrap_up_tests();

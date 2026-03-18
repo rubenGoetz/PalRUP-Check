@@ -85,6 +85,14 @@ add_library(test_utils
             src/utils/checker_utils.c
             test/test_utils.c)
 
+add_executable(test_checker_utils
+               src/utils/checker_utils.c
+               test/test_checker_utils.c)
+target_link_libraries(test_checker_utils test_utils)
+target_compile_definitions(test_checker_utils PRIVATE UNIT_TEST)
+add_test(NAME Test_Checker_Utils
+         COMMAND test_checker_utils)
+
 add_executable(test_clause_flat
                src/clause_flat.c
                test/test_clause_flat.c)
