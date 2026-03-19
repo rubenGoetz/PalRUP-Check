@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include <stdio.h>
+
 #include "clause_flat.h"
 
 struct merge_buffer {

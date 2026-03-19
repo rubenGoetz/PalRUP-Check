@@ -1,7 +1,8 @@
 
 #pragma once
 
-#include "utils/palrup_utils.h"
+#include "utils/define.h"
+#include "secret.h"
 
 void siphash_init(const unsigned char* key_128bit);
 void siphash_reset();

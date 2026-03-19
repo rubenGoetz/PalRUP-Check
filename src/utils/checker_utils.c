@@ -2,7 +2,6 @@
 #include <assert.h>
 
 #include "checker_utils.h"
-#include "define.h"
 #include "../lrat_check.h"
 
 #ifdef UNIT_TEST

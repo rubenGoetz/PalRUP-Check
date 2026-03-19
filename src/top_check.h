@@ -1,6 +1,6 @@
 
-#include <stdbool.h>        // for bool
-#include "utils/palrup_utils.h"  // for u8, u64
+#include <stdbool.h>
+#include "utils/define.h"
 
 // Top level checking procedure. Checks clauses, validates signatures,
 // and returns certificates for (un)satisfiability.

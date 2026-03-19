@@ -1,11 +1,8 @@
 
 #pragma once
 
-//#include <string.h>
 #include <stdio.h>
-//#include <sys/stat.h>
-//#include <stdlib.h>
-#include "utils/palrup_utils.h"
+#include "utils/define.h"
 
 #define TYPE u8
 #define TYPED(THING) u8_ ## THING

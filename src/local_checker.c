@@ -1,22 +1,16 @@
 
-#include "local_checker.h"  // for file_reader_read_int, palrup_utils_log...
-
 #include <math.h>
-#include <stdbool.h>  // for bool, true, false
-#include <stdio.h>    // for fclose, fflush_unlocked, fopen, snprintf
-#include <stdlib.h>   // for free
-#include <unistd.h>    // for access
+#include <stdlib.h>
+#include <unistd.h>
 #include <sys/stat.h>
 
+#include "local_checker.h"
+#include "file_reader.h"
 #include "utils/palrup_utils.h"
 #include "utils/checker_utils.h"
-//#include "checker_interface.h"
-//#include "hash.h"
-#include "file_reader.h"
 #include "import_handler.h"
-#include "secret.h"
 #include "siphash_cls.h"
-#include "top_check.h"  // for top_check_commit_formula_sig, top_check_d...
+#include "top_check.h"
 
 // Instantiate int_vec
 #define TYPE int

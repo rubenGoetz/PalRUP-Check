@@ -1,10 +1,9 @@
 
 #include <stdlib.h>
-#include <stdbool.h>        // for bool, false, true
-#include <stdio.h>          // for snprintf
-#include "hash.h"           // for hash_table_find, hash_table_delete_last_f...
-#include "siphash.h"        // for siphash_digest, siphash_update
-#include "utils/checker_utils.h"  // for u64, palrup_utils_msgstr, UNLIKELY
+
+#include "lrat_check.h"
+#include "hash.h"
+#include "siphash.h"
 
 // Instantiate int_vec
 #define TYPE int

@@ -1,31 +1,17 @@
 
 #include <assert.h>
-#include <math.h>      // for sqrt
-#include <stdbool.h>   // for bool, true, false
-#include <stdio.h>     // for fclose, fflush_unlocked, fopen, snprintf
-#include <stdlib.h>    // for free
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/stat.h>  // for mkdir
-//#include <time.h>      // for clock, CLOCKS_PER_SEC, clock_t
+#include <sys/stat.h>
 
 #include "import_handler.h"
 #include "utils/palrup_utils.h"
-//#include "checker_interface.h"
-//#include "hash.h"
-//#include "plrat_checker.h"  // for palrup_utils_read_int, palrup_utils_log...
-//#include "plrat_utils.h"
-#include "secret.h"
+#include "file_reader.h"
 #include "comm_sig.h"
-//#include "top_check.h"  // for top_check_commit_formula_sig, top_check_d...
 #include "heap.h"
 #include "merge_buffer.h"
-
-#define TYPE u8
-#define TYPED(THING) u8_ ## THING
-#include "vec.h"
-#undef TYPED
-#undef TYPE
 
 #ifdef UNIT_TEST
 #define unit_static

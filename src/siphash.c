@@ -1,7 +1,7 @@
 
-#include <stdbool.h>  // for true
-#include <stdlib.h>   // for free, abort
-#include <assert.h>   // for assert
+#include <stdbool.h>
+#include <stdlib.h>
+#include <assert.h>
 
 #include "siphash.h"
 #include "utils/palrup_utils.h"

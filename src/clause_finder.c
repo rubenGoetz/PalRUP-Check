@@ -1,22 +1,12 @@
 
-//#include <assert.h>
-#include <math.h>     // for sqrt
-#include <stdbool.h>  // for bool, true, false
-#include <stdio.h>    // for fclose, fflush_unlocked, fopen, snprintf
-#include <stdlib.h>   // for free
+#include <math.h>
+#include <stdlib.h>
 #include <sys/stat.h>
-//#include <time.h>     // for clock, CLOCKS_PER_SEC, clock_t
 
 #include "clause_finder.h"
-#include "utils/palrup_utils.h"
 #include "utils/checker_utils.h"
-//#include "checker_interface.h"
-//#include "hash.h"
 #include "import_merger.h"
-//#include "plrat_checker.h"
 #include "file_reader.h"
-#include "secret.h"
-#include "siphash_cls.h"
 
 #define TYPE int
 #define TYPED(THING) int_##THING

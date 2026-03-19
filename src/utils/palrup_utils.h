@@ -15,11 +15,6 @@ void palrup_utils_log_err(const char* msg);
 
 void palrup_utils_exit_eof();
 
-void palrup_utils_try_match_arg(const char* arg, const char* opt, const char** out);
-void palrup_utils_try_match_num(const char* arg, const char* opt, u64* out);
-void palrup_utils_try_match_bool(const char* arg, const char* opt, bool* out);
-void palrup_utils_try_match_flag(const char* arg, const char* opt, bool* out);
-
 void* palrup_utils_malloc(u64 size);
 void* palrup_utils_realloc(void* from, u64 new_size);
 void* palrup_utils_calloc(u64 nb_objs, u64 size_per_obj);

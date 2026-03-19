@@ -1,10 +1,9 @@
 
+#include <assert.h>
+#include <stdbool.h>
+#include <stdlib.h>
+
 #include "siphash_cls.h"
-
-#include <assert.h>   // for assert
-#include <stdbool.h>  // for true
-#include <stdlib.h>   // for free, abort
-
 #include "utils/palrup_utils.h"
 
 #define cROUNDS 2

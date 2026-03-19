@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "clause_flat.h"
+#include "utils/palrup_utils.h"
 
 // ----- SET -----
 

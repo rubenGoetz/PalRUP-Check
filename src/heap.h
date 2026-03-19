@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include "utils/palrup_utils.h"
+#include "utils/define.h"
 #include "clause_flat.h"
 
 struct clause_heap {

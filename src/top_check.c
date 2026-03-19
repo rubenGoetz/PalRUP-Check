@@ -1,13 +1,10 @@
 
-#include <stdbool.h>        // for bool, false, true
-#include <stdio.h>          // for snprintf
 #include <string.h>
 
 #include "utils/palrup_utils.h"
 #include "utils/checker_utils.h"
-#include "lrat_check.h"     // for lrat_check_add_axiomatic_clause, lrat_che...
-#include "secret.h"         // for SECRET_KEY
-#include "siphash.h"        // for siphash_update, siphash_digest, siphash_r...
+#include "lrat_check.h"
+#include "siphash.h"
 #include "confirm.h"
 
 bool parsed_formula = false;

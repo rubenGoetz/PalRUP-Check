@@ -25,9 +25,3 @@
 #include "vec.c"
 #undef TYPED
 #undef TYPE
-
-//#define TYPE struct clause
-//#define TYPED(THING) clause_ ## THING
-//#include "vec.c"
-//#undef TYPED
-//#undef TYPE

@@ -1,7 +1,9 @@
 
 #pragma once
 
-#include "utils/palrup_utils.h"
+#include <stdbool.h>
+
+#include "utils/define.h"
 
 typedef void* clause_ptr;
 typedef u64 id_type;

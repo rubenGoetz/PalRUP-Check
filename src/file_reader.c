@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "file_reader.h"
+#include "utils/palrup_utils.h"
 
 // TODO: refactor and cleanup logs
 

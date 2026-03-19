@@ -1,7 +1,8 @@
 
 #pragma once
 
-#include "utils/palrup_utils.h"
+#include "utils/define.h"
+#include "secret.h"
 
 struct siphash {
     const unsigned char* kk;

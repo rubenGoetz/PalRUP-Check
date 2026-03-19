@@ -1,7 +1,8 @@
 
 #pragma once
 
-#include "utils/palrup_utils.h"
+#include "utils/define.h"
+#include "secret.h"
 
 struct comm_sig {
     u64 first_object_state;

@@ -1,8 +1,8 @@
 
 #pragma once
 
-#include <stdbool.h>        // for bool
-#include "utils/palrup_utils.h"
+#include <stdbool.h>
+#include "utils/define.h"
 
 // A hash table mapping from u64 keys to void* values.
 // The key zero is a magic number representing an empty entry.

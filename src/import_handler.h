@@ -1,8 +1,6 @@
 
 #pragma once
 
-#include <stdbool.h>
-
 void import_handler_init(const char* working_path, unsigned long pal_id, unsigned long num_solvers, unsigned long redist_strat, unsigned long write_buffer_size);
 void import_handler_log(unsigned long id, const int* literals, int nb_literals);
 void import_handler_end();

@@ -1,28 +1,17 @@
 
-//#include <assert.h>
-#include <math.h>      // for sqrt
-//#include <stdbool.h>   // for bool, true, false
-#include <stdio.h>     // for fclose, fflush_unlocked, fopen, snprintf
-#include <unistd.h>    // For fsync()
-#include <stdlib.h>    // for free
-#include <sys/stat.h>  // for mkdir
-//#include <time.h>      // for clock, CLOCKS_PER_SEC, clock_t
-//#include <unistd.h>    // for access
+#include <math.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <string.h>
 
 #include "redist_handler.h"
 #include "utils/palrup_utils.h"
 #include "utils/checker_utils.h"
-//#include "checker_interface.h"
-//#include "clause.h"
 #include "comm_sig.h"
-//#include "hash.h"
 #include "import_merger.h"
-//#include "plrat_checker.h"  // for palrup_utils_read_int, palrup_utils_log...
-//#include "palrup_utils.h"
-#include "secret.h"
 #include "siphash_cls.h"
-//#include "top_check.h"  // for top_check_commit_formula_sig, top_check_d...
 
 #define TYPE u8
 #define TYPED(THING) u8_ ## THING

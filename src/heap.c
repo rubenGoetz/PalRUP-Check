@@ -3,6 +3,7 @@
 #include <assert.h>
 
 #include "heap.h"
+#include "utils/palrup_utils.h"
 
 // ----- PRIVATE ----- //
 

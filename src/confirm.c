@@ -1,7 +1,6 @@
 
 #include <string.h>
 
-#include "utils/palrup_utils.h"
 #include "siphash.h"
 
 void confirm_result(u8* f_sig, u8 constant, u8* out) {

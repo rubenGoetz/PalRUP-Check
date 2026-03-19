@@ -1,8 +1,8 @@
 
 #pragma once
 
-#include <stdbool.h>        // for bool
-#include "utils/palrup_utils.h"  // for u64, u8
+#include <stdbool.h>
+#include "utils/define.h"
 
 void lrat_check_init(int nb_vars, bool opt_check_model, bool opt_lenient);
 void lrat_check_end();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "utils/palrup_utils.h"
+#include "utils/define.h"
 #include "siphash_cls.h"
 #include "comm_sig.h"
 

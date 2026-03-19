@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "comm_sig.h"
-#include "secret.h"
+#include "utils/palrup_utils.h"
 
 const u64 first_init = 0xC4D715A715861702;
 const u64 second_init = 0xB767977356C49687;

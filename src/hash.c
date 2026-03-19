@@ -1,6 +1,6 @@
 
-#include <assert.h>  // for assert
-#include <stdlib.h>  // for free
+#include <assert.h>
+#include <stdlib.h>
 
 #include "hash.h"
 #include "utils/palrup_utils.h"

@@ -62,13 +62,13 @@ target_link_libraries(clause_finder m import_merger)
 
 # Executables
 
-add_executable(palrup_local_check src/main_local_check.c)
+add_executable(palrup_local_check src/main_local_check.c src/utils/option_utils.c)
 target_link_libraries(palrup_local_check local_checker)
 
-add_executable(palrup_redistribute src/main_redistribute.c)
+add_executable(palrup_redistribute src/main_redistribute.c src/utils/option_utils.c)
 target_link_libraries(palrup_redistribute redist_handler)
 
-add_executable(palrup_confirm src/main_confirm.c)
+add_executable(palrup_confirm src/main_confirm.c src/utils/option_utils.c)
 target_link_libraries(palrup_confirm clause_finder)
 
 add_custom_target(copy_scripts ALL
