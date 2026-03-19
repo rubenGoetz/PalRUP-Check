@@ -78,6 +78,30 @@ add_custom_target(copy_scripts ALL
   COMMENT "Copying pal*.sh scripts"  
 )
 
+# Tools
+add_executable(check_comm_file
+               src/utils/palrup_utils.c
+               src/clause_flat.c
+               src/comm_sig.c
+               src/secret.c
+               src/vectors.c
+               tools/check_comm_file.c)
+
+add_executable(comm_file_to_txt
+               src/utils/palrup_utils.c
+               src/clause_flat.c
+               src/vectors.c
+               tools/comm_file_to_txt.c)
+
+add_executable(proof_fragment_to_txt
+               src/utils/palrup_utils.c
+               src/clause_flat.c
+               src/siphash.c
+               src/secret.c
+               src/file_reader.c
+               src/vectors.c
+               tools/proof_fragment_to_txt.c)
+
 # Tests
 include(CTest)
 add_library(test_utils
