@@ -19,9 +19,6 @@
 #define unit_static static
 #endif
 
-// Blocksize of underlying filesystem for more effizient writing.
-#define BLOCKSIZE 16 * 1024
-
 struct importer_stats {
     u64 nb_clauses;
     u64 nb_duplicates;
@@ -38,6 +35,7 @@ struct comm_sig** signatures;
 size_t comm_size;
 u64 redist_strat;  // redistribution_strategy
 u64 local_rank;    // solver id
+float alpha;
 
 // Buffering.
 struct u8_vec* write_buffer;
@@ -111,17 +109,16 @@ static u64 import_handler_get_proxy_rank(size_t id) {
     return palrup_utils_2d_to_rank(x, y, comm_size);
 }
 
-// working_path, pal_id, num_solvers, redist_strat, write_buffer_size
-void import_handler_init(const char* working_path, unsigned long pal_id, unsigned long num_solvers, unsigned long redist_strategy, unsigned long write_buffer_size) {
-    redist_strat = redist_strategy;
-    n_solvers = num_solvers;
-    root_n = sqrt((double)num_solvers);
+void import_handler_init(struct options* options) {
+    redist_strat = options->redist_strat;
+    n_solvers = options->num_solvers;
+    root_n = sqrt((double)options->num_solvers);
     comm_size = (size_t)ceil(root_n);  // round to nearest integer
     if (redist_strat == 1) {
         comm_size = n_solvers;
     }
-    out_path = working_path;
-    local_rank = pal_id;
+    out_path = options->working_path;
+    local_rank = options->pal_id;
     unsigned int dir_hierarchy = local_rank / comm_size;
     clause_heaps = palrup_utils_malloc(sizeof(struct clause_heap*) * comm_size);
     max_ids = palrup_utils_calloc(comm_size, sizeof(unsigned long));
@@ -129,16 +126,17 @@ void import_handler_init(const char* working_path, unsigned long pal_id, unsigne
     file_names = palrup_utils_malloc(sizeof(char*) * comm_size);
     clause_counts = palrup_utils_calloc(comm_size, sizeof(u64));
     signatures = palrup_utils_malloc(sizeof(struct comm_sig*) * comm_size);
-    merge_buffer = merge_buffer_init(write_buffer_size, NULL);
+    merge_buffer = merge_buffer_init(options->merge_buffer_size, NULL);
     stats = importer_stats_init;
-    write_buffer = u8_vec_init(BLOCKSIZE);
+    write_buffer = u8_vec_init(options->write_buffer_size);
+    alpha = options->q_alpha;
 
     char proof_folder[512];
     char ids_path[1024];
     struct clause_heap* single_heap;
     struct comm_sig* single_sig;
     if (redist_strat == 3) {
-        single_heap = heap_init(write_buffer_size);
+        single_heap = heap_init(options->q_size);
         single_sig = comm_sig_init(SECRET_KEY_2);
         snprintf(proof_folder, 512, "%s/%u/%lu", out_path, dir_hierarchy, local_rank);
         snprintf(ids_path, 1024, "%s/out.palrup_proxy~", proof_folder);
@@ -161,7 +159,7 @@ void import_handler_init(const char* working_path, unsigned long pal_id, unsigne
         else
             snprintf(proof_folder, 512, "%s/%lu", out_path, i);
 
-        if (proxy_rank > num_solvers - 1) {
+        if (proxy_rank > options->num_solvers - 1) {
             mkdir(proof_folder, 0755);
         }
 
@@ -188,7 +186,7 @@ void import_handler_init(const char* working_path, unsigned long pal_id, unsigne
             clause_heaps[i] = single_heap;
             signatures[i] = single_sig;
         } else {
-            clause_heaps[i] = heap_init(write_buffer_size);        
+            clause_heaps[i] = heap_init(options->q_size);        
             signatures[i] = comm_sig_init(SECRET_KEY_2);
         }
     }
@@ -378,7 +376,7 @@ void import_handler_log(unsigned long id, const int* literals, int nb_literals) 
 
     // write to file if capacity is reached
     if (heap_insert(clause_heap, _clause)) {
-        flush_heap_to_file(clause_heap, file_id, 0.5);
+        flush_heap_to_file(clause_heap, file_id, alpha);
         if (heap_insert(clause_heap, _clause)) {
             palrup_utils_log_err("Clause could not be inserted into heap.");
             exit(1);

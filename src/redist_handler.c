@@ -97,29 +97,29 @@ u64 redist_handler_get_destination_rank(size_t id) {
     return palrup_utils_2d_to_rank(x, y, comm_size);
 }
 
-void redist_handler_init(const char* working_path, unsigned long pal_id, unsigned long num_solvers, unsigned long redist_strategy, unsigned long read_buffer_size) {
-    redist_strat = redist_strategy;
-    n_solvers = num_solvers;
-    root_n = sqrt((double)num_solvers);
+void redist_handler_init(struct options* options) {
+    redist_strat = options->redist_strat;
+    n_solvers = options->num_solvers;
+    root_n = sqrt((double)options->num_solvers);
     comm_size = (size_t)ceil(root_n);  // round to nearest integer
     if (redist_strat == 1) {
         comm_size = n_solvers;
     }
-    out_path = working_path;
-    local_rank = pal_id;
+    out_path = options->working_path;
+    local_rank = options->pal_id;
     unsigned int dir_hierarchy = local_rank / comm_size;
     _bu_output_files = palrup_utils_malloc(sizeof(FILE*) * comm_size);
     file_names = palrup_utils_calloc(comm_size, sizeof(char*));
     _re_count_clauses = palrup_utils_calloc(comm_size, sizeof(u64));
     out_hash = palrup_utils_malloc(sizeof(struct siphash*) * comm_size);
     comm_sig_compute = palrup_utils_malloc(sizeof(struct comm_sig*) * comm_size);
-    write_buffer = u8_vec_init(BLOCKSIZE);
+    write_buffer = u8_vec_init(options->write_buffer_size);
 
     snprintf(palrup_utils_msgstr, 512, "root_n:%f", root_n);
     if (local_rank == 0) palrup_utils_log(palrup_utils_msgstr);
     if (redist_strat == 3) {
         char tmp_path[1024];
-        snprintf(tmp_path, 512, "%s/%lu/%lu/out.palrup_import~", out_path, pal_id / comm_size, pal_id);
+        snprintf(tmp_path, 512, "%s/%lu/%lu/out.palrup_import~", out_path, options->pal_id / comm_size, options->pal_id);
         FILE* out_file = fopen(tmp_path, "wb");
         struct siphash* single_out_hash = siphash_cls_init(SECRET_KEY);
         for (size_t i = 0; i < comm_size; i++) {
@@ -171,7 +171,7 @@ void redist_handler_init(const char* working_path, unsigned long pal_id, unsigne
     }
     free(sig);
     comm_sig_free(dummy_sig);
-    import_merger_init(comm_size, file_paths, &_re_current_ID, &_re_current_literals_data, &_re_current_literals_size, read_buffer_size, NULL, comm_sig_compute);
+    import_merger_init(comm_size, file_paths, &_re_current_ID, &_re_current_literals_data, &_re_current_literals_size, options->read_buffer_size, NULL, comm_sig_compute);
 
     // free
     for (size_t i = 0; i < comm_size; i++) {
@@ -179,12 +179,6 @@ void redist_handler_init(const char* working_path, unsigned long pal_id, unsigne
     }
     free(file_paths);
 }
-
-//int compare_clause(const void* a, const void* b) {
-//    u64 id_a = ((struct clause*)a)->id;
-//    u64 id_b = ((struct clause*)b)->id;
-//    return (id_a - id_b);
-//}
 
 void redist_handler_end() {
     for (size_t i = 0; i < comm_size; i++) {

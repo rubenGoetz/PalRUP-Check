@@ -168,25 +168,25 @@ void parse(bool* found_T) {
     }
 }
 
-void clause_finder_init(const char* main_path, const char* imports_path, unsigned long solver_id, unsigned long num_solvers, unsigned long redistribution_strategy, unsigned long read_buffer_size, bool use_palrup_binary) {
-    redist_strat = redistribution_strategy;
-    palrup_binary = use_palrup_binary;
-    n_solvers = num_solvers;
+void clause_finder_init(struct options* options) {
+    redist_strat = options->redist_strat;
+    palrup_binary = options->palrup_binary;
+    n_solvers = options->num_solvers;
     double d_num = (double)n_solvers;
     root_n = sqrt(d_num);
     comm_size = (size_t)ceil(root_n);  // round to nearest integer
     if (redist_strat == 1) {
         comm_size = n_solvers;
     }
-    local_rank = solver_id;
+    local_rank = options->pal_id;
     unsigned int dir_hierarchy = local_rank / comm_size;
     proof_lits = int_vec_init(1);
 
-    snprintf(confirm_folder, 512, "%s/%u/%lu/.check_ok", imports_path, dir_hierarchy, local_rank);
+    snprintf(confirm_folder, 512, "%s/%u/%lu/.check_ok", options->working_path, dir_hierarchy, local_rank);
 
     char proof_path[768];
     char finger_print_path[1024];
-    snprintf(proof_path, 768, "%s/%u/%lu/out.palrup", main_path, dir_hierarchy, local_rank);
+    snprintf(proof_path, 768, "%s/%u/%lu/out.palrup", options->palrup_path, dir_hierarchy, local_rank);
     snprintf(finger_print_path, 1024, "%s.hash", proof_path);
     my_proof = fopen(proof_path, "rb");
     FILE* finger_print = fopen(finger_print_path, "rb");
@@ -198,7 +198,7 @@ void clause_finder_init(const char* main_path, const char* imports_path, unsigne
     palrup_utils_read_sig(sig_res_reported, finger_print);
 
     proof_check_hash = siphash_cls_init(SECRET_KEY);
-    proof_reader = file_reader_init(read_buffer_size, my_proof, local_rank);
+    proof_reader = file_reader_init(options->read_buffer_size, my_proof, local_rank);
 
     char** file_paths = palrup_utils_malloc(sizeof(char*) * comm_size);
     import_check_hash = palrup_utils_malloc(sizeof(struct siphash*) * comm_size);
@@ -208,14 +208,14 @@ void clause_finder_init(const char* main_path, const char* imports_path, unsigne
         file_paths[i] = palrup_utils_malloc(768);
         if (redist_strat == 3){
             int src_rank = (i * comm_size) + column;
-            snprintf(file_paths[i], 768, "%s/%lu/%i/out.palrup_import", imports_path, src_rank / comm_size, src_rank);
+            snprintf(file_paths[i], 768, "%s/%lu/%i/out.palrup_import", options->working_path, src_rank / comm_size, src_rank);
         } else
-            snprintf(file_paths[i], 768, "%s/%u/%lu/%lu.palrup_import", imports_path, dir_hierarchy, local_rank, i);
+            snprintf(file_paths[i], 768, "%s/%u/%lu/%lu.palrup_import", options->working_path, dir_hierarchy, local_rank, i);
 
         import_check_hash[i] = siphash_cls_init(SECRET_KEY);
     }
 
-    import_merger_init(comm_size, file_paths, &current_ID, &current_literals_data, &current_literals_size, read_buffer_size, import_check_hash, NULL);
+    import_merger_init(comm_size, file_paths, &current_ID, &current_literals_data, &current_literals_size, options->read_buffer_size, import_check_hash, NULL);
 
     // free
     for (size_t i = 0; i < comm_size; i++) {

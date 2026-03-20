@@ -1,24 +1,22 @@
 
-#include "utils/option_utils.h" 
 #include "utils/palrup_utils.h"
+#include "options.h"
 #include "redist_handler.h"
 
 int main(int argc, char *argv[]) {
-    const char *working_path = "";
-    u64 num_solvers = 0, pal_id = 0, redist_strat = 3, read_buffer_KB = 1024;
+    struct options* options = options_init();
     for (int i = 1; i < argc; i++) {
-        option_utils_try_match_arg(argv[i], "-working-path=", &working_path);
-        option_utils_try_match_num(argv[i], "-num-solvers=", &num_solvers);
-        option_utils_try_match_num(argv[i], "-pal-id=", &pal_id);
-        option_utils_try_match_num(argv[i], "-read-buffer-KB=", &read_buffer_KB);
-        option_utils_try_match_num(argv[i], "-redist-strat=", &redist_strat);
+        options_try_match_arg(argv[i], "-working-path=", &(options->working_path));
+        options_try_match_ul(argv[i], "-num-solvers=", &(options->num_solvers));
+        options_try_match_ul(argv[i], "-pal-id=", &(options->pal_id));
+        options_try_match_ul(argv[i], "-read-buffer-KB=", &(options->read_buffer_size));
+        options_try_match_ul(argv[i], "-write-buffer-KB=", &(options->write_buffer_size));
+        options_try_match_ul(argv[i], "-redist-strat=", &(options->redist_strat));
     }
 
-    snprintf(palrup_utils_msgstr, 512, "Option list: -working-path=%s -num-solvers=%lu -pal-id=%lu -redist-strat=%lu -read-buffer-KB=%lu",
-             working_path, num_solvers, pal_id, redist_strat, read_buffer_KB);
-    palrup_utils_log(palrup_utils_msgstr);
-    u64 read_buffer_size = read_buffer_KB * 1024;  // convert to bytes
-    redist_handler_init(working_path, pal_id, num_solvers, redist_strat, read_buffer_size);
+    options_buffer_sizes_to_bytes(options);
+    options_print(options);
+    redist_handler_init(options);
     redist_handler_run();
     redist_handler_end();
     fflush(stdout);

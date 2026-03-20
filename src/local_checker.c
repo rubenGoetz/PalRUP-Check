@@ -255,18 +255,17 @@ void parse(u64* nb_produced, u64* nb_imported, u64* nb_deleted) {
     }
 }
 
-void local_checker_init(const char* formula_path, const char* palrup_path, const char* working_path, unsigned long pal_id, unsigned long num_solvers, unsigned long redist_strat, unsigned long read_buffer_size, bool use_palrup_binary) {
+void local_checker_init(struct options* options) {
     FILE* formula;
-    palrup_binary = use_palrup_binary;
+    palrup_binary = options->palrup_binary;
     clause_hash = siphash_cls_init(SECRET_KEY);
-    //double root_n = sqrt((double)num_solvers);
-    size_t comm_size = (size_t)ceil(sqrt((double)num_solvers));  // round to nearest integer
-    if (redist_strat == 1) {
-        comm_size = num_solvers;
+    size_t comm_size = (size_t)ceil(sqrt((double)options->num_solvers));  // round to nearest integer
+    if (options->redist_strat == 1) {
+        comm_size = options->num_solvers;
     }
-    unsigned int dir_hierarchy = pal_id / comm_size;
-    snprintf(proof_path_in, 512, "%s/%u/%lu/out.palrup", palrup_path, dir_hierarchy, pal_id);
-    snprintf(redestribute_path_out, 512, "%s", working_path);
+    unsigned int dir_hierarchy = options->pal_id / comm_size;
+    snprintf(proof_path_in, 512, "%s/%u/%lu/out.palrup", options->palrup_path, dir_hierarchy, options->pal_id);
+    snprintf(redestribute_path_out, 512, "%s", options->working_path);
 
     if (access(proof_path_in, F_OK) != 0) {
         snprintf(palrup_utils_msgstr, MSG_LEN, "proof_path_in does not exist. Creating it: %s", proof_path_in);
@@ -279,17 +278,16 @@ void local_checker_init(const char* formula_path, const char* palrup_path, const
 
     FILE* proof_stream = fopen(proof_path_in, "rb+");
     if (!proof_stream) palrup_utils_log_err("proof_path_in could not be opened");
-    proof = file_reader_init(read_buffer_size, proof_stream, pal_id);
+    proof = file_reader_init(options->read_buffer_size, proof_stream, options->pal_id);
 
 
-    formula = fopen(formula_path, "rb");
+    formula = fopen(options->formula_path, "rb");
     if (!formula) palrup_utils_log_err("formula_path could not be opened");
-    //UNUSED(formula_path);
     buf_lits = int_vec_init(1 << 14);
     buf_hints = u64_vec_init(1 << 14);
-    nb_solvers = num_solvers;
-    solver_rank = pal_id;
-    import_handler_init(working_path, pal_id, num_solvers, redist_strat, read_buffer_size);
+    nb_solvers = options->num_solvers;
+    solver_rank = options->pal_id;
+    import_handler_init(options);
     if (!load_from_file(formula)) {
         exit(0);
     }
