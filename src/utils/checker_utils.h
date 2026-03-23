@@ -5,7 +5,7 @@
 
 #include "define.h"
 
-bool checker_utils_import_unchecked(unsigned long id, const int* literals, int nb_literals);
+//bool checker_utils_import_unchecked(unsigned long id, const int* literals, int nb_literals);
 bool checker_utils_check_hints(unsigned long id, const unsigned long* hints, int nb_hints);
 bool checker_utils_equal_signatures(const u8* left, const u8* right);
 

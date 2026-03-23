@@ -26,6 +26,7 @@ struct options {
 };
 
 struct options* options_init();
+void options_free(struct options* options);
 
 void options_try_match_arg(char* arg, char* opt, char** out);
 void options_try_match_ul(const char* arg, const char* opt, u64* out);

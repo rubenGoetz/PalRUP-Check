@@ -10,10 +10,13 @@
 #define unit_static static
 #endif
 
-bool checker_utils_import_unchecked(unsigned long id, const int* literals, int nb_literals) {
-    // signature is veryfied in later stages - forward clause to checker as an axiom
-    return lrat_check_add_axiomatic_clause(id, literals, nb_literals);
-}
+//#ifdef LOCAL_CHECK
+//bool checker_utils_import_unchecked(unsigned long id, const int* literals, int nb_literals) {
+//    // signature is veryfied in later stages - forward clause to checker as an axiom
+//    return lrat_check_add_axiomatic_clause(id, literals, nb_literals);
+//}
+//#endif
+
 bool checker_utils_check_hints(unsigned long id, const unsigned long* hints, int nb_hints) {
     for (int i = 0; i < nb_hints; i++)
         if (hints[i] >= id)

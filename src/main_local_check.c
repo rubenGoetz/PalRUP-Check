@@ -26,5 +26,6 @@ int main(int argc, char *argv[]) {
     int res = local_checker_run();
     local_checker_end();
     fflush(stdout);
+    options_free(options);
     return res;
 }

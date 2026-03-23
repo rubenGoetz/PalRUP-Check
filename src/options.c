@@ -37,6 +37,9 @@ static bool begins_with(const char* str, const char* prefix) {
         i++;
     }
 }
+void options_free(struct options* options) {
+    free(options);
+}
 
 void options_try_match_arg(char* arg, char* opt, char** out) {
     if (begins_with(arg, opt)) *out = arg + strlen(opt);

@@ -8,6 +8,7 @@
 #include "file_reader.h"
 #include "utils/palrup_utils.h"
 #include "utils/checker_utils.h"
+#include "lrat_check.h"
 #include "import_handler.h"
 #include "siphash_cls.h"
 #include "top_check.h"
@@ -46,7 +47,7 @@ struct siphash* clause_hash;
 struct local_checker_stats lc_stats;
 
 // global buffers.
-signature buf_sig;
+//signature buf_sig;
 struct int_vec* buf_lits;
 struct u64_vec* buf_hints;
 
@@ -95,7 +96,7 @@ static bool load_formula(FILE* formula) {
 
     if (lc_pal_id == 0) {
         char log_str[512];
-        snprintf(log_str, 512, "Formular Loaded nb_clauses:%lu", lc_nb_loaded_clauses);
+        snprintf(log_str, 512, "Formula loaded nb_clauses:%lu", lc_nb_loaded_clauses);
         palrup_utils_log(log_str);
     }
 
@@ -210,7 +211,7 @@ static void parse() {
             }
 
             // forward to checker
-            checker_utils_import_unchecked(id, buf_lits->data, nb_lits);
+            lrat_check_add_axiomatic_clause(id, buf_lits->data, nb_lits);
             lc_stats.nb_imported++;
 
             // write in file for stage 2
