@@ -32,7 +32,7 @@ void fill_buffer(struct file_reader* reader) {
     reader->actual_buffer_size = read_size;
 }
 
-struct file_reader* file_reader_init(u64 buffer_size_bytes, FILE* file, int local_rank) {
+struct file_reader* file_reader_init(u64 buffer_size_bytes, FILE* file, int pal_id) {
     struct file_reader* reader = (struct file_reader*)palrup_utils_malloc(sizeof(struct file_reader));
 
     struct stat st;
@@ -41,7 +41,7 @@ struct file_reader* file_reader_init(u64 buffer_size_bytes, FILE* file, int loca
     reader->total_bytes = st.st_size;
     reader->remaining_bytes = st.st_size;
 
-    reader->local_rank = local_rank;
+    reader->pal_id = pal_id;
     reader->buffered_file = file;
     reader->buffer_size = buffer_size_bytes;
     reader->read_buffer = (char*)palrup_utils_malloc(buffer_size_bytes);

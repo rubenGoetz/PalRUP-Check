@@ -12,7 +12,7 @@
 
 struct file_reader{
     /* data */
-    int local_rank;
+    int pal_id;
     char* read_buffer;
     struct u8_vec fragment_buffer;
     long buffer_size;
@@ -26,7 +26,7 @@ struct file_reader{
 
 void fill_buffer(struct file_reader* reader);
 
-struct file_reader* file_reader_init(u64 buffer_size_bytes, FILE* file, int local_rank);
+struct file_reader* file_reader_init(u64 buffer_size_bytes, FILE* file, int pal_id);
 bool file_reader_check_bounds(u64 nb_bytes, struct file_reader* reader);
 bool file_reader_eof_reached(struct file_reader* reader);
 

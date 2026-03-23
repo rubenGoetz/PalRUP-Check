@@ -2,6 +2,8 @@
 #include <string.h>
 #include <time.h>
 #include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "test_utils.h"
 #include "../src/heap.h"
@@ -19,6 +21,33 @@ unsigned int NUM_CLAUSES;
 clause_ptr* clauses;
 clause_ptr bonus_clause;
 struct clause_heap* heap;
+
+// insert clauses with duplicates until heap is full
+static size_t fill_heap_with_duplicates(unsigned int offset) {
+    printf("   * insert duplicate clauses into heap\n");
+    size_t unique_clause_cnt = 0;
+    bool exit_loop = false;
+    while (true) {
+        for (size_t i = 0; i < unique_clause_cnt; i++) {
+            size_t idx = (offset + unique_clause_cnt) % NUM_CLAUSES;
+            clause_ptr c = clauses[idx];
+            clause_ptr c_copy = create_flat_clause(get_clause_id(c),
+                                                   get_clause_nb_lits(c),
+                                                   get_clause_lits(c));
+            if (heap_insert(heap, c_copy)) {
+                exit_loop = true;
+                delete_flat_clause(c_copy);
+                break;
+            }
+        }
+        if (exit_loop) {
+            break;
+        }
+        unique_clause_cnt++;
+    }
+    printf("   * inserted %lu unique clauses %lu times\n", unique_clause_cnt, heap->element_count);
+    return unique_clause_cnt;
+}
 
 // ----- TEST -----
 
@@ -106,6 +135,62 @@ static void check_flush() {
     free(sorted_clauses);
 }
 
+static void test_heap_delete_duplicates() {
+    do_assert(heap->size == 0);
+    size_t unique_clause_cnt = fill_heap_with_duplicates(0);
+
+    printf("   * check flush with duplicate skipping\n");
+    for (size_t i = 0; i < unique_clause_cnt; i++) {
+        do_assert(heap->element_count > 0);
+        heap_delete_duplicates(heap);
+        clause_ptr c = heap_pop_min(heap);
+        if (heap_get_min(heap)) {
+            if (get_clause_id(c) == get_clause_id(heap_get_min(heap))) {
+                printf("HEAP:\n");
+                printf("  heap->cap=%lu\n", heap->capacity);
+                printf("  heap->size=%lu\n", heap->size);
+                printf("  heap->elem_count=%lu\n", heap->element_count);
+                printf("  heap->data_size=%lu\n", heap->data_size);
+            }
+            do_assert(get_clause_id(c) != get_clause_id(heap_get_min(heap)));
+        }
+        delete_flat_clause(c);
+    }
+    do_assert(heap->size == 0);
+    do_assert(heap->element_count == 0);
+    
+
+    printf("   * empty heap\n");
+    while (heap->size > 0)
+        delete_flat_clause(heap_pop_min(heap));
+
+    printf("   * check detection of differing clauses with same id\n");
+    int pid = fork();
+    int status;
+    do_assert(pid >= 0);
+    if (pid == 0) {
+        // Mute child process
+        if (!freopen("/dev/null", "w", stdout))
+            printf("   * could not mute child process\n");
+
+        int lits1[3] = {1,2,3};
+        int lits2[3] = {4,5,6};
+        clause_ptr c1 = create_flat_clause(1,3,lits1);
+        clause_ptr c2 = create_flat_clause(1,3,lits2);
+
+        heap_insert(heap, c1);
+        heap_insert(heap, c2);
+        heap_delete_duplicates(heap);     // expected to abort
+
+        delete_flat_clause(c1);
+        delete_flat_clause(c2);
+        exit(0);
+    } else
+        wait(&status);
+        
+    do_assert(status != 0);
+}
+
 // ----- INIT -----
 
 static void generate_random_clauses() {
@@ -186,6 +271,9 @@ int main(int argc, char *argv[]) {
     printf("** check heap behaviour\n");
     check_heap_min();
     check_flush();
+
+    printf("** check heap duplicate deletion\n");
+    test_heap_delete_duplicates();
 
     printf("** wrap tests up\n");
     wrap_up_tests();

@@ -16,4 +16,5 @@ struct clause_heap* heap_init(u64 capacity);
 void heap_free(struct clause_heap* heap);
 clause_ptr heap_get_min(struct clause_heap* heap);
 clause_ptr heap_pop_min(struct clause_heap* heap);
+int heap_delete_duplicates(struct clause_heap* heap);
 int heap_insert(struct clause_heap* heap, clause_ptr ptr);

@@ -15,11 +15,11 @@
 #undef TYPE
 
 char confirm_folder[512];
-u64 n_solvers;         // number of solvers
+u64 num_solvers;         // number of solvers
 double root_n;         // square root of number of solvers
-size_t comm_size;
+size_t msg_group_size;
 u64 redist_strat;  // redistribution_strategy
-u64 local_rank;    // solver id
+u64 pal_id;    // solver id
 FILE* my_proof;
 const u64 empty_ID = -1;
 struct siphash* proof_check_hash;
@@ -50,7 +50,7 @@ void parse(bool* found_T) {
         if (file_reader_eof_reached(proof_reader)) {
             if (current_ID != empty_ID) {
                 char err_str[512];
-                snprintf(err_str, 512, "Error: clause left to check rank:%lu ID:%lu", local_rank, current_ID);
+                snprintf(err_str, 512, "Error: clause left to check rank:%lu ID:%lu", pal_id, current_ID);
                 palrup_utils_log_err(err_str);
                 exit(1);
             }
@@ -63,11 +63,11 @@ void parse(bool* found_T) {
                 exit(1);
             } else {
                 char msg[512];
-                snprintf(msg, 512, "Signature matches in local rank: %lu", local_rank);
+                snprintf(msg, 512, "Signature matches in local rank: %lu", pal_id);
                 //palrup_utils_log(msg);
             }
             siphash_cls_free(proof_check_hash);
-            for (size_t i = 0; i < comm_size; i++) {
+            for (size_t i = 0; i < msg_group_size; i++) {
                 sig_res_computed = siphash_cls_digest(import_check_hash[i]);
                 import_merger_read_sig((int*)sig_res_reported, i);
                 if (!checker_utils_equal_signatures(sig_res_computed, sig_res_reported)) {
@@ -77,7 +77,7 @@ void parse(bool* found_T) {
                     exit(1);
                 } else {
                     char msg[512];
-                    snprintf(msg, 512, "Signature matches in import local rank: %lu", local_rank);
+                    snprintf(msg, 512, "Signature matches in import local rank: %lu", pal_id);
                     //palrup_utils_log(msg);
                 }
             }
@@ -118,8 +118,8 @@ void parse(bool* found_T) {
                     break;
                 } else {
                     char err_str[512];
-                    snprintf(err_str, 512, "literals do not match in proof my rank:%lu ID:%lu", local_rank, current_ID);
-                    if (true/*local_rank == 0*/) {
+                    snprintf(err_str, 512, "literals do not match in proof my rank:%lu ID:%lu", pal_id, current_ID);
+                    if (true/*pal_id == 0*/) {
                         printf("current_literals_data %lu: ", current_literals_size);
                         for (u64 i = 0; i < current_literals_size; i++) {
                             printf("%d ", current_literals_data[i]);
@@ -139,7 +139,7 @@ void parse(bool* found_T) {
 
             if (id > current_ID) {
                 char err_str[512];
-                snprintf(err_str, 512, "clause not found in proof my rank:%lu ID:%lu", local_rank, current_ID);
+                snprintf(err_str, 512, "clause not found in proof my rank:%lu ID:%lu", pal_id, current_ID);
                 palrup_utils_log_err(err_str);
                 exit(1);
             }
@@ -171,22 +171,22 @@ void parse(bool* found_T) {
 void clause_finder_init(struct options* options) {
     redist_strat = options->redist_strat;
     palrup_binary = options->palrup_binary;
-    n_solvers = options->num_solvers;
-    double d_num = (double)n_solvers;
+    num_solvers = options->num_solvers;
+    double d_num = (double)num_solvers;
     root_n = sqrt(d_num);
-    comm_size = (size_t)ceil(root_n);  // round to nearest integer
+    msg_group_size = (size_t)ceil(root_n);  // round to nearest integer
     if (redist_strat == 1) {
-        comm_size = n_solvers;
+        msg_group_size = num_solvers;
     }
-    local_rank = options->pal_id;
-    unsigned int dir_hierarchy = local_rank / comm_size;
+    pal_id = options->pal_id;
+    unsigned int dir_hierarchy = pal_id / msg_group_size;
     proof_lits = int_vec_init(1);
 
-    snprintf(confirm_folder, 512, "%s/%u/%lu/.check_ok", options->working_path, dir_hierarchy, local_rank);
+    snprintf(confirm_folder, 512, "%s/%u/%lu/.check_ok", options->working_path, dir_hierarchy, pal_id);
 
     char proof_path[768];
     char finger_print_path[1024];
-    snprintf(proof_path, 768, "%s/%u/%lu/out.palrup", options->palrup_path, dir_hierarchy, local_rank);
+    snprintf(proof_path, 768, "%s/%u/%lu/out.palrup", options->palrup_path, dir_hierarchy, pal_id);
     snprintf(finger_print_path, 1024, "%s.hash", proof_path);
     my_proof = fopen(proof_path, "rb");
     FILE* finger_print = fopen(finger_print_path, "rb");
@@ -198,27 +198,27 @@ void clause_finder_init(struct options* options) {
     palrup_utils_read_sig(sig_res_reported, finger_print);
 
     proof_check_hash = siphash_cls_init(SECRET_KEY);
-    proof_reader = file_reader_init(options->read_buffer_size, my_proof, local_rank);
+    proof_reader = file_reader_init(options->read_buffer_size, my_proof, pal_id);
 
-    char** file_paths = palrup_utils_malloc(sizeof(char*) * comm_size);
-    import_check_hash = palrup_utils_malloc(sizeof(struct siphash*) * comm_size);
+    char** file_paths = palrup_utils_malloc(sizeof(char*) * msg_group_size);
+    import_check_hash = palrup_utils_malloc(sizeof(struct siphash*) * msg_group_size);
 
-    int column = local_rank % comm_size;
-    for (size_t i = 0; i < comm_size; i++) {
+    int column = pal_id % msg_group_size;
+    for (size_t i = 0; i < msg_group_size; i++) {
         file_paths[i] = palrup_utils_malloc(768);
         if (redist_strat == 3){
-            int src_rank = (i * comm_size) + column;
-            snprintf(file_paths[i], 768, "%s/%lu/%i/out.palrup_import", options->working_path, src_rank / comm_size, src_rank);
+            int src_rank = (i * msg_group_size) + column;
+            snprintf(file_paths[i], 768, "%s/%lu/%i/out.palrup_import", options->working_path, src_rank / msg_group_size, src_rank);
         } else
-            snprintf(file_paths[i], 768, "%s/%u/%lu/%lu.palrup_import", options->working_path, dir_hierarchy, local_rank, i);
+            snprintf(file_paths[i], 768, "%s/%u/%lu/%lu.palrup_import", options->working_path, dir_hierarchy, pal_id, i);
 
         import_check_hash[i] = siphash_cls_init(SECRET_KEY);
     }
 
-    import_merger_init(comm_size, file_paths, &current_ID, &current_literals_data, &current_literals_size, options->read_buffer_size, import_check_hash, NULL);
+    import_merger_init(msg_group_size, file_paths, &current_ID, &current_literals_data, &current_literals_size, options->read_buffer_size, import_check_hash, NULL);
 
     // free
-    for (size_t i = 0; i < comm_size; i++) {
+    for (size_t i = 0; i < msg_group_size; i++) {
         free(file_paths[i]);
     }
     free(file_paths);
@@ -226,7 +226,7 @@ void clause_finder_init(struct options* options) {
 }
 
 void clause_finder_end() {
-    for (size_t i = 0; i < comm_size; i++)  {
+    for (size_t i = 0; i < msg_group_size; i++)  {
         siphash_cls_free(import_check_hash[i]);
     }
     free(import_check_hash);
@@ -241,7 +241,7 @@ void clause_finder_run() {
         import_merger_next();
 
         // skip clauses for different lines
-        if (current_ID % n_solvers != local_rank && current_ID != (u64)-1)
+        if (current_ID % num_solvers != pal_id && current_ID != (u64)-1)
             continue;
 
         parse(&found_T);
@@ -249,6 +249,6 @@ void clause_finder_run() {
     mkdir(confirm_folder, 0777);
 
     char msg[512];
-    snprintf(msg, 512, "Done local_rank=%lu", local_rank);
+    snprintf(msg, 512, "Done pal_id=%lu", pal_id);
     palrup_utils_log(msg);
 }

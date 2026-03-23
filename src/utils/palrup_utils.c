@@ -1,4 +1,5 @@
 
+#include <math.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -110,12 +111,16 @@ void palrup_utils_write_sig(const u8* sig, FILE* file) {
     write_objs(sig, sizeof(int), 4, file);
 }
 
-u64 palrup_utils_2d_to_rank(u64 x, u64 y, u64 n) {
+inline u64 palrup_utils_2d_to_rank(u64 x, u64 y, u64 n) {
     return y * n + x;
 }
-u64 palrup_utils_rank_to_x(u64 rank, u64 n) {
+inline u64 palrup_utils_rank_to_x(u64 rank, u64 n) {
     return rank % n;
 }
-u64 palrup_utils_rank_to_y(u64 rank, u64 n) {
+inline u64 palrup_utils_rank_to_y(u64 rank, u64 n) {
     return rank / n;
+}
+
+inline size_t palrup_utils_calc_root_ceil(u64 num_solvers) {
+    return (size_t)ceil(sqrt((double)num_solvers));
 }

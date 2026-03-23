@@ -41,3 +41,5 @@ void palrup_utils_write_sig(const u8* sig, FILE* file);
 u64 palrup_utils_2d_to_rank(u64 x, u64 y, u64 n);
 u64 palrup_utils_rank_to_x(u64 rank, u64 n);
 u64 palrup_utils_rank_to_y(u64 rank, u64 n);
+
+size_t palrup_utils_calc_root_ceil(u64 num_solvers);

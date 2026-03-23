@@ -142,7 +142,7 @@ static void check_merge_flush() {
                                get_clause_nb_lits(clauses[i]));
     }
     flush_heap_to_file(heap, 0, 0);
-    
+
     // ensure a smaller id than whatever clauses already in the file
     int lit = 1;
     clause_ptr small_id_clause = create_flat_clause(1,1,&lit);
@@ -241,47 +241,6 @@ static void check_doubling_id() {
 
 // ----- TEST -----
 
-static void test_skip_heap_duplicates() {
-    size_t unique_clause_cnt = fill_heap_with_duplicates(0);
-
-    printf("   * check flush with duplicate skipping\n");
-    for (size_t i = 0; i < unique_clause_cnt; i++) {
-        do_assert(heap->element_count > 0);
-        clause_ptr c = heap_pop_min(heap);
-        skip_heap_duplicates(c, heap);
-        if (heap_get_min(heap)) {
-            do_assert(get_clause_id(c) != get_clause_id(heap_get_min(heap)));
-        }
-        delete_flat_clause(c);
-    }
-    do_assert(heap->size == 0);
-    do_assert(heap->element_count == 0);
-
-    printf("   * check detection of differing clauses with same id\n");
-    int pid = fork();
-    int status;
-    do_assert(pid >= 0);
-    if (pid == 0) {
-        // Mute child process
-        if (!freopen("/dev/null", "w", stdout))
-            printf("   * could not mute child process\n");
-
-        int lits1[3] = {1,2,3};
-        int lits2[3] = {4,5,6};
-        clause_ptr c1 = create_flat_clause(1,3,lits1);
-        clause_ptr c2 = create_flat_clause(1,3,lits2);
-
-        heap_insert(heap, c2);
-        skip_heap_duplicates(c1, heap);     // expected to abort
-
-        delete_flat_clause(c1);
-        delete_flat_clause(c2);
-        exit(0);
-    } else
-        wait(&status);
-    do_assert(status != 0);
-}
-
 static void test_flush_heap_to_file() {
     check_simple_flush();
     check_merge_flush();
@@ -324,7 +283,7 @@ static void init_options() {
     options->working_path = TEST_DIR;
     options->pal_id = 0;
     options->num_solvers = 1;
-    options->redist_strat = 1;
+    options->redist_strat = 3;
     options->q_size = HEAP_CAPACITY;
 }
 
@@ -336,7 +295,7 @@ static void init_tests() {
     generate_random_clauses();
     printf("   * ensure empty test file directory\n");
     char cmd[512];
-    snprintf(cmd, 512, "if [ -d \"%s\" ]; then rm -r %s; fi; mkdir %s; cd %s; mkdir 0;", TEST_DIR, TEST_DIR, TEST_DIR, TEST_DIR);
+    snprintf(cmd, 512, "if [ -d \"%s\" ]; then rm -r %s; fi; mkdir -p %s; cd %s; mkdir -p 0/0;", TEST_DIR, TEST_DIR, TEST_DIR, TEST_DIR);
     do_assert(!system(cmd));
     lits_buffer = int_vec_init(1);
     init_options();
@@ -371,9 +330,6 @@ int main(int argc, char *argv[]) {
 
     printf("** initialize tests\n");
     init_tests();
-
-    printf("** test skip_heap_duplication\n");
-    test_skip_heap_duplicates();
     
     printf("** test flush_heap_to_file\n");
     test_flush_heap_to_file();

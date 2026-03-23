@@ -106,6 +106,46 @@ clause_ptr heap_pop_min(struct clause_heap* heap) {
     return min_element;
 }
 
+static inline void comp_and_delete_duplicate(struct clause_heap* heap, u64 idx) {
+    if (!compare_flat_clause(heap->data[0], heap->data[idx])) {
+        printf(">>\n");
+        snprintf(palrup_utils_msgstr, MSG_LEN, "Differing clauses with same ID %lu detected",
+                 get_clause_id(heap->data[0]));
+        palrup_utils_log_err(palrup_utils_msgstr);
+        abort();
+    }
+
+    delete_flat_clause(heap_pop_min(heap));
+}
+
+// deletes duplicates of *first* element in heap and returns count of deleted elements.
+int heap_delete_duplicates(struct clause_heap* heap) {
+    size_t count = 0;
+    clause_ptr* data = heap->data;
+
+    while (heap->element_count > 2) {
+        u64 idx = 0;
+
+        if (get_clause_id(data[0]) == get_clause_id(data[2]))
+            idx = 2;
+        if (get_clause_id(data[0]) == get_clause_id(data[1]))
+            idx = 1;
+
+        if (!idx || idx >= heap->element_count)
+            break;
+        
+        comp_and_delete_duplicate(heap, idx);
+        count++;
+    }
+
+    if (heap->element_count == 2 && get_clause_id(data[0]) == get_clause_id(data[1])) {
+        comp_and_delete_duplicate(heap, 1);
+        count++;
+    }
+
+    return count;
+}
+
 /*
 Inserts a clause into the heap if capacity allows it. 
 Return 0 if successfull and 1 if clause could not be inserted.
