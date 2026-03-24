@@ -52,9 +52,9 @@ void parse() {
             const u8* sig_res_computed = siphash_cls_digest(proof_check_hash);
             if (!checker_utils_equal_signatures(sig_res_computed, sig_res_reported)) {
                 palrup_utils_log_err("Signature does not match in Proof!");
-                snprintf(palrup_utils_msgstr, MSG_LEN, "Computed sig: %lu\n", *((u64*)sig_res_computed));
+                snprintf(palrup_utils_msgstr, MSG_LEN, "Computed sig: %lu", *((u64*)sig_res_computed));
                 palrup_utils_log_err(palrup_utils_msgstr);
-                snprintf(palrup_utils_msgstr, MSG_LEN, "Read sig: %lu\n", *((u64*)sig_res_reported));
+                snprintf(palrup_utils_msgstr, MSG_LEN, "Read sig: %lu", *((u64*)sig_res_reported));
                 palrup_utils_log_err(palrup_utils_msgstr);
                 abort();
             }
@@ -64,10 +64,13 @@ void parse() {
                 sig_res_computed = siphash_cls_digest(import_check_hash[i]);
                 import_merger_read_sig((int*)sig_res_reported, i);
                 if (!checker_utils_equal_signatures(sig_res_computed, sig_res_reported)) {
-                    palrup_utils_log_err("Signature does not match in import!");
-                    printf("Signature A is: %lu\n", *((u64*)sig_res_computed));
-                    printf("Signature B is: %lu\n", *((u64*)sig_res_reported));
-                    exit(1);
+                    snprintf(palrup_utils_msgstr, MSG_LEN, "Signature does not match in import %lu!", i);
+                    palrup_utils_log_err(palrup_utils_msgstr);
+                    snprintf(palrup_utils_msgstr, MSG_LEN, "Computed sig: %lu", *((u64*)sig_res_computed));
+                    palrup_utils_log_err(palrup_utils_msgstr);
+                    snprintf(palrup_utils_msgstr, MSG_LEN, "Read sig: %lu", *((u64*)sig_res_reported));
+                    palrup_utils_log_err(palrup_utils_msgstr);
+                    abort();
                 }
             }
 
@@ -193,7 +196,6 @@ void clause_finder_init(struct options* options) {
     fclose(frag_sig);
 
     // create .check_ok flag path
-    char confirm_path[512];
     snprintf(confirm_path, 512, "%s/%u/%lu/.check_ok",
              options->working_path, dir_hierarchy, cf_pal_id);
 
