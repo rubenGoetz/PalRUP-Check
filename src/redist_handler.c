@@ -12,6 +12,7 @@
 #include "comm_sig.h"
 #include "import_merger.h"
 #include "siphash_cls.h"
+#include "write_buffer.h"
 
 #define TYPE u8
 #define TYPED(THING) u8_ ## THING
@@ -38,36 +39,6 @@ char** out_file_names;
 char** in_file_paths;
 struct siphash** out_hash;
 struct comm_sig** comm_sig_compute;
-
-static inline size_t get_clause_size(int nb_literals) {
-    return sizeof(u64) + sizeof(int) + nb_literals * sizeof(int);
-}
-
-// TODO: make its own module (same as in import_handler)
-static void write_buffer_to_file(FILE* file) {
-    if (write_buffer->size == 0)
-        return;
-
-    u64 nb_written = UNLOCKED_IO(fwrite)(write_buffer->data, write_buffer->size, 1, file);
-    if (nb_written < 1) palrup_utils_exit_eof();
-
-    u8_vec_resize(write_buffer, 0);
-}
-
-static void write_clause_to_buffer(u64 clause_id, int* literals, int nb_literals, FILE* current_out) {
-    if (write_buffer->size + get_clause_size(nb_literals) > write_buffer->capacity)
-        write_buffer_to_file(current_out);
-
-    memcpy(write_buffer->data + write_buffer->size, &clause_id, sizeof(u64));
-    write_buffer->size += sizeof(u64);
-    memcpy(write_buffer->data + write_buffer->size, &nb_literals, sizeof(int));
-    write_buffer->size += sizeof(int);
-    memcpy(write_buffer->data + write_buffer->size, literals, nb_literals * sizeof(int));
-    write_buffer->size += nb_literals * sizeof(int);
-
-    if (rh_redist_strat != 3)
-        write_buffer_to_file(current_out);
-}
 
 static inline int get_out_file_id(u64 clause_id) {
     // might need to be altered for differing strategies
@@ -135,6 +106,8 @@ void redist_handler_init(struct options* options) {
     }
 
     import_merger_init(rh_msg_group_size_in, in_file_paths, &rh_current_ID, &rh_current_literals_data, &rh_current_literals_size, options->read_buffer_size, NULL, comm_sig_compute);
+    write_buffer_init(options->write_buffer_size);
+    write_buffer_swich_context(out_files[0]);
 }
 
 void redist_handler_run() {
@@ -142,7 +115,6 @@ void redist_handler_run() {
     while (true) {
         import_merger_next();
 
-        //int destination_index = palrup_utils_rank_to_y(rh_current_ID % rh_num_solvers, rh_msg_group_size_in);
         int destination_index = get_out_file_id(rh_current_ID);
         if (UNLIKELY(rh_current_ID == EMPTY_ID)) break;
 
@@ -153,11 +125,8 @@ void redist_handler_run() {
         siphash_cls_update(out_hash[destination_index], (u8*)&rh_current_ID, sizeof(u64));
         siphash_cls_update(out_hash[destination_index], (u8*)rh_current_literals_data, sizeof(int) * rh_current_literals_size);
 
-        write_clause_to_buffer(
-            rh_current_ID,
-            rh_current_literals_data,
-            rh_current_literals_size,
-            out_files[destination_index]);
+        write_buffer_swich_context(out_files[destination_index]);
+        write_buffer_add_clause(rh_current_ID, rh_current_literals_size, rh_current_literals_data);
 
         // TODO: print out?
         rh_count_clauses[destination_index] += 1;
@@ -173,16 +142,20 @@ void redist_handler_end() {
         const u8 reported_incoming_sig[16];
         import_merger_read_sig((int*)reported_incoming_sig, i);
         if (!checker_utils_equal_signatures(reported_incoming_sig, computed_incoming_sig)) {
-            printf("Signature does not match in import! local rank: %lu\n", rh_pal_id);
-            printf("Signature A is: %lu\n", *((u64*)computed_incoming_sig));
-            printf("Signature B is: %lu\n", *((u64*)reported_incoming_sig));
+            snprintf(palrup_utils_msgstr, MSG_LEN, "Signature does not match in import! local rank: %lu\n", rh_pal_id);
+            palrup_utils_log(palrup_utils_msgstr);
+            snprintf(palrup_utils_msgstr, MSG_LEN, "Signature A is: %lu\n", *((u64*)computed_incoming_sig));
+            palrup_utils_log(palrup_utils_msgstr);
+            snprintf(palrup_utils_msgstr, MSG_LEN, "Signature B is: %lu\n", *((u64*)reported_incoming_sig));
+            palrup_utils_log(palrup_utils_msgstr);
+            abort();
         }
         free(computed_incoming_sig);
     }
 
     // wrap up out files
+    write_buffer_end();
     for (size_t i = 0; i < rh_msg_group_size_out; i++) {
-        write_buffer_to_file(out_files[i]);
         u8* sig = siphash_cls_digest(out_hash[i]);
         palrup_utils_write_ul(0,out_files[i]);  // mark end of clauses
         palrup_utils_write_sig(sig, out_files[i]);

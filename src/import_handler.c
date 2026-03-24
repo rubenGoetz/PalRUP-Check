@@ -11,6 +11,7 @@
 #include "comm_sig.h"
 #include "heap.h"
 #include "merge_buffer.h"
+#include "write_buffer.h"
 
 #ifdef UNIT_TEST
 #define unit_static
@@ -34,7 +35,6 @@ float alpha;
 struct import_handler_stats ih_stats;
 
 // global buffers
-struct u8_vec* write_buffer;
 struct merge_buffer* merge_buffer;
 
 // per message
@@ -63,8 +63,6 @@ void set_import_handler_max_id(unsigned long id) {
 }
 #endif
 
-// TODO: make write_buffer dedicated module
-
 // TODO: Add dedicated unit tests
 static u64 get_merge_file_pos(u64 clause_id, FILE* file) {
     rewind(file);
@@ -82,7 +80,7 @@ static u64 get_merge_file_pos(u64 clause_id, FILE* file) {
 }
 
 // TODO: Add dedicated unit tests
-static void write_clause_to_buffered_file(clause_ptr clause, FILE* write_ptr, struct merge_buffer* buffer) {
+static void write_clause_to_merge_buffered_file(clause_ptr clause, FILE* write_ptr, struct merge_buffer* buffer) {
     FILE* read_ptr = buffer->file;
 
     if (!buffer->eof) {
@@ -183,16 +181,6 @@ static void print_stats() {
     palrup_utils_log(msg);
 }
 
-static void write_buffer_to_file(FILE* file) {
-    if (write_buffer->size == 0)
-        return;
-
-    u64 nb_written = UNLOCKED_IO(fwrite)(write_buffer->data, write_buffer->size, 1, file);
-    if (nb_written < 1) palrup_utils_exit_eof();
-
-    u8_vec_resize(write_buffer, 0);
-}
-
 // flush_ratio \in [0,1] denotes the maximum fill level of the heap after the flush operation
 unit_static void flush_heap_to_file(struct clause_heap* clause_heap, int file_id, float flush_ratio) {
     if (clause_heap->size <= 0)
@@ -203,6 +191,7 @@ unit_static void flush_heap_to_file(struct clause_heap* clause_heap, int file_id
     clause_ptr c = heap_get_min(clause_heap);
 
     if (*max_id < get_clause_id(c)) {   // simply appent heap to file
+        write_buffer_swich_context(write_ptr);
         while (clause_heap->size > clause_heap->capacity * flush_ratio) {
             if (clause_heap->size <= 0)
                 break;
@@ -210,11 +199,9 @@ unit_static void flush_heap_to_file(struct clause_heap* clause_heap, int file_id
             c = heap_pop_min(clause_heap);
 
             // write clause to file and remove from heap
-            if (write_buffer->size + get_clause_size(c) > write_buffer->capacity)
-                write_buffer_to_file(write_ptr);
-            memcpy(write_buffer->data + write_buffer->size, c, get_clause_size(c));
-            write_buffer->size += get_clause_size(c);
-
+            write_buffer_add_clause(get_clause_id(c),
+                                    get_clause_nb_lits(c),
+                                    get_clause_lits(c));
             clause_counts[file_id]++;
             comm_sig_update_clause(signatures[file_id],
                                    get_clause_id(c),
@@ -223,8 +210,7 @@ unit_static void flush_heap_to_file(struct clause_heap* clause_heap, int file_id
             *max_id = get_clause_id(c);
             delete_flat_clause(c);
         }
-        if (ih_redist_strat != 3)
-            write_buffer_to_file(write_ptr);
+
     } else {    // merge file with heap to assure sorted clauses in file 
         ih_stats.nb_file_merges++;
         
@@ -232,7 +218,7 @@ unit_static void flush_heap_to_file(struct clause_heap* clause_heap, int file_id
 
         // with strat 3 the buffer might not be empty
         if (ih_redist_strat == 3)
-            write_buffer_to_file(write_ptr);
+            write_buffer_write_to_file(write_ptr);
         merge_buffer_open_file(merge_buffer, file_names[file_id]);
         merge_buffer_set_file_pointer(merge_buffer, get_merge_file_pos(get_clause_id(c), write_ptr));
 
@@ -267,7 +253,7 @@ unit_static void flush_heap_to_file(struct clause_heap* clause_heap, int file_id
                 exit(1);
             }
 
-            write_clause_to_buffered_file(min_clause, write_ptr, merge_buffer);
+            write_clause_to_merge_buffered_file(min_clause, write_ptr, merge_buffer);
             if (add_sig) {
                 clause_counts[file_id]++;
                 comm_sig_update_clause(signatures[file_id],
@@ -281,7 +267,7 @@ unit_static void flush_heap_to_file(struct clause_heap* clause_heap, int file_id
 
         // write potentially remaining heap clause
         if (heap_clause) {
-            write_clause_to_buffered_file(heap_clause, write_ptr, merge_buffer);
+            write_clause_to_merge_buffered_file(heap_clause, write_ptr, merge_buffer);
             clause_counts[file_id]++;
             comm_sig_update_clause(signatures[file_id],
                                    get_clause_id(heap_clause),
@@ -301,8 +287,8 @@ void import_handler_init(struct options* options) {
     alpha = options->q_alpha;
     ih_stats = import_handler_stats_init;
     
-    write_buffer = u8_vec_init(options->write_buffer_size);
     merge_buffer = merge_buffer_init(options->merge_buffer_size, NULL);
+    write_buffer_init(options->write_buffer_size);
 
     switch (ih_redist_strat) {
     case 1:
@@ -341,8 +327,8 @@ void import_handler_end() {
     for (size_t i = 0; i < ih_msg_group_size; i++) {
         // wrap up out file
         flush_heap_to_file(clause_heaps[i], i, 0);
+        write_buffer_write_to_file();
         assert(clause_heaps[i]->size == 0);
-        write_buffer_to_file(out_files[i]);
         palrup_utils_write_ul(0,out_files[i]);
         u8* sig = comm_sig_digest(signatures[i]);
         palrup_utils_write_sig(sig, out_files[i]);
@@ -368,7 +354,7 @@ void import_handler_end() {
     free(clause_heaps);
     free(max_ids);
     free(signatures);
-    u8_vec_free(write_buffer);
     merge_buffer_free(merge_buffer);
+    write_buffer_end();
     print_stats();
 }

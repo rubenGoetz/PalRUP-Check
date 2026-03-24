@@ -15,7 +15,8 @@ add_library(import_handler
             src/merge_buffer.c
             src/vectors.c
             src/clause_flat.c
-            src/options.c)
+            src/options.c
+            src/write_buffer.c)
 target_link_libraries(import_handler m)
 
 add_library(local_checker
@@ -48,7 +49,8 @@ add_library(redist_handler
             src/comm_sig.c
             src/secret.c
             src/siphash_cls.c
-            src/vectors.c)
+            src/vectors.c
+            src/write_buffer.c)
 target_link_libraries(redist_handler m import_merger)
 
 add_library(clause_finder
