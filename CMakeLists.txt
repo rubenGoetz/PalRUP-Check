@@ -166,3 +166,9 @@ add_executable(test_merge_buffer
 target_link_libraries(test_merge_buffer test_utils)
 add_test(NAME Test_Merge_Buffer
          COMMAND test_merge_buffer)
+
+add_executable(test_full_run
+               test/test_full_run.c)
+target_link_libraries(test_full_run m test_utils)
+add_test(NAME Test_Full_Run
+         COMMAND test_full_run)
