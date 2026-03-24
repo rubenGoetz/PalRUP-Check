@@ -91,5 +91,6 @@ int main(int argc, char const *argv[]) {
     printf("** run strat 3 with default params\n");
     run_strat3();
 
+    clean_proof();
     return 0;
 }
