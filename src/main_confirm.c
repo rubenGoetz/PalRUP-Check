@@ -20,6 +20,7 @@ int main(int argc, char *argv[]) {
     clause_finder_init(options);
     clause_finder_run();
     clause_finder_end();
+    options_free(options);
     fflush(stdout);
     return 0;
 }

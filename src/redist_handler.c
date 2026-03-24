@@ -19,25 +19,26 @@
 #undef TYPED
 #undef TYPE
 
-// Blocksize of underlying filesystem for more effizient writing.
-#define BLOCKSIZE 16 * 1024
-
-const char* out_path;  // named pipe
-u64 num_solvers;         // number of solvers
-double root_n;         // square root of number of solvers
-size_t msg_group_size;
-u64 redist_strat;  // redist_strategy
-u64 lc_pal_id;    // solver id
+// Sentinel
 const u64 empty_ID = -1;
 
-// Buffering.
+// global values
+u64 rh_num_solvers;
+u64 rh_redist_strat;
+u64 rh_pal_id;
+size_t rh_msg_group_size_in;
+size_t rh_msg_group_size_out;
+const char* working_path;
+
+// global buffer
 struct u8_vec* write_buffer;
-int* _re_current_literals_data;
-u64 _re_current_literals_size;
-u64 _re_current_ID = empty_ID;
-u64* _re_count_clauses;
-FILE** _bu_output_files;
-char** file_names;
+int* rh_current_literals_data;
+u64 rh_current_literals_size;
+u64 rh_current_ID = empty_ID;
+u64* rh_count_clauses;
+FILE** out_files;
+char** out_file_names;
+char** in_file_paths;
 struct siphash** out_hash;
 struct comm_sig** comm_sig_compute;
 
@@ -45,6 +46,7 @@ static inline size_t get_clause_size(int nb_literals) {
     return sizeof(u64) + sizeof(int) + nb_literals * sizeof(int);
 }
 
+// TODO: make its own module (same as in import_handler)
 static void write_buffer_to_file(FILE* file) {
     if (write_buffer->size == 0)
         return;
@@ -55,204 +57,162 @@ static void write_buffer_to_file(FILE* file) {
     u8_vec_resize(write_buffer, 0);
 }
 
-void redist_handler_write_lrat_import_file(u64 clause_id, int* literals, int nb_literals, FILE* current_out) {
-    if (redist_strat == 0) {
-        fprintf(current_out, "%lu ", clause_id);
-        fprintf(current_out, " ");
-        fprintf(current_out, "n:%i", nb_literals);
-        fprintf(current_out, " ");
-        for (int i = 0; i < nb_literals; i++) {
-            fprintf(current_out, "%i ", literals[i]);
-        }
-        fprintf(current_out, "%i", 0);
-        fprintf(current_out, "\n");
-    } else {
-        if (write_buffer->size + get_clause_size(nb_literals) > write_buffer->capacity)
-            write_buffer_to_file(current_out);
+static void write_clause_to_buffer(u64 clause_id, int* literals, int nb_literals, FILE* current_out) {
+    if (write_buffer->size + get_clause_size(nb_literals) > write_buffer->capacity)
+        write_buffer_to_file(current_out);
 
-        memcpy(write_buffer->data + write_buffer->size, &clause_id, sizeof(u64));
-        write_buffer->size += sizeof(u64);
-        memcpy(write_buffer->data + write_buffer->size, &nb_literals, sizeof(int));
-        write_buffer->size += sizeof(int);
-        memcpy(write_buffer->data + write_buffer->size, literals, nb_literals * sizeof(int));
-        write_buffer->size += nb_literals * sizeof(int);
+    memcpy(write_buffer->data + write_buffer->size, &clause_id, sizeof(u64));
+    write_buffer->size += sizeof(u64);
+    memcpy(write_buffer->data + write_buffer->size, &nb_literals, sizeof(int));
+    write_buffer->size += sizeof(int);
+    memcpy(write_buffer->data + write_buffer->size, literals, nb_literals * sizeof(int));
+    write_buffer->size += nb_literals * sizeof(int);
 
-        if (redist_strat != 3)
-            write_buffer_to_file(current_out);
-    }
+    if (rh_redist_strat != 3)
+        write_buffer_to_file(current_out);
 }
 
-void redist_handler_write_int(int value, FILE* current_out) {
-    if (redist_strat == 0) {
-        fprintf(current_out, "%i", value);
-        fprintf(current_out, "\n");
-    } else {
-        palrup_utils_write_int(value, current_out);
-    }
+static inline int get_out_file_id(u64 clause_id) {
+    // might need to be altered for differing strategies
+    return (clause_id % rh_num_solvers) % rh_msg_group_size_out;
 }
 
-u64 redist_handler_get_destination_rank(size_t id) {
-    u64 x = palrup_utils_rank_to_x(lc_pal_id, msg_group_size);
-    u64 y = palrup_utils_rank_to_y(id * msg_group_size, msg_group_size);
-    return palrup_utils_2d_to_rank(x, y, msg_group_size);
+static void init_msg_group_in() {
+    comm_sig_compute = palrup_utils_malloc(sizeof(struct comm_sig*) * rh_msg_group_size_in);
+    out_file_names = palrup_utils_calloc(rh_msg_group_size_in, sizeof(char*));
+    in_file_paths = palrup_utils_calloc(rh_msg_group_size_in, sizeof(char*));
+}
+
+static void init_msg_group_out() {
+    out_files = palrup_utils_malloc(sizeof(FILE*) * rh_msg_group_size_out);
+    out_hash = palrup_utils_malloc(sizeof(struct siphash*) * rh_msg_group_size_out);
+    rh_count_clauses = palrup_utils_calloc(rh_msg_group_size_out, sizeof(u64));
+}
+
+static void init_strat3() {
+    rh_msg_group_size_in = palrup_utils_calc_root_ceil(rh_num_solvers);
+    rh_msg_group_size_out = 1;
+    init_msg_group_in();
+    init_msg_group_out();
+
+    out_file_names[0] = palrup_utils_calloc(1024, sizeof(char));
+    snprintf(out_file_names[0], 512, "%s/%lu/%lu/out.palrup_import~",
+             working_path, rh_pal_id / palrup_utils_calc_root_ceil(rh_num_solvers), rh_pal_id);
+    out_files[0] = fopen(out_file_names[0], "wb");
+    if (!out_files[0]) {
+        snprintf(palrup_utils_msgstr, MSG_LEN, "Can not open out file at %s", out_file_names[0]);
+        palrup_utils_log_err(palrup_utils_msgstr);
+    }
+    out_hash[0] = siphash_cls_init(SECRET_KEY);
+    rh_count_clauses[0] = 0;
+    
+    unsigned int dir_hierarchy = rh_pal_id / rh_msg_group_size_in;
+    int offset = dir_hierarchy * rh_msg_group_size_in;  // row number * pals in row
+    for (size_t i = 0; i < rh_msg_group_size_in; i++) {
+        comm_sig_compute[i] = comm_sig_init(SECRET_KEY_2);
+
+        in_file_paths[i] = palrup_utils_calloc(512, sizeof(char));
+        snprintf(in_file_paths[i], 512, "%s/%u/%lu/out.palrup_proxy", working_path, dir_hierarchy, offset + i);
+    }
 }
 
 void redist_handler_init(struct options* options) {
-    redist_strat = options->redist_strat;
-    num_solvers = options->num_solvers;
-    root_n = sqrt((double)options->num_solvers);
-    msg_group_size = (size_t)ceil(root_n);  // round to nearest integer
-    if (redist_strat == 1) {
-        msg_group_size = num_solvers;
-    }
-    out_path = options->working_path;
-    lc_pal_id = options->pal_id;
-    unsigned int dir_hierarchy = lc_pal_id / msg_group_size;
-    _bu_output_files = palrup_utils_malloc(sizeof(FILE*) * msg_group_size);
-    file_names = palrup_utils_calloc(msg_group_size, sizeof(char*));
-    _re_count_clauses = palrup_utils_calloc(msg_group_size, sizeof(u64));
-    out_hash = palrup_utils_malloc(sizeof(struct siphash*) * msg_group_size);
-    comm_sig_compute = palrup_utils_malloc(sizeof(struct comm_sig*) * msg_group_size);
+    rh_num_solvers = options->num_solvers;
+    rh_redist_strat = options->redist_strat;
+    rh_pal_id = options->pal_id;
+    working_path = options->working_path;
+
     write_buffer = u8_vec_init(options->write_buffer_size);
 
-    snprintf(palrup_utils_msgstr, 512, "root_n:%f", root_n);
-    if (lc_pal_id == 0) palrup_utils_log(palrup_utils_msgstr);
-    if (redist_strat == 3) {
-        char tmp_path[1024];
-        snprintf(tmp_path, 512, "%s/%lu/%lu/out.palrup_import~", out_path, options->pal_id / msg_group_size, options->pal_id);
-        FILE* out_file = fopen(tmp_path, "wb");
-        struct siphash* single_out_hash = siphash_cls_init(SECRET_KEY);
-        for (size_t i = 0; i < msg_group_size; i++) {
-            file_names[i] = palrup_utils_calloc(1024, sizeof(char));
-            memcpy(file_names[i], tmp_path, 1024);
-            _bu_output_files[i] = out_file;
-            out_hash[i] = single_out_hash;
-            comm_sig_compute[i] = comm_sig_init(SECRET_KEY_2);
-        }
-    } else {
-        for (size_t i = 0; i < msg_group_size; i++) {
-            char folder_path[512];
-            char tmp_path[1024];
-
-            u64 dest_rank = redist_handler_get_destination_rank(i);
-            snprintf(folder_path, 512, "%s/%lu/%lu", out_path, dest_rank / msg_group_size, dest_rank);
-            mkdir(folder_path, 0755);
-            snprintf(tmp_path, 1024, "%s/%lu.palrup_import~", folder_path, palrup_utils_rank_to_y(lc_pal_id, msg_group_size));
-            file_names[i] = palrup_utils_calloc(1024, sizeof(char));
-            memcpy(file_names[i], tmp_path, 1024);
-            _bu_output_files[i] = fopen(tmp_path, "wb");
-
-            if (!(_bu_output_files[i])) palrup_utils_exit_eof();
-
-            out_hash[i] = siphash_cls_init(SECRET_KEY);
-            comm_sig_compute[i] = comm_sig_init(SECRET_KEY_2);
-        }
+    switch (rh_redist_strat) {
+    // TODO: implement strat 1 and 2
+    case 1:
+    case 2:
+    case 3:
+        init_strat3();
+        break;
+    default:
+        break;
     }
 
-    // signature for empty files. Avoids unnecessary error logs.
-    struct comm_sig* dummy_sig = comm_sig_init(SECRET_KEY_2);
-    u8* sig = comm_sig_digest(dummy_sig);
-    char** file_paths = palrup_utils_malloc(sizeof(char*) * msg_group_size);
-    int offset = (lc_pal_id / msg_group_size) * msg_group_size;  // row number * pals in row
-    for (size_t i = 0; i < msg_group_size; i++) {
-        // Can not do this for strat 3
-        file_paths[i] = palrup_utils_malloc(512);
-        if (redist_strat == 3)
-            snprintf(file_paths[i], 512, "%s/%u/%lu/out.palrup_proxy", out_path, dir_hierarchy, offset + i);
-        else
-            snprintf(file_paths[i], 512, "%s/%u/%lu/%lu.palrup_proxy", out_path, dir_hierarchy, lc_pal_id, i);
-        if (access(file_paths[i], F_OK) != 0) {
-            // file doesn't exist
-            // create placeholder file containing only 0
-            FILE* f = fopen(file_paths[i], "wb");
-            palrup_utils_write_ul(0, f);      // write EOF flag
-            palrup_utils_write_sig(sig, f);    // write placeholder signature
-            fclose(f);
-        }
-    }
-    free(sig);
-    comm_sig_free(dummy_sig);
-    import_merger_init(msg_group_size, file_paths, &_re_current_ID, &_re_current_literals_data, &_re_current_literals_size, options->read_buffer_size, NULL, comm_sig_compute);
+    import_merger_init(rh_msg_group_size_in, in_file_paths, &rh_current_ID, &rh_current_literals_data, &rh_current_literals_size, options->read_buffer_size, NULL, comm_sig_compute);
+}
 
-    // free
-    for (size_t i = 0; i < msg_group_size; i++) {
-        free(file_paths[i]);
+void redist_handler_run() {
+    u64 column = rh_pal_id % rh_msg_group_size_in;
+    while (true) {
+        import_merger_next();
+
+        //int destination_index = palrup_utils_rank_to_y(rh_current_ID % rh_num_solvers, rh_msg_group_size_in);
+        int destination_index = get_out_file_id(rh_current_ID);
+        if (UNLIKELY(rh_current_ID == empty_ID)) break;
+
+        // skip clauses for different columns
+        if ((rh_current_ID % rh_num_solvers) % rh_msg_group_size_in != column)
+            continue;
+
+        siphash_cls_update(out_hash[destination_index], (u8*)&rh_current_ID, sizeof(u64));
+        siphash_cls_update(out_hash[destination_index], (u8*)rh_current_literals_data, sizeof(int) * rh_current_literals_size);
+
+        write_clause_to_buffer(
+            rh_current_ID,
+            rh_current_literals_data,
+            rh_current_literals_size,
+            out_files[destination_index]);
+
+        // TODO: print out?
+        rh_count_clauses[destination_index] += 1;
     }
-    free(file_paths);
+    snprintf(palrup_utils_msgstr, 512, "Done pal_id=%lu", rh_pal_id);
+    palrup_utils_log(palrup_utils_msgstr);
 }
 
 void redist_handler_end() {
-    for (size_t i = 0; i < msg_group_size; i++) {
+    // check signatures
+    for (size_t i = 0; i < rh_msg_group_size_in; i++) {
         u8* computed_incoming_sig = comm_sig_digest(comm_sig_compute[i]);
         const u8 reported_incoming_sig[16];
         import_merger_read_sig((int*)reported_incoming_sig, i);
         if (!checker_utils_equal_signatures(reported_incoming_sig, computed_incoming_sig)) {
-
-            printf("Signature does not match in import! local rank: %lu\n", lc_pal_id);
+            printf("Signature does not match in import! local rank: %lu\n", rh_pal_id);
             printf("Signature A is: %lu\n", *((u64*)computed_incoming_sig));
             printf("Signature B is: %lu\n", *((u64*)reported_incoming_sig));
-        } else {
-            char msg[512];
-            snprintf(msg, 512, "Signature matches in import local rank: %lu", lc_pal_id);
-            //palrup_utils_log(msg);
         }
         free(computed_incoming_sig);
-        comm_sig_free(comm_sig_compute[i]);
     }
 
-    size_t effective_comm_size = msg_group_size;
-    if (redist_strat == 3) // heaps/files/sigs all point to the same objects
-        effective_comm_size = 1;
-    
-    for (size_t i = 0; i < effective_comm_size; i++) {
-        write_buffer_to_file(_bu_output_files[i]);
+    // wrap up out files
+    for (size_t i = 0; i < rh_msg_group_size_out; i++) {
+        write_buffer_to_file(out_files[i]);
         u8* sig = siphash_cls_digest(out_hash[i]);
-        palrup_utils_write_ul(0,_bu_output_files[i]);  // mark end of clauses
-        palrup_utils_write_sig(sig, _bu_output_files[i]);
-        fclose(_bu_output_files[i]);
-        int new_str_len = strlen(file_names[i])-1;
+        palrup_utils_write_ul(0,out_files[i]);  // mark end of clauses
+        palrup_utils_write_sig(sig, out_files[i]);
+        fclose(out_files[i]);
+        int new_str_len = strlen(out_file_names[i])-1;
         char new_filename[new_str_len];
-        memcpy(new_filename, file_names[i], new_str_len);
+        memcpy(new_filename, out_file_names[i], new_str_len);
         new_filename[new_str_len] = '\0';
-        rename(file_names[i], new_filename);
-        siphash_cls_free(out_hash[i]);
+        rename(out_file_names[i], new_filename);
+    }
+    
+    // free msg_group in
+    for (size_t i = 0; i < rh_msg_group_size_in; i++) {
+        comm_sig_free(comm_sig_compute[i]);
+        free(in_file_paths[i]);
     }
 
-    for (size_t i = 0; i < msg_group_size; i++)
-        free(file_names[i]);
+    // free msg_group out
+    for (size_t i = 0; i < rh_msg_group_size_out; i++) {
+        siphash_cls_free(out_hash[i]);
+        free(out_file_names[i]);
+    }
 
     free(out_hash);
     free(comm_sig_compute);
-    free(_re_count_clauses);
-    free(_bu_output_files);
-    free(file_names);
+    free(rh_count_clauses);
+    free(out_files);
+    free(out_file_names);
+    free(in_file_paths);
     u8_vec_free(write_buffer);
     import_merger_end();
-}
-
-void redist_handler_run() {
-    u64 column = lc_pal_id % msg_group_size;
-    while (true) {
-        import_merger_next();
-
-        int destination_index = palrup_utils_rank_to_y(_re_current_ID % num_solvers, msg_group_size);
-        if (UNLIKELY(_re_current_ID == empty_ID)) break;
-
-        // skip clauses for different columns
-        if ((_re_current_ID % num_solvers) % msg_group_size != column)
-            continue;
-
-        siphash_cls_update(out_hash[destination_index], (u8*)&_re_current_ID, sizeof(u64));
-        siphash_cls_update(out_hash[destination_index], (u8*)_re_current_literals_data, sizeof(int) * _re_current_literals_size);
-
-        redist_handler_write_lrat_import_file(
-            _re_current_ID,
-            _re_current_literals_data,
-            _re_current_literals_size,
-            _bu_output_files[destination_index]);
-
-        _re_count_clauses[destination_index] += 1;
-    }
-    snprintf(palrup_utils_msgstr, 512, "Done pal_id=%lu", lc_pal_id);
-    palrup_utils_log(palrup_utils_msgstr);
 }

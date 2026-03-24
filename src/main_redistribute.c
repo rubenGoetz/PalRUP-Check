@@ -19,6 +19,7 @@ int main(int argc, char *argv[]) {
     redist_handler_init(options);
     redist_handler_run();
     redist_handler_end();
+    options_free(options);
     fflush(stdout);
     return 0;
 }

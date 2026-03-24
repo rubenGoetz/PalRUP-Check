@@ -16,6 +16,7 @@ struct options* options_init() {
     options->redist_strat = 3;
 
     // partially needed
+    options->formula_path = 0;
     options->palrup_path = 0;
     options->palrup_binary = true;
     options->write_buffer_size = 4096 * 1024;
