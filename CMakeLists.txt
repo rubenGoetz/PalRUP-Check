@@ -108,6 +108,7 @@ include(CTest)
 add_library(test_utils
             src/utils/palrup_utils.c
             src/utils/checker_utils.c
+            src/vectors.c
             test/test_utils.c)
 
 add_executable(test_checker_utils
