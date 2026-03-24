@@ -22,8 +22,10 @@ typedef u8 signature[SIG_SIZE_BYTES];
 #define UNLOCKED_IO(fun) fun
 #endif
 
-
 // PalRUP constants
 #define TRUSTED_CHK_CLS_PRODUCE 'a'
 #define TRUSTED_CHK_CLS_IMPORT 'i'
 #define TRUSTED_CHK_CLS_DELETE 'd'
+
+// Checker constants
+#define EMPTY_ID (u64)-1

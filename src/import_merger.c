@@ -20,8 +20,6 @@ struct merger_stats {
 } merger_stats_init = {0, 0};
 struct merger_stats stats;
 
-const u64 _im_empty_ID = -1;
-
 size_t _im_n_files;
 bool* im_clauses_left;
 u64* im_clause_ids;
@@ -128,8 +126,8 @@ void import_merger_end() {
 void import_merger_next() {
     load_clause_if_available(last_index_to_load);  
     bool imports_left = false;
-    u64 current_id = _im_empty_ID;
-    *im_current_id = _im_empty_ID;
+    u64 current_id = EMPTY_ID;
+    *im_current_id = EMPTY_ID;
     size_t index_to_load = -1;
     struct int_vec candidate_lits;
     // find the smallest clause id
@@ -137,12 +135,12 @@ void import_merger_next() {
         u64 temp_id = im_clause_ids[i];
         
 
-        if (temp_id < current_id && temp_id != _im_empty_ID) {
+        if (temp_id < current_id && temp_id != EMPTY_ID) {
             current_id = temp_id;
             index_to_load = i;
             candidate_lits = *im_all_lits[index_to_load];
             imports_left = true;
-        } else if (temp_id == current_id && current_id != _im_empty_ID) { // check and skip duplicates
+        } else if (temp_id == current_id && current_id != EMPTY_ID) { // check and skip duplicates
             candidate_lits = *im_all_lits[index_to_load];
             const struct int_vec* temp_lits = im_all_lits[i];
             if (UNLIKELY(!checker_utils_compare_lits(candidate_lits.data, temp_lits->data, candidate_lits.size, temp_lits->size))) {

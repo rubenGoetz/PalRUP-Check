@@ -19,9 +19,6 @@
 #undef TYPED
 #undef TYPE
 
-// Sentinel
-const u64 empty_ID = -1;
-
 // global values
 u64 rh_num_solvers;
 u64 rh_redist_strat;
@@ -34,7 +31,7 @@ const char* working_path;
 struct u8_vec* write_buffer;
 int* rh_current_literals_data;
 u64 rh_current_literals_size;
-u64 rh_current_ID = empty_ID;
+u64 rh_current_ID = EMPTY_ID;
 u64* rh_count_clauses;
 FILE** out_files;
 char** out_file_names;
@@ -132,6 +129,8 @@ void redist_handler_init(struct options* options) {
         init_strat3();
         break;
     default:
+        snprintf(palrup_utils_msgstr, MSG_LEN, "Redistribution strategy %lu not available.", rh_redist_strat);
+        palrup_utils_log_err(palrup_utils_msgstr);
         break;
     }
 
@@ -145,7 +144,7 @@ void redist_handler_run() {
 
         //int destination_index = palrup_utils_rank_to_y(rh_current_ID % rh_num_solvers, rh_msg_group_size_in);
         int destination_index = get_out_file_id(rh_current_ID);
-        if (UNLIKELY(rh_current_ID == empty_ID)) break;
+        if (UNLIKELY(rh_current_ID == EMPTY_ID)) break;
 
         // skip clauses for different columns
         if ((rh_current_ID % rh_num_solvers) % rh_msg_group_size_in != column)
