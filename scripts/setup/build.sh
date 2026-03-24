@@ -7,6 +7,6 @@ cd build
 
 # build all targets
 cmake ..
-make
+make -j
 
 cd ..
