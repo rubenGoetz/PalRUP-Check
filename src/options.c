@@ -125,7 +125,7 @@ void options_print(struct options* options) {
         add_str(op_list, &str_cap, options->palrup_path);
     }
     if (options->palrup_binary) {
-        add_str(op_list, &str_cap, " -palrup-bin=");
+        add_str(op_list, &str_cap, " -palrup-binary=");
         add_u64(op_list, &str_cap, options->palrup_binary);
     }
     if (options->write_buffer_size) {

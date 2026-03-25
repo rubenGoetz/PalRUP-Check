@@ -34,12 +34,12 @@ q_size=409600           # 400 MiB
 q_alpha=0.5
 
 if [[ $PALRUP_BINARY ]]; then palrup_binary=$PALRUP_BINARY; fi
-if [[ $READ_BUFFER_SIZE ]]; then read_buffer_size=$READ_BUFFER_SIZE; fi
-if [[ $REDIST_STRAT ]]; then redist_strat=$REDIST_STRAT; fi
-if [[ $WRITE_BUFFER_SIZE ]]; then write_buffer_size=$WRITE_BUFFER_SIZE; fi
-if [[ $MERGE_BUFFER_SIZE ]]; then merge_buffer_size=$MERGE_BUFFER_SIZE; fi
-if [[ $Q_SIZE ]]; then q_size=$Q_SIZE; fi
-if [[ $Q_ALPHA ]]; then q_alpha=$Q_ALPHA; fi
+if [[ $READ_BUFFER_SIZE -gt 0 ]]; then read_buffer_size=$READ_BUFFER_SIZE; fi
+if [[ $REDIST_STRAT -gt 0 ]]; then redist_strat=$REDIST_STRAT; fi
+if [[ $WRITE_BUFFER_SIZE -gt 0 ]]; then write_buffer_size=$WRITE_BUFFER_SIZE; fi
+if [[ $MERGE_BUFFER_SIZE -gt 0 ]]; then merge_buffer_size=$MERGE_BUFFER_SIZE; fi
+if [[ $Q_SIZE -gt 0 ]]; then q_size=$Q_SIZE; fi
+if [[ $(echo "$Q_ALPHA > 0" | bc) -gt 0 ]]; then q_alpha=$Q_ALPHA; fi
 
 glob_start=$(date +%s.%N)
 check_timeout() {
