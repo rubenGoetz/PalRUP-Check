@@ -141,7 +141,7 @@ echo "RR_WC_WAIT_TIME=$elapsed" &>> "$log"
 # run redistribute
 if [[ $expected_proxy == "0" ]]; then
     # skip reroute if nothing is done regardless
-    cp out.palrup_import.dummy $working_path/$dir_hierarchy/$id/out.palrup_import
+    cp build/out.palrup_import.dummy $working_path/$dir_hierarchy/$id/out.palrup_import
 else
     cmd="./build/palrup_redistribute \
     -working-path=$working_path -num-solvers=$num_solvers \
