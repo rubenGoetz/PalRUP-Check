@@ -3,23 +3,43 @@
 ###################
 ##
 ## Runs a single Pal complete with:
-##  - first pass
-##  - reroute
-##  - last pass
+##  - local chack
+##  - redistribute
+##  - confirm
+##  - validate
+##  - cleanup
 ##
-## Designed to be executed independantly on distributed Systems.
+## To be executed independantly on distributed Systems.
 ##
 ##################
 
 # unique pal id
 id=$1
 
+# necessary
 num_solvers=$NUM_SOLVERS
-proof_palrup=$PROOF_PALRUP
-proof_working=$PROOF_WORKING
+palrup_path=$PROOF_PALRUP
+working_path=$PROOF_WORKING
 formula_path=$FORMULA_PATH
 log_dir=$LOG_DIR
 timeout=$TIMEOUT
+
+# optional
+palrup_binary=1
+read_buffer_size=16384  #  16 MiB
+redist_strat=3
+write_buffer_size=16384 #  16 MiB
+merge_buffer_size=8192  #   8 MiB
+q_size=409600           # 400 MiB
+q_alpha=0.5
+
+if [[ $PALRUP_BINARY ]]; then palrup_binary=$PALRUP_BINARY; fi
+if [[ $READ_BUFFER_SIZE ]]; then read_buffer_size=$READ_BUFFER_SIZE; fi
+if [[ $REDIST_STRAT ]]; then redist_strat=$REDIST_STRAT; fi
+if [[ $WRITE_BUFFER_SIZE ]]; then write_buffer_size=$WRITE_BUFFER_SIZE; fi
+if [[ $MERGE_BUFFER_SIZE ]]; then merge_buffer_size=$MERGE_BUFFER_SIZE; fi
+if [[ $Q_SIZE ]]; then q_size=$Q_SIZE; fi
+if [[ $Q_ALPHA ]]; then q_alpha=$Q_ALPHA; fi
 
 glob_start=$(date +%s.%N)
 check_timeout() {
@@ -54,8 +74,8 @@ echo "Calculated root=$root, roof_floor=$root_floor, root_ceil=$root_ceil, comm_
 echo "prepared log dir at $log" &>> "$log"
 echo "read env variables:" &>> "$log"
 echo "num_solvers: $num_solvers" &>> "$log"
-echo "proof_palrup: $proof_palrup" &>> "$log"
-echo "proof_working: $proof_working" &>> "$log"
+echo "palrup_path: $palrup_path" &>> "$log"
+echo "working_path: $working_path" &>> "$log"
 echo "formula_path: $formula_path" &>> "$log"
 echo "log_dir: $log_dir" &>> "$log"
 echo "timeout: $timeout" &>> "$log"
@@ -71,27 +91,30 @@ if (( $id < $num_solvers )); then
 
     echo "wait until proof is finished.." &>> "$log"
     start=$(date +%s.%N)
-    until [[ $(find $proof_palrup/$dir_hierarchy/$id -name out.palrup 2>/dev/null) ]]; do
+    until [[ $(find $palrup_path/$dir_hierarchy/$id -name out.palrup 2>/dev/null) ]]; do
         check_timeout "wait until proof is finished.."
         sleep 0.1;
     done
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
     echo "FP_WC_WAIT_TIME=$elapsed" &>> "$log"
-    echo "READ_PALRUP_SIZE=$(wc -c $proof_palrup/$dir_hierarchy/$id/out.palrup)" &>> "$log"
+    echo "READ_PALRUP_SIZE=$(wc -c $palrup_path/$dir_hierarchy/$id/out.palrup)" &>> "$log"
 
-    # run first pass
+    # run local check
     cmd="./build/palrup_local_check \
-    -formula-path=$formula_path -palrup-path=$proof_palrup \
-    -working-path=$proof_working -num-solvers=$num_solvers \
-    -pal-id=$id -read-buffer-KB=524288 -redist-strat=3 \
-    -palrup-binary=1"
+    -formula-path=$formula_path -palrup-path=$palrup_path \
+    -working-path=$working_path -num-solvers=$num_solvers \
+    -pal-id=$id -read-buffer-KB=$read_buffer_size \
+    -redist-strat=$redist_strat -write-buffer-KB=$write_buffer_size \
+    -merge-buffer-KB=$merge_buffer_size -q-size-KB=$q_size \
+    -q-alpha=$q_alpha -palrup-binary=$palrup_binary"
+
     echo "run $cmd" &>> "$log" &>> "$log"
     start=$(date +%s.%N)
     $cmd &>> "$log"
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
-    echo "WRITTEN_PROXY_SIZE=$(wc -c $proof_working/$dir_hierarchy/$id/out.palrup_proxy)" &>> "$log"
+    echo "WRITTEN_PROXY_SIZE=$(wc -c $working_path/$dir_hierarchy/$id/out.palrup_proxy)" &>> "$log"
     echo "FP_WC_TIME=$elapsed" &>> "$log"
     echo "Finished first pass" &>> "$log"
 
@@ -102,12 +125,12 @@ fi
 # count expected inputs
 offset=$((($id/$root_ceil)*$root_ceil))
 expected_proxy=$(for i in $(seq 0 $(($root_ceil-1))); do if [[ $(($offset+$i)) -lt $num_solvers ]]; then echo "$i"; fi; done | wc -l)
-echo "expect $expected_proxy proxy files in $proof_working/$dir_hierarchy/" &>> "$log"
+echo "expect $expected_proxy proxy files in $working_path/$dir_hierarchy/" &>> "$log"
 
 # wait until conditions for reroute are met
 echo "wait until conditions for reroute are met.." &>> "$log"
 start=$(date +%s.%N)
-until [[ $(find $proof_working/$dir_hierarchy/ -name out.palrup_proxy 2>/dev/null | wc -l) -ge $expected_proxy ]]; do
+until [[ $(find $working_path/$dir_hierarchy/ -name out.palrup_proxy 2>/dev/null | wc -l) -ge $expected_proxy ]]; do
     check_timeout "wait until conditions for reroute are met.."
     sleep 0.1;
 done
@@ -115,20 +138,22 @@ end=$(date +%s.%N)
 elapsed=$( echo "$end - $start" | bc )
 echo "RR_WC_WAIT_TIME=$elapsed" &>> "$log"
 
-# run reroute
+# run redistribute
 if [[ $expected_proxy == "0" ]]; then
     # skip reroute if nothing is done regardless
-    cp out.palrup_import.dummy $proof_working/$dir_hierarchy/$id/out.palrup_import
+    cp out.palrup_import.dummy $working_path/$dir_hierarchy/$id/out.palrup_import
 else
     cmd="./build/palrup_redistribute \
-    -working-path=$proof_working -num-solvers=$num_solvers -pal-id=$id \
-    -read-buffer-KB=16384 -redist-strat=3"
+    -working-path=$working_path -num-solvers=$num_solvers \
+    -pal-id=$id -read-buffer-KB=$read_buffer_size \
+    -write-buffer-KB=$write_buffer_size -redist-strat=$redist_strat"
+    
     echo "run $cmd" &>> "$log"
     start=$(date +%s.%N)
     $cmd &>> "$log"
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
-    echo "WRITTEN_IMPORT_SIZE=$(wc -c $proof_working/$dir_hierarchy/$id/out.palrup_import)" &>> "$log"
+    echo "WRITTEN_IMPORT_SIZE=$(wc -c $working_path/$dir_hierarchy/$id/out.palrup_import)" &>> "$log"
     echo "RR_WC_TIME=$elapsed" &>> "$log"
     echo "Finished reroute" &>> "$log"
 fi
@@ -137,7 +162,7 @@ if (( $id < $num_solvers )); then
 
     # enumerate relevant pal directories
     column=$(($id%$root_ceil))
-    dirs=($( for i in $(seq 0 $(($root_ceil-1))); do read_id=$((($i*$root_ceil)+column)); echo "$proof_working/$(($read_id/$root_ceil))/$read_id"; done ))
+    dirs=($( for i in $(seq 0 $(($root_ceil-1))); do read_id=$((($i*$root_ceil)+column)); echo "$working_path/$(($read_id/$root_ceil))/$read_id"; done ))
 
     # wait until conditions for last pass are met
     echo "wait until conditions for last pass are met.." &>> "$log"
@@ -150,11 +175,12 @@ if (( $id < $num_solvers )); then
     elapsed=$( echo "$end - $start" | bc )
     echo "LP_WC_WAIT_TIME=$elapsed" &>> "$log"
 
-    # run last pass
+    # run confirm
     cmd="./build/palrup_confirm \
-    -palrup-path=$proof_palrup -working_path=$proof_working \
-    -num-solvers=$num_solvers -pal-id=$id -read-buffer-KB=16384 \
-    -redistribution-strategy=3 -palrup-binary=1"
+    -palrup-path=$palrup_path -working-path=$working_path \
+    -num-solvers=$num_solvers -pal-id=$id -read-buffer-KB=$read_buffer_size \
+    -redist-strat=$redist_strat -palrup_binary=$palrup_binary"
+
     echo "run $cmd" &>> "$log" &>> "$log"
     start=$(date +%s.%N)
     $cmd &>> "$log"
@@ -164,20 +190,19 @@ if (( $id < $num_solvers )); then
     echo "Finished last pass" &>> "$log"
 
     # clean up proof
-    echo "clean up hash of local proof fragment in $proof_palrup/$dir_hierarchy/$id" &>> "$log"
-    rm $proof_palrup/$dir_hierarchy/$id/out.palrup.hash
+    echo "clean up hash of local proof fragment in $palrup_path/$dir_hierarchy/$id" &>> "$log"
+    rm $palrup_path/$dir_hierarchy/$id/out.palrup.hash
 
 else
     echo "Skip last pass" &>> "$log"
 fi
 
-echo "after cleanup" &>> "$log"
 # validate checking procedure distributed via a binary tree by checking childrens .check_ok
 start=$(date +%s.%N)
 child_id=$((($id*2)+1))
 child_paths=()
-if (( $child_id < $num_solvers )); then child_paths+=("$proof_working/$(($child_id/$root_ceil))/$child_id/"); fi
-if (( $(($child_id+1)) < $num_solvers )); then child_paths+=("$proof_working/$((($child_id+1)/$root_ceil))/$(($child_id+1))/"); fi
+if (( $child_id < $num_solvers )); then child_paths+=("$working_path/$(($child_id/$root_ceil))/$child_id/"); fi
+if (( $(($child_id+1)) < $num_solvers )); then child_paths+=("$working_path/$((($child_id+1)/$root_ceil))/$(($child_id+1))/"); fi
 # wait for children
 echo "wait until children are finished.." &>> "$log"
 until [[ $(find ${child_paths[@]} -name .done 2>/dev/null | wc -l) -eq ${#child_paths[@]} ]]; do
@@ -189,12 +214,12 @@ elapsed=$( echo "$end - $start" | bc )
 echo "VAL_WC_WAIT_TIME=$elapsed" &>> "$log"
 
 # check for own and children's vlaidity
-if [[ -d "$proof_working/$dir_hierarchy/$id/.check_ok" && $(find ${child_paths[@]} -name .valid 2>/dev/null | wc -l) -eq ${#child_paths[@]} ]]; then
-    mkdir "$proof_working/$dir_hierarchy/$id/.valid"
+if [[ -d "$working_path/$dir_hierarchy/$id/.check_ok" && $(find ${child_paths[@]} -name .valid 2>/dev/null | wc -l) -eq ${#child_paths[@]} ]]; then
+    mkdir "$working_path/$dir_hierarchy/$id/.valid"
 fi
 
 # leave marker, that execution is finished
-mkdir $proof_working/$dir_hierarchy/$id/.done
+mkdir $working_path/$dir_hierarchy/$id/.done
 glob_end=$(date +%s.%N)
 elapsed=$( echo "$glob_end - $glob_start" | bc )
 echo "GLOB_WC_TIME=$elapsed" &>> "$log"
