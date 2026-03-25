@@ -14,7 +14,6 @@ use_local_disks=$USE_LOCAL_DISKS
 
 num_solvers=$NUM_SOLVERS
 num_nodes=$NUM_NODES
-echo "num_nodes: $num_nodes"
 num_proc_per_node=$NUM_PROCS_PER_NODE
 proof_palrup=$PROOF_PALRUP
 proof_working=$PROOF_WORKING
