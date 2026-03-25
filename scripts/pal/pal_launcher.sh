@@ -10,10 +10,11 @@
 start=$(date +%s.%N)
 
 # set to true if proof is written on distributed local disks
-use_local_disks=""
+use_local_disks=$USE_LOCAL_DISKS
 
 num_solvers=$NUM_SOLVERS
 num_nodes=$NUM_NODES
+echo "num_nodes: $num_nodes"
 num_proc_per_node=$NUM_PROCS_PER_NODE
 proof_palrup=$PROOF_PALRUP
 proof_working=$PROOF_WORKING
@@ -32,7 +33,7 @@ check_timeout() {
 
 num_processes=$(($num_nodes*$num_proc_per_node))
 
-if [[ $use_local_disks == "true" ]]; then
+if [[ $use_local_disks -eq 1 ]]; then
     # get local id on node
     for i in $(seq 0 $(($num_proc_per_node-1))); do
         if mkdir /tmp/.pal_launcher.$i.lock 2>/dev/null ; then
@@ -74,8 +75,8 @@ frag_id_set=($(seq 0 $(($num_solvers-1))))
 pals_per_proc=$(($num_solvers/$num_processes))
 
 # global_id is still undefined for distributed disks
-if [[ $use_local_disks == "true" ]]; then
-    frag_id_set=($( ls "$proof_palrup" | sort -n ))
+if [[ $use_local_disks -eq 1 ]]; then
+    frag_id_set=($(find $proof_palrup -mindepth 2 -maxdepth 2 -type d | xargs -- basename -a | sort -n))
     global_id=$(((${frag_id_set[0]}/$pals_per_proc)+$local_id))
 fi
 
@@ -112,6 +113,7 @@ echo "proof_palrup: $proof_palrup" &>> "$log"
 echo "proof_working: $proof_working" &>> "$log"
 echo "log_dir: $log_dir" &>> "$log"
 echo "timeout: $timeout" &>> "$log"
+echo "use_local_disks: $use_local_disks" &>> "$log"
 
 echo "prepare working and log directories" &>> "$log"
 for pal_id in ${pal_id_set[@]}; do
@@ -158,7 +160,7 @@ elapsed=$(echo "$glob_end - $glob_start" | bc -l)
 echo "GLOB_WC_TIME=$elapsed" &>> "$log"
 
 echo "Release lock" &>> "$log"
-if [[ $use_local_disks == "true" ]]; then
+if [[ $use_local_disks -eq 1 ]]; then
     rmdir /tmp/.pal_launcher.$local_id.lock 2>/dev/null
 else
     rmdir $proof_working/.pal_launcher.$local_id.lock 2>/dev/null
