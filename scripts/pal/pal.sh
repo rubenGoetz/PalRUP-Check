@@ -51,6 +51,17 @@ check_timeout() {
     fi
 }
 
+finish() {
+    # leave marker, that execution is finished
+    mkdir $working_path/$dir_hierarchy/$id/.done
+    glob_end=$(date +%s.%N)
+    elapsed=$( echo "$glob_end - $glob_start" | bc )
+    echo "GLOB_WC_TIME=$elapsed" &>> "$log"
+
+    echo "Finished execution of pal $id/$comm_size"
+    exit 0
+}
+
 ##########
 ## init ##
 ##########
@@ -91,7 +102,7 @@ if (( $id < $num_solvers )); then
 
     echo "wait until proof is finished.." &>> "$log"
     start=$(date +%s.%N)
-    until [[ $(find $palrup_path/$dir_hierarchy/$id -name out.palrup 2>/dev/null) ]]; do
+    until [[ $(find -O3 $palrup_path/$dir_hierarchy/$id -name out.palrup 2>/dev/null) ]]; do
         check_timeout "wait until proof is finished.."
         sleep 0.1;
     done
@@ -130,7 +141,7 @@ echo "expect $expected_proxy proxy files in $working_path/$dir_hierarchy/" &>> "
 # wait until conditions for reroute are met
 echo "wait until conditions for reroute are met.." &>> "$log"
 start=$(date +%s.%N)
-until [[ $(find $working_path/$dir_hierarchy/ -name out.palrup_proxy 2>/dev/null | wc -l) -ge $expected_proxy ]]; do
+until [[ $(find -O3 $working_path/$dir_hierarchy/ -name out.palrup_proxy 2>/dev/null | wc -l) -ge $expected_proxy ]]; do
     check_timeout "wait until conditions for reroute are met.."
     sleep 0.1;
 done
@@ -167,7 +178,7 @@ if (( $id < $num_solvers )); then
     # wait until conditions for last pass are met
     echo "wait until conditions for last pass are met.." &>> "$log"
     start=$(date +%s.%N)
-    until [[ $(find ${dirs[@]} -name out.palrup_import 2>/dev/null | wc -l) -ge $root_ceil ]]; do
+    until [[ $(find -O3 ${dirs[@]} -name out.palrup_import 2>/dev/null | wc -l) -ge $root_ceil ]]; do
         check_timeout "wait until conditions for last pass are met.."
         sleep 0.1;
     done
@@ -195,33 +206,40 @@ if (( $id < $num_solvers )); then
 
 else
     echo "Skip last pass" &>> "$log"
+    finish
 fi
 
 # validate checking procedure distributed via a binary tree by checking childrens .check_ok
-start=$(date +%s.%N)
+val_start=$(date +%s.%N)
 child_id=$((($id*2)+1))
 child_paths=()
 if (( $child_id < $num_solvers )); then child_paths+=("$working_path/$(($child_id/$root_ceil))/$child_id/"); fi
 if (( $(($child_id+1)) < $num_solvers )); then child_paths+=("$working_path/$((($child_id+1)/$root_ceil))/$(($child_id+1))/"); fi
-# wait for children
-echo "wait until children are finished.." &>> "$log"
-until [[ $(find ${child_paths[@]} -name .done 2>/dev/null | wc -l) -eq ${#child_paths[@]} ]]; do
-    check_timeout "wait until children are finished.."
-    sleep 0.1;
-done
-end=$(date +%s.%N)
-elapsed=$( echo "$end - $start" | bc )
-echo "VAL_WC_WAIT_TIME=$elapsed" &>> "$log"
 
-# check for own and children's vlaidity
-if [[ -d "$working_path/$dir_hierarchy/$id/.check_ok" && $(find ${child_paths[@]} -name .valid 2>/dev/null | wc -l) -eq ${#child_paths[@]} ]]; then
-    mkdir "$working_path/$dir_hierarchy/$id/.valid"
+if [[ ${#child_paths[@]} -eq 0 ]]; then
+    # validate self
+    if [[ -d "$working_path/$dir_hierarchy/$id/.check_ok" ]]; then
+        mkdir "$working_path/$dir_hierarchy/$id/.valid"
+    fi
+else
+    # wait for children
+    start=$(date +%s.%N)
+    echo "wait until children are finished.." &>> "$log"
+    until [[ $(find -O3 ${child_paths[@]} -name .done 2>/dev/null | wc -l) -eq ${#child_paths[@]} ]]; do
+        check_timeout "wait until children are finished.."
+        sleep 0.1;
+    done
+    end=$(date +%s.%N)
+    elapsed=$( echo "$end - $start" | bc )
+    echo "VAL_WC_WAIT_TIME=$elapsed" &>> "$log"
+
+    # validate self and children
+    if [[ -d "$working_path/$dir_hierarchy/$id/.check_ok" && $(find -O3 ${child_paths[@]} -name .valid 2>/dev/null | wc -l) -eq ${#child_paths[@]} ]]; then
+        mkdir "$working_path/$dir_hierarchy/$id/.valid"
+    fi
 fi
+val_end=$(date +%s.%N)
+val_elapsed=$( echo "$val_end - $val_start" | bc )
+echo "VAL_WC_TIME=$val_elapsed" &>> "$log"
 
-# leave marker, that execution is finished
-mkdir $working_path/$dir_hierarchy/$id/.done
-glob_end=$(date +%s.%N)
-elapsed=$( echo "$glob_end - $glob_start" | bc )
-echo "GLOB_WC_TIME=$elapsed" &>> "$log"
-
-echo "Finished execution of pal $id/$comm_size"
+finish
