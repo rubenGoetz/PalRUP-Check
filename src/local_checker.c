@@ -12,6 +12,8 @@
 #include "import_handler.h"
 #include "siphash_cls.h"
 #include "top_check.h"
+#include "hash.h"
+#include "clause_flat.h"
 
 // Instantiate int_vec
 #define TYPE int
@@ -30,8 +32,9 @@
 struct local_checker_stats {
     u64 nb_produced;
     u64 nb_imported;
+    u64 nb_imported_used;
     u64 nb_deleted;
-} local_checker_stats_init = {0, 0, 0};
+} local_checker_stats_init = {0, 0, 0, 0};
 
 // formula
 long nb_clauses;
@@ -47,9 +50,9 @@ struct siphash* clause_hash;
 struct local_checker_stats lc_stats;
 
 // global buffers.
-//signature buf_sig;
 struct int_vec* buf_lits;
 struct u64_vec* buf_hints;
+struct hash_table* import_table;
 
 static bool load_formula(FILE* formula) {
     int nb_vars;
@@ -173,6 +176,14 @@ static void parse() {
                 if (!hint) break;
                 u64_vec_push(buf_hints, hint);
                 nb_hints++;
+
+                // if hint is imported clause => log clause
+                clause_ptr c = hash_table_find(import_table, hint);
+                if (c) {
+                    import_handler_log(c);
+                    hash_table_delete_last_found(import_table);
+                    lc_stats.nb_imported_used++;
+                }
             }
 
             //check IDs in hints
@@ -214,8 +225,13 @@ static void parse() {
             lrat_check_add_axiomatic_clause(id, buf_lits->data, nb_lits);
             lc_stats.nb_imported++;
 
-            // write in file for stage 2
-            import_handler_log(id, buf_lits->data, nb_lits);
+            // hold to see if clause will be used
+            clause_ptr c = create_flat_clause(id, nb_lits, buf_lits->data);
+            if (!hash_table_insert(import_table, id, c)) {
+                snprintf(palrup_utils_msgstr, MSG_LEN, "Could not insert clause of id %lu into hash table", id);
+                palrup_utils_log_err(palrup_utils_msgstr);
+                abort();
+            }
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
             u64_vec_resize(buf_hints, 0);
@@ -227,6 +243,9 @@ static void parse() {
                 if (!hint) break;
                 u64_vec_push(buf_hints, hint);
                 nb_hints++;
+
+                // imported clause was not used
+                hash_table_delete(import_table, hint);
             }
 
             top_check_delete(buf_hints->data, nb_hints);
@@ -259,6 +278,7 @@ void local_checker_init(struct options* options) {
 
     buf_lits = int_vec_init(1);
     buf_hints = u64_vec_init(1);
+    import_table = hash_table_init(16);
 
     FILE* proof_fragment = fopen(fragment_path, "rb");
     if (!proof_fragment) {
@@ -292,8 +312,8 @@ int local_checker_run() {
             mkdir(unsat_folder_sub, 0777);
         }
     }
-    snprintf(palrup_utils_msgstr, 512, "rank:%lu prod:%lu imp:%lu del:%lu n_s:%lu",
-             lc_pal_id, lc_stats.nb_produced, lc_stats.nb_imported, lc_stats.nb_deleted, lc_num_solvers);
+    snprintf(palrup_utils_msgstr, 512, "rank:%lu prod:%lu imp:%lu imp_used:%lu del:%lu n_s:%lu",
+             lc_pal_id, lc_stats.nb_produced, lc_stats.nb_imported, lc_stats.nb_imported_used, lc_stats.nb_deleted, lc_num_solvers);
     palrup_utils_log(palrup_utils_msgstr);
 
     return 0;
@@ -306,4 +326,5 @@ void local_checker_end() {
     file_reader_end(proof);
     top_check_end();
     siphash_cls_free(clause_hash);
+    hash_table_free(import_table);
 }

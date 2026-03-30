@@ -307,9 +307,9 @@ void import_handler_init(struct options* options) {
     }
 }
 
-void import_handler_log(u64 clause_id, const int* literals, int nb_literals) {
-    int file_id = get_file_id(clause_id);
-    clause_ptr clause = create_flat_clause(clause_id, nb_literals, literals);
+void import_handler_log(clause_ptr clause) {
+    int file_id = get_file_id(get_clause_id(clause));
+    //clause_ptr clause = create_flat_clause(clause_id, nb_literals, literals);
     struct clause_heap* clause_heap = clause_heaps[file_id];
     ih_stats.nb_clauses++;
 
