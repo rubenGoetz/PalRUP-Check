@@ -21,6 +21,8 @@ static void clean_proof() {
     glob(pattern, 0, NULL, &globbuf);
     for (size_t i = 0; i < globbuf.gl_pathc; i++)
         remove(globbuf.gl_pathv[i]);
+
+    globfree(&globbuf);
 }
 
 static void clean_working() {
@@ -48,6 +50,9 @@ static void validate() {
     snprintf(pattern, 512, "%s/*/*/.check_ok", WORKING_DIR);
     glob(pattern, 0, NULL, &globbuf);
     do_assert(globbuf.gl_pathc == NUM_SOLVERS);
+
+    globfree(&globbuf);
+    free(dir);
 }
 
 static void run_strat3() {
