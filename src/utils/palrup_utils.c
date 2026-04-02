@@ -14,6 +14,9 @@ void palrup_utils_log(const char* msg) {
 void palrup_utils_log_err(const char* msg) {
     printf("c [CORE %i] [ERROR] %s\n", getpid(), msg);
 }
+void palrup_utils_log_warn(const char* msg) {
+    printf("c [CORE %i] [WARNING] %s\n", getpid(), msg);
+}
 
 void palrup_utils_exit_eof() {
     palrup_utils_log("end-of-file - terminating");
@@ -80,7 +83,7 @@ void palrup_utils_skip_bytes(u64 nb_bytes, FILE* file) {
     palrup_utils_read_objs(dummy, 1, nb_bytes, file);
 }
 
-void write_objs(const void* data, size_t size, size_t nb_objs, FILE* file) {
+void palrup_utils_write_objs(const void* data, size_t size, size_t nb_objs, FILE* file) {
     u64 nb_read = UNLOCKED_IO(fwrite)(data, size, nb_objs, file);
     if (nb_read < nb_objs) palrup_utils_exit_eof();
 }
@@ -93,22 +96,22 @@ void palrup_utils_write_bool(bool b, FILE* file) {
     if (res == EOF) palrup_utils_exit_eof();
 }
 void palrup_utils_write_int(int i, FILE* file) {
-    write_objs(&i, sizeof(int), 1, file);
+    palrup_utils_write_objs(&i, sizeof(int), 1, file);
 }
 void palrup_utils_write_ints(const int* data, u64 nb_ints, FILE* file) {
-    write_objs(data, sizeof(int), nb_ints, file);
+    palrup_utils_write_objs(data, sizeof(int), nb_ints, file);
 }
 void palrup_utils_write_ul(u64 u, FILE* file) {
-    write_objs(&u, sizeof(u64), 1, file);
+    palrup_utils_write_objs(&u, sizeof(u64), 1, file);
 }
 void palrup_utils_write_uls(const u64* data, u64 nb_uls, FILE* file) {
-    write_objs(data, sizeof(u64), nb_uls, file);
+    palrup_utils_write_objs(data, sizeof(u64), nb_uls, file);
 }
 void palrup_utils_write_flat_clause(const void* data, size_t clause_size, FILE* file) {
-    write_objs(data, clause_size, 1, file);
+    palrup_utils_write_objs(data, clause_size, 1, file);
 }
 void palrup_utils_write_sig(const u8* sig, FILE* file) {
-    write_objs(sig, sizeof(int), 4, file);
+    palrup_utils_write_objs(sig, sizeof(int), 4, file);
 }
 
 inline u64 palrup_utils_2d_to_rank(u64 x, u64 y, u64 n) {

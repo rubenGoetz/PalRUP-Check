@@ -103,10 +103,11 @@ void options_print(struct options* options) {
         add_str(op_list, &str_cap, " -num-solvers=");
         add_u64(op_list, &str_cap, options->num_solvers);
     }
-    if (options->pal_id) {
+    // pal_id=0 is valid value
+    //if (options->pal_id) {
         add_str(op_list, &str_cap, " -pal-id=");
         add_u64(op_list, &str_cap, options->pal_id);
-    }
+    //}
     if (options->read_buffer_size) {
         add_str(op_list, &str_cap, " -read-buffer-size=");
         add_u64(op_list, &str_cap, options->read_buffer_size);

@@ -63,6 +63,14 @@ add_library(clause_finder
             src/vectors.c)
 target_link_libraries(clause_finder m import_merger)
 
+add_library(local_trim
+            src/utils/palrup_utils.c
+            src/options.c
+            src/backward_file_reader.c
+            src/hash.c
+            src/vectors.c
+            src/local_trim.c)
+
 # Executables
 
 add_executable(palrup_local_check src/main_local_check.c src/options.c)
@@ -73,6 +81,9 @@ target_link_libraries(palrup_redistribute redist_handler)
 
 add_executable(palrup_confirm src/main_confirm.c src/options.c)
 target_link_libraries(palrup_confirm clause_finder)
+
+add_executable(palrup_local_trim src/main_local_trim.c src/options.c)
+target_link_libraries(palrup_local_trim m local_trim)
 
 add_custom_target(copy_scripts ALL
   COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -172,3 +183,11 @@ add_executable(test_full_run
 target_link_libraries(test_full_run m test_utils)
 add_test(NAME Test_Full_Run
          COMMAND test_full_run)
+
+add_executable(test_backward_file_reader
+               src/backward_file_reader.c
+               src/vectors.c
+               test/test_backward_file_reader.c)
+target_link_libraries(test_backward_file_reader test_utils)
+add_test(NAME Test_Backward_File_Reader
+         COMMAND test_backward_file_reader)

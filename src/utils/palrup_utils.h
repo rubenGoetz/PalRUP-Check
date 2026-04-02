@@ -12,6 +12,7 @@ extern char palrup_utils_msgstr[MSG_LEN];
 
 void palrup_utils_log(const char* msg);
 void palrup_utils_log_err(const char* msg);
+void palrup_utils_log_warn(const char* msg);
 
 void palrup_utils_exit_eof();
 
@@ -19,6 +20,7 @@ void* palrup_utils_malloc(u64 size);
 void* palrup_utils_realloc(void* from, u64 new_size);
 void* palrup_utils_calloc(u64 nb_objs, u64 size_per_obj);
 
+void palrup_utils_read_objs(void* data, size_t size, size_t nb_objs, FILE* file);
 bool palrup_utils_read_bool(FILE* file);
 int palrup_utils_read_char(FILE* file);
 int palrup_utils_read_int(FILE* file);
@@ -28,6 +30,7 @@ void palrup_utils_read_uls(u64* data, u64 nb_uls, FILE* file);
 void palrup_utils_read_sig(u8* out_sig, FILE* file);
 void palrup_utils_skip_bytes(u64 nb_bytes, FILE* file);
 
+void palrup_utils_write_objs(const void* data, size_t size, size_t nb_objs, FILE* file);
 void palrup_utils_write_bool(bool b, FILE* file);
 void palrup_utils_write_char(char c, FILE* file);
 void palrup_utils_write_int(int i, FILE* file);
