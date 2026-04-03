@@ -108,7 +108,6 @@ clause_ptr heap_pop_min(struct clause_heap* heap) {
 
 static inline void comp_and_delete_duplicate(struct clause_heap* heap, u64 idx) {
     if (!compare_flat_clause(heap->data[0], heap->data[idx])) {
-        printf(">>\n");
         snprintf(palrup_utils_msgstr, MSG_LEN, "Differing clauses with same ID %lu detected",
                  get_clause_id(heap->data[0]));
         palrup_utils_log_err(palrup_utils_msgstr);

@@ -47,13 +47,13 @@ static inline int get_out_file_id(u64 clause_id) {
 
 static void init_msg_group_in() {
     comm_sig_compute = palrup_utils_malloc(sizeof(struct comm_sig*) * rh_msg_group_size_in);
-    out_file_names = palrup_utils_calloc(rh_msg_group_size_in, sizeof(char*));
     in_file_paths = palrup_utils_calloc(rh_msg_group_size_in, sizeof(char*));
 }
 
 static void init_msg_group_out() {
     out_files = palrup_utils_malloc(sizeof(FILE*) * rh_msg_group_size_out);
     out_hash = palrup_utils_malloc(sizeof(struct siphash*) * rh_msg_group_size_out);
+    out_file_names = palrup_utils_calloc(rh_msg_group_size_out, sizeof(char*));
     rh_count_clauses = palrup_utils_calloc(rh_msg_group_size_out, sizeof(u64));
 }
 

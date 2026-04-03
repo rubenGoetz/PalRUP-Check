@@ -128,25 +128,27 @@ static void init_strat_3(struct options* options) {
     int column = options->pal_id % msg_group_size;
     for (int i = 0; i < msg_group_size; i++) {
         int src_id = (i * msg_group_size) + column;
-        snprintf(path, 512, "%s/%i/%i/out.palrup_import",
+        snprintf(path, 512, "%s/%i/%i/out.palrup_trim_import",
                  options->working_path, src_id / msg_group_size, src_id);
         FILE* file = fopen(path, "rb");
         if (!file) {
             snprintf(palrup_utils_msgstr, MSG_LEN, "Could not open import file at %s", path);
             palrup_utils_log_err(palrup_utils_msgstr);
         }
+        snprintf(palrup_utils_msgstr, MSG_LEN, "Parse file at %s", path);
+        palrup_utils_log(palrup_utils_msgstr);
         
-        // TODO: make dedicated trim communication files
         // parse file
         while (true) {
             // read clause
             u64 id = palrup_utils_read_ul(file);
             if (!id) break;
 
+            // TODO; make checker comm files optional
             // skip lits
-            int nb_lits = palrup_utils_read_int(file);
-            int_vec_resize(lits_buffer, nb_lits);
-            palrup_utils_read_ints(lits_buffer->data, nb_lits, file);
+            //int nb_lits = palrup_utils_read_int(file);
+            //int_vec_resize(lits_buffer, nb_lits);
+            //palrup_utils_read_ints(lits_buffer->data, nb_lits, file);
 
             // mark id
             if (id % options->num_solvers == options->pal_id)

@@ -6,6 +6,8 @@ add_definitions("-std=gnu99 -Wall -Wextra -Werror -pedantic-errors -flto -lm")
 
 # Module Libraries
 
+# TODO make file_reader lib
+
 add_library(import_handler
             src/utils/palrup_utils.c
             src/import_handler.c
@@ -82,6 +84,23 @@ target_link_libraries(palrup_redistribute redist_handler)
 add_executable(palrup_confirm src/main_confirm.c src/options.c)
 target_link_libraries(palrup_confirm clause_finder)
 
+add_executable(palrup_extract_imports
+               src/utils/palrup_utils.c
+               src/import_extractor.c
+               src/options.c
+               src/file_reader.c
+               src/hash.c
+               src/vectors.c
+               src/main_extract_imports.c)
+target_link_libraries(palrup_extract_imports m)
+
+add_executable(palrup_redistribute_trim
+               src/utils/palrup_utils.c
+               src/options.c
+               src/redist_trim_handler.c
+               src/main_redistribute_trim.c)
+target_link_libraries(palrup_redistribute_trim m)
+
 add_executable(palrup_local_trim src/main_local_trim.c src/options.c)
 target_link_libraries(palrup_local_trim m local_trim)
 
@@ -106,6 +125,10 @@ add_executable(comm_file_to_txt
                src/clause_flat.c
                src/vectors.c
                tools/comm_file_to_txt.c)
+               
+add_executable(comm_file_trim_to_txt
+               src/utils/palrup_utils.c
+               tools/comm_file_trim_to_txt.c)
 
 add_executable(proof_fragment_to_txt
                src/utils/palrup_utils.c
