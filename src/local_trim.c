@@ -24,6 +24,7 @@
 #define SENTINEL (void*)1
 
 struct local_trim_stats {
+    // TODO: get all the data
     u64 read_lines;
     u64 kept_lines;
     u64 added_lines;
@@ -58,7 +59,7 @@ static void write_line_backwards(struct back_file_reader* bfr, u64 idx) {
     }
 
     // write rest of line into buffer
-    while (bfr->read_idx >= idx)
+    while (bfr->read_idx >= idx && bfr->read_idx != (u64)-1 )
         write_buffer->data[write_buffer->size++] = bfr->buffer->data[bfr->read_idx--];
 }
 
