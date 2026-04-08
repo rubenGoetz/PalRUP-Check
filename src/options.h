@@ -23,6 +23,9 @@ struct options {
     u64 merge_buffer_size;  // defaults to 4096 KiB
     u64 q_size;             // defaults to 2 * 4096 KiB
     float q_alpha;          // defaults to .5
+
+    // local_trim
+    bool use_checker_comm_files;
 };
 
 struct options* options_init();

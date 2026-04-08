@@ -142,6 +142,35 @@ static void mark_empty_clause(struct options* options) {
     globfree(&globbuf);
 }
 
+static inline void parse_comm_file(FILE* file, struct options* options) {
+    while (true) {
+        // read clause
+        u64 id = palrup_utils_read_ul(file);
+        if (!id) break;
+
+        // mark id
+        if (id % options->num_solvers == options->pal_id)
+            hash_table_insert(marked_clauses, id, SENTINEL);
+    }
+}
+
+static inline void parse_checker_comm_file(FILE* file, struct options* options) {
+    while (true) {
+        // read clause
+        u64 id = palrup_utils_read_ul(file);
+        if (!id) break;
+
+        // skip lits
+        int nb_lits = palrup_utils_read_int(file);
+        int_vec_resize(lits_buffer, nb_lits);
+        palrup_utils_read_ints(lits_buffer->data, nb_lits, file);
+        
+        // mark id
+        if (id % options->num_solvers == options->pal_id)
+            hash_table_insert(marked_clauses, id, SENTINEL);
+    }
+}
+
 static void init_strat_3(struct options* options) {
     // read imports and mark all clauses
     int msg_group_size = palrup_utils_calc_root_ceil(options->num_solvers);
@@ -160,21 +189,10 @@ static void init_strat_3(struct options* options) {
         palrup_utils_log(palrup_utils_msgstr);
         
         // parse file
-        while (true) {
-            // read clause
-            u64 id = palrup_utils_read_ul(file);
-            if (!id) break;
-
-            // TODO; make checker comm files optional
-            // skip lits
-            //int nb_lits = palrup_utils_read_int(file);
-            //int_vec_resize(lits_buffer, nb_lits);
-            //palrup_utils_read_ints(lits_buffer->data, nb_lits, file);
-
-            // mark id
-            if (id % options->num_solvers == options->pal_id)
-                hash_table_insert(marked_clauses, id, SENTINEL);
-        }
+        if (options->use_checker_comm_files)
+            parse_checker_comm_file(file, options);
+        else
+            parse_comm_file(file, options);
 
         fclose(file);
     }

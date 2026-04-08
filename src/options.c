@@ -26,6 +26,9 @@ struct options* options_init() {
     options->q_size = 2 * 4096 * 1024;
     options->q_alpha = .5;
 
+    // local_trim
+    options->use_checker_comm_files = false;
+
     return options;
 }
 
@@ -145,6 +148,10 @@ void options_print(struct options* options) {
     if (options->q_alpha) {
         add_str(op_list, &str_cap, " -q-alpha=");
         add_float(op_list, &str_cap, options->q_alpha);
+    }
+    if (options->use_checker_comm_files) {
+        add_str(op_list, &str_cap, " -use-checker-comm-files=");
+        add_u64(op_list, &str_cap, options->use_checker_comm_files);
     }
 
     palrup_utils_log(op_list);

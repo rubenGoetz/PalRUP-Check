@@ -12,6 +12,7 @@ int main(int argc, char *argv[]) {
         options_try_match_ul(argv[i], "-num-solvers=", &(options->num_solvers));
         options_try_match_ul(argv[i], "-write-buffer-KB=", &(options->write_buffer_size));
         options_try_match_ul(argv[i], "-redist-strat=", &(options->redist_strat));
+        options_try_match_bool(argv[i], "-use-checker-comm-files=", &(options->use_checker_comm_files));
     }
     
     options_buffer_sizes_to_bytes(options);
