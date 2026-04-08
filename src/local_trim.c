@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 #include "local_trim.h"
 #include "utils/palrup_utils.h"
@@ -40,10 +41,11 @@ bool expect_empty_clause;
 struct int_vec* lits_buffer;
 struct u64_vec* hints_buffer;
 struct u8_vec* write_buffer;
+struct u8_vec* delete_line;
 
 bool hold = false;
 
-static void write_line_backwards(struct back_file_reader* bfr, u64 idx) {
+static void write_line_backwards(u64 idx) {
     assert(idx <= bfr->read_idx);
 
     // write as much data as possible into buffer
@@ -61,6 +63,24 @@ static void write_line_backwards(struct back_file_reader* bfr, u64 idx) {
     // write rest of line into buffer
     while (bfr->read_idx >= idx && bfr->read_idx != (u64)-1 )
         write_buffer->data[write_buffer->size++] = bfr->buffer->data[bfr->read_idx--];
+}
+
+static void write_delete_line() {
+    lt_stats.added_lines++;
+
+    // write as much data as possible
+    u64 to_write = MIN((long)delete_line->size, (long)(write_buffer->capacity - write_buffer->size));
+    memcpy(write_buffer->data + write_buffer->size, delete_line->data, to_write);
+    write_buffer->size += to_write;
+    
+    // flush buffer if necessary
+    if (write_buffer->size == write_buffer->capacity) {
+        palrup_utils_write_objs(write_buffer->data, 1, write_buffer->size, out_file);
+        write_buffer->size = 0;
+    }
+
+    // write rest of deleline into buffer
+    memcpy(write_buffer->data + write_buffer->size, delete_line->data + to_write, delete_line->size - to_write);
 }
 
 // TODO: make inplace
@@ -184,6 +204,7 @@ void local_trim_init(struct options* options) {
     lits_buffer = int_vec_init(16);
     hints_buffer = u64_vec_init(16);
     write_buffer = u8_vec_init(options->write_buffer_size);
+    delete_line = u8_vec_init(16);
     lt_stats = local_trim_stats_init;
 
     // init strat specific data structures
@@ -216,7 +237,7 @@ void local_trim_run() {
         case TRUSTED_CHK_CLS_IMPORT:
             id = back_file_reader_decode_sl(bfr, line_idx+1);
             if (hash_table_find(marked_clauses, id)) {
-                write_line_backwards(bfr, line_idx);
+                write_line_backwards(line_idx);
                 hash_table_delete_last_found(marked_clauses);
                 lt_stats.kept_lines++;
             }
@@ -228,19 +249,31 @@ void local_trim_run() {
                 hash_table_delete_last_found(marked_clauses);
                 u64 hint_idx = bfr->read_idx;
 
-                write_line_backwards(bfr, line_idx);
-                bfr->read_idx = hint_idx;
-
                 // mark hints
                 back_file_reader_vbl_sl(bfr);   // skip 0
+                u8_vec_resize(delete_line, 1);
+                delete_line->data[0] = 0;
                 while (true) {
+                    u64 tmp_idx = bfr->read_idx;
                     u64 hint = back_file_reader_vbl_sl(bfr);
                     if (hint == 0)
                         break;
                     if (hash_table_insert(marked_clauses, hint, SENTINEL)) {
-                        // TODO: write delete line for new hints
+                        // ID was last used here and can thus be deleted
+                        while (tmp_idx > bfr->read_idx)
+                            u8_vec_push(delete_line, bfr->buffer->data[tmp_idx--]);
                     }
                 }
+
+                // write delete line
+                if (delete_line->size > 1) {
+                    u8_vec_push(delete_line, 'd');
+                    write_delete_line();
+                }
+
+                // write add line
+                bfr->read_idx = hint_idx;
+                write_line_backwards(line_idx);
 
                 lt_stats.kept_lines++;
             } else if (expect_empty_clause) {
@@ -254,7 +287,7 @@ void local_trim_run() {
                 snprintf(palrup_utils_msgstr, MSG_LEN, "Found empty clause with id %lu.", id);
                 palrup_utils_log(palrup_utils_msgstr);
                 u64 hint_idx = bfr->read_idx;
-                write_line_backwards(bfr, line_idx);
+                write_line_backwards(line_idx);
                 bfr->read_idx = hint_idx;
 
                 // mark hints
@@ -297,6 +330,7 @@ void local_trim_end() {
     int_vec_free(lits_buffer);
     u64_vec_free(hints_buffer);
     u8_vec_free(write_buffer);
+    u8_vec_free(delete_line);
 
     print_stats();
 }
