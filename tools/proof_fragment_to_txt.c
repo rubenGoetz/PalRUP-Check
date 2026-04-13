@@ -38,14 +38,19 @@ static inline void read_hints(int nb_hints) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
+    if (argc == 2) {
+        // INIT
+        PATH_IN = argv[1];
+        PATH_OUT = palrup_utils_malloc(1024 * sizeof(char));
+        snprintf(PATH_OUT, 1024, "%s.txt", PATH_IN);
+        printf("* Set outpath to %s\n", PATH_OUT);
+    } else if (argc == 3) {
+        PATH_IN = argv[1];
+        PATH_OUT = argv[2];
+    } else {
         printf("* [ERROR] Need arguments <path_in> and <path_out>. ABORT.\n");
         abort();
     }
-    
-    // INIT
-    PATH_IN = argv[1];
-    PATH_OUT = argv[2];
 
     // open files
     FILE* input = fopen(PATH_IN, "rb");
@@ -149,7 +154,7 @@ int main(int argc, char *argv[]) {
             nb_deleted += nb_hints;
 
         } else {
-            printf("* [ERROR] Invalid directive %d", c);
+            printf("* [ERROR] Invalid directive %d\n", c);
             break;
         }
     }
