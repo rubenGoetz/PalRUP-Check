@@ -73,7 +73,7 @@ void import_extractor_init(struct options* options) {
     ie_pal_id = options->pal_id;
 
     // open proof fragment
-    char frag_path[512];
+    char frag_path[1024];
     snprintf(frag_path, 1024, "%s/%lu/%lu/out.palrup",
              options->palrup_path,
              options->pal_id / palrup_utils_calc_root_ceil(ie_num_solvers),

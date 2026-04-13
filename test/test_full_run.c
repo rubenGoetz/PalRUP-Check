@@ -30,23 +30,23 @@ static void mv_proof_trim() {
     printf("   * create proof trim\n");
     char cmd[512];
     snprintf(cmd, 512, "rm -r \"%s\" >/dev/null", PROOFS_TRIM_DIR);
-    system(cmd);
+    do_assert(!system(cmd));
 
     snprintf(cmd, 512, "for x in %s/r3unsat_300/*/*/out.palrup.trim; do dir=\"%s/r3unsat_300/\"; y=${x%%.trim}; y=${y#$dir}; mkdir -p \"%s/${y%%/out.palrup}\"; mv $x %s/$y; done >/dev/null",
              PROOFS_DIR, PROOFS_DIR, PROOFS_TRIM_DIR, PROOFS_TRIM_DIR);
-    system(cmd);
+    do_assert(!system(cmd));
 }
 
 static void clean_working() {
     printf("   * clean up working dir\n");
     char cmd[512];
     snprintf(cmd, 512, "rm -r %s 2>/dev/null", WORKING_DIR);
-    system(cmd);
+    do_assert(!system(cmd));
 
     for (size_t i = 0; i < comm_size; i++) {
         int dir_hierarchy = i / palrup_utils_calc_root_ceil(NUM_SOLVERS);
         snprintf(cmd, 512, "mkdir -p %s/%i/%lu", WORKING_DIR, dir_hierarchy, i);
-        system(cmd);
+        do_assert(!system(cmd));
     }
 }
 
@@ -87,6 +87,7 @@ static void run_trim() {
         do_assert(!res);
     }
 
+    printf("   * run local trim\n");
     for (size_t i = 0; i < NUM_SOLVERS; i++) {
         snprintf(cmd, 1024, "./palrup_local_trim -palrup-path=%s/r3unsat_300 -working-path=%s -num-solvers=%i -pal-id=%lu >/dev/null",
                  PROOFS_DIR, WORKING_DIR, NUM_SOLVERS, i);
