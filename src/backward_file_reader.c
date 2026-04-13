@@ -55,6 +55,7 @@ bool back_file_reader_eof(struct back_file_reader* bfr) {
 
 // TODO: make uncoded binary readable
 
+// TODO: decode backwards
 char back_file_reader_decode_char(struct back_file_reader* bfr, u64 idx) {
     return bfr->buffer->data[idx];
 }

@@ -81,34 +81,60 @@ static void write_delete_line() {
 
     // write rest of deleline into buffer
     memcpy(write_buffer->data + write_buffer->size, delete_line->data + to_write, delete_line->size - to_write);
+    write_buffer->size += delete_line->size - to_write;
 }
 
-// TODO: make inplace
 static void reverse_outfile() {
-    FILE* out_file_rev = fopen(out_file_path, "wb");
-    if (!out_file_rev) {
-        snprintf(palrup_utils_msgstr, MSG_LEN, "could not open file at %s", out_file_path);
-        palrup_utils_log_err(palrup_utils_msgstr);
-        abort();
+    // (re)open file streams unbuffered
+    fclose(out_file);
+    u64 cap = write_buffer->capacity;
+    char path [1024];
+    snprintf(path, 1024, "%s~", out_file_path);
+    out_file = fopen(path, "rb+");
+    setvbuf(out_file, NULL, _IONBF, 0);
+    fseek(out_file, 0, SEEK_END);
+    FILE* out_file_rev = fopen(path, "rb+");
+    setvbuf(out_file_rev, NULL, _IONBF, 0);
+    struct u8_vec* write_buffer_rev = u8_vec_init(cap);
+
+    u64 file_size = ftell(out_file);
+    u64 reads = (file_size / 2) / cap;
+    u8 tmp;
+    for (size_t i = 0; i < reads; i++) {
+        // read blocks
+        palrup_utils_read_objs(write_buffer_rev->data, 1, cap, out_file_rev);
+        fseek(out_file_rev, -cap, SEEK_CUR);
+        fseek(out_file, -cap, SEEK_CUR);
+        palrup_utils_read_objs(write_buffer->data, 1, cap, out_file);
+        fseek(out_file, -cap, SEEK_CUR);
+        printf(" [READ] ftell(rev):%li ftell(out):%li", ftell(out_file_rev), ftell(out_file));
+
+        // reverse blocks
+        for (size_t i = 0; i < cap; i++) {
+            tmp = write_buffer_rev->data[i];
+            write_buffer_rev->data[i] = write_buffer->data[cap - 1 - i];
+            write_buffer->data[cap - 1 - i] = tmp;
+        }
+
+        // write blocks
+        palrup_utils_write_objs(write_buffer->data, 1, cap, out_file);
+        palrup_utils_write_objs(write_buffer_rev->data, 1, cap, out_file_rev);
+        fseek(out_file, -cap, SEEK_CUR);
     }
+    
+    // handle overlap
+    long overlap_size = (long)(ftell(out_file) - ftell(out_file_rev));
+    u8_vec_resize(write_buffer, overlap_size);
+    u8_vec_resize(write_buffer_rev, overlap_size);
+    palrup_utils_read_objs(write_buffer->data, sizeof(u8), overlap_size, out_file_rev);
+    fseek(out_file_rev, -overlap_size, SEEK_CUR);
 
-    struct u8_vec* read_buffer = u8_vec_init(write_buffer->capacity);
-    write_buffer->size = 0;
+    for (long i = 0; i < overlap_size; i++)
+        write_buffer_rev->data[overlap_size - 1 - i] = write_buffer->data[i];    
+    palrup_utils_write_objs(write_buffer_rev->data, sizeof(u8), overlap_size, out_file_rev);
 
-    while (ftell(out_file) > 0) {
-        size_t to_read = MIN(read_buffer->capacity, (u64)ftell(out_file));
-        fseek(out_file, -to_read, SEEK_CUR);
-        palrup_utils_read_objs(read_buffer->data, 1, to_read, out_file);
-        fseek(out_file, -to_read, SEEK_CUR);
-
-        for (size_t i = 0; i < to_read; i++)
-            write_buffer->data[i] = read_buffer->data[to_read - 1 - i];
-        
-        palrup_utils_write_objs(write_buffer->data, 1, to_read, out_file_rev);
-    }
-
+    u8_vec_free(write_buffer_rev);
     fclose(out_file_rev);
-    u8_vec_free(read_buffer);
 }
 
 static void print_stats() {
@@ -200,7 +226,7 @@ static void init_strat_3(struct options* options) {
 
 void local_trim_init(struct options* options) {
     // read proof and open proof.trim
-    char frag_path[512];
+    char frag_path[1024];
     snprintf(frag_path, 1024, "%s/%lu/%lu/out.palrup",
              options->palrup_path,
              options->pal_id / palrup_utils_calc_root_ceil(options->num_solvers),
@@ -336,15 +362,15 @@ void local_trim_end() {
     // finish out_file
     palrup_utils_write_objs(write_buffer->data, 1, write_buffer->size, out_file);
     reverse_outfile();
+    fclose(out_file);
     char tmp_file_path[1024];
     snprintf(tmp_file_path, 1024, "%s~", out_file_path);
-    remove(tmp_file_path);
+    rename(tmp_file_path, out_file_path);
 
     // free
     free(out_file_path);
     back_file_reader_free(bfr);
     hash_table_light_free(marked_clauses);
-    fclose(out_file);
     int_vec_free(lits_buffer);
     u64_vec_free(hints_buffer);
     u8_vec_free(write_buffer);
