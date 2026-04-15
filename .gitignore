@@ -1,6 +1,8 @@
 .vscode
+.venv
 build
 working
 *.hash
 *.txt
 *.pdf
+__pycache__
