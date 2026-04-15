@@ -46,8 +46,6 @@ def plot_square(df,
 ## SAT_2026_PALRUP ##
 #####################
 
-# TODO: update
-
 def plot_solved_over_time(dfs, labels,
                           column_to_plot='runtime_solve',
                           figsize=[5.5, 2.75],
