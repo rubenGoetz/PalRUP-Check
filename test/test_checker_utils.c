@@ -11,34 +11,6 @@
 
 // ----- UTIL -----
 
-static int* generate_sorted_array(int factor) {
-    printf("   * create array of sorted integers\n");
-    int* a = palrup_utils_calloc(DEFAULT_ELEM_COUNT, sizeof(int));
-    for (size_t i = 0; i < DEFAULT_ELEM_COUNT; i++)
-        a[i] = i - (DEFAULT_ELEM_COUNT / 2) * factor;
-    return a;
-}
-
-static int* generate_copy_array(int* a) {
-    printf("   * create copy of array\n");
-    int* b = palrup_utils_calloc(DEFAULT_ELEM_COUNT, sizeof(int));
-    memcpy(b, a , DEFAULT_ELEM_COUNT * sizeof(int));
-    return b;
-}
-
-static int* generate_shuffled_copy_array(int* a) {
-    printf("   * create shuffled copy of array\n");
-    int* b = palrup_utils_calloc(DEFAULT_ELEM_COUNT, sizeof(int));
-    memcpy(b, a, DEFAULT_ELEM_COUNT * sizeof(int));
-    for (size_t i = DEFAULT_ELEM_COUNT - 1; i > 0; i--) {
-        size_t j = (size_t) (drand48()*(i+1));
-        int t = b[j];
-        b[j] = b[i];
-        b[i] = t;
-    }
-    return b;
-}
-
 static u8* generate_sig() {
     printf("   * generate signature\n");
     u8* sig = (u8*)palrup_utils_malloc(SIG_SIZE_BYTES);
@@ -88,7 +60,7 @@ static void test_checker_utils_equal_signatures() {
 
 static void test_bin_search() {
     size_t elem_count = DEFAULT_ELEM_COUNT;
-    int* a = generate_sorted_array(3);
+    int* a = generate_sorted_array(elem_count, 3);
 
     printf("   * try to find every element in array\n");
     for (size_t i = 0; i < elem_count; i++)
@@ -114,9 +86,9 @@ static void test_bin_search() {
 
 static void test_checker_utils_compare_lits() {
     size_t elem_count = DEFAULT_ELEM_COUNT;
-    int* a = generate_sorted_array(1);
-    int* b = generate_copy_array(a);
-    int* c = generate_shuffled_copy_array(a);
+    int* a = generate_sorted_array(elem_count, 1);
+    int* b = generate_copy_array(elem_count, a);
+    int* c = generate_shuffled_copy_array(elem_count, a);
 
     printf("   * check comparison between arrays\n");
     do_assert(checker_utils_compare_lits(a, b, elem_count, elem_count));
@@ -133,8 +105,8 @@ static void test_checker_utils_compare_lits() {
 
 static void test_checker_utils_compare_semi_sorted_lits() {
     size_t elem_count = DEFAULT_ELEM_COUNT;
-    int* a = generate_sorted_array(1);
-    int* b = generate_shuffled_copy_array(a);
+    int* a = generate_sorted_array(elem_count, 1);
+    int* b = generate_shuffled_copy_array(elem_count, a);
 
     printf("   * check comparison between arrays\n");
     do_assert(checker_utils_compare_semi_sorted_lits(a, b, elem_count, elem_count));

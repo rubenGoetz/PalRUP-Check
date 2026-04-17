@@ -172,3 +172,9 @@ void hash_table_free(struct hash_table* ht) {
     free(ht->data);
     free(ht);
 }
+
+// doeas not free contained elements
+void hash_table_light_free(struct hash_table* ht) {
+    free(ht->data);
+    free(ht);
+}
