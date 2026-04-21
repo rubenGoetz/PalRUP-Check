@@ -147,7 +147,7 @@ void palrup_tracer_log_clause_addition(struct palrup_tracer* tracer, const unsig
     write_char(tracer, 0);
     write_endline(tracer);
 }
-void palrup_tracer_log_clause_import(struct palrup_tracer* tracer, unsigned long id, int nb_lits, int* lits) {
+void palrup_tracer_log_clause_import(struct palrup_tracer* tracer, const unsigned long id, const int nb_lits, const int* lits) {
     // Write delete line if necessary
     write_deletes(tracer);
     
@@ -159,10 +159,11 @@ void palrup_tracer_log_clause_import(struct palrup_tracer* tracer, unsigned long
     write_char(tracer, 0);
     write_endline(tracer);
 }
-void palrup_tracer_log_clause_deletion(struct palrup_tracer* tracer, unsigned long id) {
+void palrup_tracer_log_clause_deletion(struct palrup_tracer* tracer, const unsigned long id) {
     // store id for next delete line
     unsigned long ext_id = (unsigned long)hash_table_find(tracer->H, id);
-    ext_id = ext_id ? ext_id : id;  // keep original & unknown ids
+    if (ext_id) hash_table_delete_last_found(tracer->H);    // id is no longer needed
+    else ext_id = id;   // keep original & unknown ids
     assert(ext_id > 0);
     u64_vec_push(tracer->deletes, ext_id);
 }

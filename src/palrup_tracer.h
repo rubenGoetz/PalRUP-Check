@@ -19,5 +19,5 @@ void palrup_tracer_free(struct palrup_tracer* tracer);
 
 unsigned long palrup_tracer_next_id(struct palrup_tracer* tracer, const int nb_hints, const unsigned long* ext_hints);
 void palrup_tracer_log_clause_addition(struct palrup_tracer* tracer, const unsigned long id, const int nb_lits, const int* lits, const int nb_hints, const unsigned long* hints);
-void palrup_tracer_log_clause_import(struct palrup_tracer* tracer, unsigned long id, int nb_lits, int* lits);
-void palrup_tracer_log_clause_deletion(struct palrup_tracer* tracer, unsigned long id);
+void palrup_tracer_log_clause_import(struct palrup_tracer* tracer, const unsigned long id, const int nb_lits, const int* lits);
+void palrup_tracer_log_clause_deletion(struct palrup_tracer* tracer, const unsigned long id);

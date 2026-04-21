@@ -1,4 +1,7 @@
 
+#ifndef _PalRUPTracer_h
+#define _PalRUPTracer_h
+
 // C++ wrapper for the PalRUP-Tracer library to log PalRUP proof fragments in a clause sharing solver
 // 
 // How to use:
@@ -11,7 +14,7 @@
 #include <vector>
 
 extern "C" {
-   #include "palrup_tracer.h"
+    #include "palrup_tracer.h"
 }
 
 class PalRUPTracer {
@@ -25,19 +28,21 @@ class PalRUPTracer {
             const unsigned long num_solvers) : tracer(palrup_tracer_init(nb_orig_clauses, use_binary, fragment_path.c_str(), solver_id, num_solvers)) {};
         ~PalRUPTracer() { palrup_tracer_free(this->tracer); };
         
-        unsigned long next_id(const int nb_hints, const std::vector<unsigned long> ext_hints) {
+        unsigned long next_id(const int nb_hints, const std::vector<unsigned long> &ext_hints) {
             return palrup_tracer_next_id(this->tracer, nb_hints, ext_hints.data());
         };
 
-        void log_clause_addition(const unsigned long id, const std::vector<int> lits, const std::vector<unsigned long> hints) {
+        void log_clause_addition(const unsigned long id, const std::vector<int> &lits, const std::vector<unsigned long> &hints) {
             palrup_tracer_log_clause_addition(this->tracer, id, lits.size(), lits.data(), hints.size(), hints.data());
         };
 
-        void log_clause_import(unsigned long id, std::vector<int> lits) {
+        void log_clause_import(const unsigned long id, const std::vector<int> &lits) {
             palrup_tracer_log_clause_import(this->tracer, id, lits.size(), lits.data());
         };
 
-        void log_clause_deletion(unsigned long id) {
+        void log_clause_deletion(const unsigned long id) {
             palrup_tracer_log_clause_deletion(this->tracer, id);
         };
 };
+
+#endif
