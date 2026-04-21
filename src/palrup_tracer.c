@@ -29,7 +29,10 @@ struct palrup_tracer* palrup_tracer_init(const unsigned long nb_orig_clauses, co
     tracer->nb_orig_clauses = nb_orig_clauses;
     tracer->solver_id = solver_id;
     tracer->num_solvers = nb_solvers;
-    tracer->last_id = nb_orig_clauses - (nb_orig_clauses % nb_solvers) + solver_id;
+    tracer->last_id = nb_orig_clauses;
+    long offset = solver_id - (tracer->last_id % nb_solvers);
+    if (offset < 0) offset += nb_solvers;
+    tracer->last_id += offset;
     tracer->use_binary = use_binary;
     if (tracer->use_binary) tracer->proof_fragment = fopen(fragment_path, "wb");
     else tracer->proof_fragment = fopen(fragment_path, "w");
@@ -38,6 +41,13 @@ struct palrup_tracer* palrup_tracer_init(const unsigned long nb_orig_clauses, co
     tracer->deletes = u64_vec_init(16);
     
     return tracer;
+}
+// sets last_id to next viable id from initial_id. Used e.g. if traced has to be initialized befor formula is read.
+void palrup_tracer_init_last_id(struct palrup_tracer* tracer, unsigned long initial_id) {
+    tracer->last_id = initial_id;
+    long offset = tracer->solver_id - (tracer->last_id % tracer->num_solvers);
+    if (offset < 0) offset += tracer->num_solvers;
+    tracer->last_id += offset;
 }
 void palrup_tracer_free(struct palrup_tracer* tracer) {
     fclose(tracer->proof_fragment);
@@ -80,7 +90,10 @@ static inline void write_endline(struct palrup_tracer* tracer) {
     if (!tracer->use_binary) fprintf(tracer->proof_fragment, "\n");
 }
 
-// TODO: make efficient
+unsigned long palrup_tracer_last_id(struct palrup_tracer* tracer) {
+    return tracer->last_id;
+}
+// TODO: make more efficient?
 // returns next clause ID for solver and transforms hints 
 unsigned long palrup_tracer_next_id(struct palrup_tracer* tracer, const int nb_hints, const unsigned long* ext_hints) {
     // ID calculation variables:

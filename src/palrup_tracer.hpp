@@ -14,7 +14,17 @@
 #include <vector>
 
 extern "C" {
-    #include "palrup_tracer.h"
+    struct palrup_tracer;
+
+    struct palrup_tracer* palrup_tracer_init(const unsigned long nb_orig_clauses, const bool use_binary, const char* fragment_path, const unsigned long solver_id, const unsigned long num_solvers);
+    void palrup_tracer_init_last_id(struct palrup_tracer* tracer, unsigned long initial_id);
+    void palrup_tracer_free(struct palrup_tracer* tracer);
+
+    unsigned long palrup_tracer_last_id(struct palrup_tracer* tracer);
+    unsigned long palrup_tracer_next_id(struct palrup_tracer* tracer, const int nb_hints, const unsigned long* ext_hints);
+    void palrup_tracer_log_clause_addition(struct palrup_tracer* tracer, const unsigned long id, const int nb_lits, const int* lits, const int nb_hints, const unsigned long* hints);
+    void palrup_tracer_log_clause_import(struct palrup_tracer* tracer, const unsigned long id, const int nb_lits, const int* lits);
+    void palrup_tracer_log_clause_deletion(struct palrup_tracer* tracer, const unsigned long id);
 }
 
 class PalRUPTracer {
@@ -28,6 +38,14 @@ class PalRUPTracer {
             const unsigned long num_solvers) : tracer(palrup_tracer_init(nb_orig_clauses, use_binary, fragment_path.c_str(), solver_id, num_solvers)) {};
         ~PalRUPTracer() { palrup_tracer_free(this->tracer); };
         
+        void init_last_id(unsigned long initial_id) {
+            palrup_tracer_init_last_id(this->tracer, initial_id);
+        };
+
+        unsigned long get_last_id() {
+            return palrup_tracer_last_id(this->tracer);
+        };
+
         unsigned long next_id(const int nb_hints, const std::vector<unsigned long> &ext_hints) {
             return palrup_tracer_next_id(this->tracer, nb_hints, ext_hints.data());
         };
