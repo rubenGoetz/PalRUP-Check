@@ -6,6 +6,7 @@
 #include "../src/utils/define.h"
 #include "../src/hash.h"
 
+// Simulate C++ style std::vector
 #define TYPE u64
 #define TYPED(THING) u64_##THING
 #include "../src/vec.h"
@@ -13,20 +14,19 @@
 #undef TYPE
 
 struct palrup_tracer {
-    unsigned long nb_orig_clauses;
-    unsigned long solver_id;
-    unsigned long num_solvers;
-    unsigned long last_id;
-    bool use_binary;
-    FILE* proof_fragment;
-    struct hash_table* H;           // id mapping
+    unsigned long nb_orig_clauses;  // number of clauses in original formula
+    unsigned long solver_id;        // solver id for which the fragment is logged
+    unsigned long num_solvers;      // number of solver backends running in clause sharing solver
+    unsigned long last_id;          // last clause id that was generated
+    bool use_binary;                // trace proof fragment as binary or plain text
+    FILE* proof_fragment;           // file in which proof is written
+    struct hash_table* H;           // internal to external id mapping
     struct u64_vec* deletes;        // accumulates clause deletions to be written before next clause addition or import
 };
 
 struct palrup_tracer* palrup_tracer_init(const unsigned long nb_orig_clauses, const bool use_binary, const char* fragment_path, const unsigned long solver_id, const unsigned long nb_solvers) {
     struct palrup_tracer* tracer = (struct palrup_tracer*)malloc(sizeof(struct palrup_tracer));
     
-    tracer->nb_orig_clauses = nb_orig_clauses;
     tracer->solver_id = solver_id;
     tracer->num_solvers = nb_solvers;
     tracer->last_id = nb_orig_clauses;
@@ -42,7 +42,6 @@ struct palrup_tracer* palrup_tracer_init(const unsigned long nb_orig_clauses, co
     
     return tracer;
 }
-// sets last_id to next viable id from initial_id. Used e.g. if traced has to be initialized befor formula is read.
 void palrup_tracer_init_last_id(struct palrup_tracer* tracer, unsigned long initial_id) {
     tracer->last_id = initial_id;
     long offset = tracer->solver_id - (tracer->last_id % tracer->num_solvers);
@@ -56,6 +55,7 @@ void palrup_tracer_free(struct palrup_tracer* tracer) {
     free(tracer);
 }
 
+// Write different data types to the tracer's proof fragment. The format is dependent on use_binary
 static inline void write_char(struct palrup_tracer* tracer, char c) {
     if (tracer->use_binary) fputc(c, tracer->proof_fragment);
     else if (c == (char)0) fprintf(tracer->proof_fragment, " 0");
@@ -93,8 +93,6 @@ static inline void write_endline(struct palrup_tracer* tracer) {
 unsigned long palrup_tracer_last_id(struct palrup_tracer* tracer) {
     return tracer->last_id;
 }
-// TODO: make more efficient?
-// returns next clause ID for solver and transforms hints 
 unsigned long palrup_tracer_next_id(struct palrup_tracer* tracer, const int nb_hints, const unsigned long* ext_hints) {
     // ID calculation variables:
     //    v         v      vialble IDs
@@ -114,7 +112,7 @@ unsigned long palrup_tracer_next_id(struct palrup_tracer* tracer, const int nb_h
     unsigned long t = tracer->num_solvers - (o % tracer->num_solvers);
 
     // calculate next id
-    unsigned long next_id = tracer->last_id + o + (t % tracer->num_solvers);
+    unsigned long next_id = tracer->last_id + o + (t % tracer->num_solvers);    // TODO: make more efficient?
 
     assert(next_id > tracer->last_id);
     assert(next_id % tracer->num_solvers == tracer->solver_id);
@@ -123,6 +121,7 @@ unsigned long palrup_tracer_next_id(struct palrup_tracer* tracer, const int nb_h
     return next_id;
 }
 
+// Writes accumulated delete lines to tracer's proof fragment.
 static inline void write_deletes(struct palrup_tracer* tracer) {
     struct u64_vec* deletes = tracer->deletes;
     if (deletes->size) {
