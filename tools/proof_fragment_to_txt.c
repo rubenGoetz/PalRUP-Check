@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
             int_vec_resize(lits_buffer, 0);
             u64_vec_resize(hints_buffer, 0);
 
-            u64 id = (u64)file_reader_read_vbl_sl(reader);
+            u64 id = (u64)file_reader_read_vbl_ul(reader);
             siphash_update((u8*)&id, sizeof(u64));
             fprintf(output, "%c %lu", c, id);
 
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
             // parse hints
             int nb_hints = 0;
             while (true) {
-                u64 hint = (u64)file_reader_read_vbl_sl(reader);
+                u64 hint = (u64)file_reader_read_vbl_ul(reader);
                 fprintf(output, " %lu", hint);
                 if (!hint) break;
                 u64_vec_push(hints_buffer, hint);
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
             int_vec_resize(lits_buffer, 0);
 
-            u64 id = (u64)file_reader_read_vbl_sl(reader);
+            u64 id = (u64)file_reader_read_vbl_ul(reader);
             fprintf(output, "%c %lu", c, id);
             
             // parse lits
@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
             // parse hints
             int nb_hints = 0;
             while (true) {
-                u64 hint = (u64)file_reader_read_vbl_sl(reader);
+                u64 hint = (u64)file_reader_read_vbl_ul(reader);
                 fprintf(output, " %lu", hint);
                 if (!hint) break;
                 u64_vec_push(hints_buffer, hint);

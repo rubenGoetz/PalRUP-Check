@@ -79,7 +79,7 @@ void parse() {
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
             int_vec_resize(proof_lits, 0);
-            u64 id = (u64)file_reader_read_vbl_sl(proof_reader);
+            u64 id = (u64)file_reader_read_vbl_ul(proof_reader);
             siphash_cls_update(proof_check_hash, (u8*)&id, sizeof(u64));
             
             // parse lits
@@ -94,7 +94,7 @@ void parse() {
             
             // skip hints
             while (true) {
-                u64 hint = file_reader_read_vbl_sl(proof_reader);
+                u64 hint = file_reader_read_vbl_ul(proof_reader);
                 if (!hint) break;
             }
 
@@ -121,7 +121,7 @@ void parse() {
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
             // skip id
-            file_reader_read_vbl_sl(proof_reader);
+            file_reader_read_vbl_ul(proof_reader);
 
             // skip lits
             while (true) {
@@ -132,7 +132,7 @@ void parse() {
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
             // skip hints
             while (true) {
-                u64 hint = (u64)file_reader_read_vbl_sl(proof_reader);
+                u64 hint = (u64)file_reader_read_vbl_ul(proof_reader);
                 if (!hint) break;
             }
             

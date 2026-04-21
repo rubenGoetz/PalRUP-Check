@@ -131,13 +131,13 @@ static void parse() {
             int_vec_resize(buf_lits, 0);
             u64_vec_resize(buf_hints, 0);
             
-            u64 id = (u64)file_reader_read_vbl_sl(proof);
+            u64 id = (u64)file_reader_read_vbl_ul(proof);
             siphash_cls_update(clause_hash, (u8*)&id, sizeof(u64));
 
             // Starting point of assigned ids
             if (id <= (u64)nb_clauses) {
                 char msg[523];
-                snprintf(msg, 512, "Learned clause has ID lower that original formula. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
+                snprintf(msg, 512, "Learned clause has ID lower than original formula. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
                 palrup_utils_log_err(msg);
                 exit(1);
             }
@@ -172,7 +172,7 @@ static void parse() {
             // parse hints
             int nb_hints = 0;
             while (true) {
-                u64 hint = (u64)file_reader_read_vbl_sl(proof);
+                u64 hint = (u64)file_reader_read_vbl_ul(proof);
                 if (!hint) break;
                 u64_vec_push(buf_hints, hint);
                 nb_hints++;
@@ -202,12 +202,12 @@ static void parse() {
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
             int_vec_resize(buf_lits, 0);
 
-            u64 id = (u64)file_reader_read_vbl_sl(proof);
+            u64 id = (u64)file_reader_read_vbl_ul(proof);
 
             // Check ID against original formula
             if (id <= (u64)nb_clauses) {
                 char msg[523];
-                snprintf(msg, 512, "Learned clause has ID lower that original formula. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
+                snprintf(msg, 512, "Learned clause has ID lower than original formula. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
                 palrup_utils_log_err(msg);
                 exit(1);
             }
@@ -239,7 +239,7 @@ static void parse() {
             // parse hints
             int nb_hints = 0;
             while (true) {
-                u64 hint = (u64)file_reader_read_vbl_sl(proof);
+                u64 hint = (u64)file_reader_read_vbl_ul(proof);
                 if (!hint) break;
                 u64_vec_push(buf_hints, hint);
                 nb_hints++;
