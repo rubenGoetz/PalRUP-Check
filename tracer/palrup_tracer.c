@@ -3,12 +3,12 @@
 #include <assert.h>
 
 #include "palrup_tracer.h"
-#include "utils/define.h"
-#include "hash.h"
+#include "../src/utils/define.h"
+#include "../src/hash.h"
 
 #define TYPE u64
 #define TYPED(THING) u64_##THING
-#include "vec.h"
+#include "../src/vec.h"
 #undef TYPED
 #undef TYPE
 

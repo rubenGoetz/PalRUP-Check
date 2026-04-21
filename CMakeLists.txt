@@ -65,18 +65,18 @@ target_link_libraries(clause_finder m import_merger)
 
 add_library(palrup_tracer STATIC
             src/utils/palrup_utils.c
-            src/palrup_tracer.c
             src/hash.c
             src/vectors.c
-            src/file_reader.c)
+            src/file_reader.c
+            tracer/palrup_tracer.c)
 
 add_library(palrup_tracer_hpp STATIC
             src/utils/palrup_utils.c
-            src/palrup_tracer.hpp
-            src/palrup_tracer.c
             src/hash.c
             src/vectors.c
-            src/file_reader.c)
+            src/file_reader.c
+            tracer/palrup_tracer.c
+            tracer/palrup_tracer.hpp)
 set_target_properties(palrup_tracer_hpp PROPERTIES LINKER_LANGUAGE CXX)
 
 # Executables

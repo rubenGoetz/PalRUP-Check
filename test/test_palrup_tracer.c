@@ -5,7 +5,7 @@
 
 #include "test_utils.h"
 #include "../src/hash.h"
-#include "../src/palrup_tracer.h"
+#include "../tracer/palrup_tracer.h"
 #include "../src/file_reader.h"
 
 #define TYPE u64
