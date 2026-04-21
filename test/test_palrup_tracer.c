@@ -21,7 +21,7 @@
 #undef TYPE
 
 #define NUM_SOLVERS 7
-#define NUM_ORIG_CLAUSES 100
+#define NUM_ORIG_CLAUSES 1280
 #define MAX_NUM_HINTS 50
 #define ID_COUNT 1000
 #define FRAGMENT_PATH "Testing/palrup_tracer_test"
@@ -29,6 +29,8 @@
 #define IMP_LINES 100
 #define MAX_LIT 999
 #define NUM_DELETIONS 15
+
+// TODO: add missing tests
 
 static void check_proof_fragment(size_t nb_expected_lines) {
     printf("   * check proof fragment syntax\n");
@@ -104,7 +106,7 @@ static void test_palrup_tracer_next_id() {
     printf("   * test plain id generation for solver ids [0, %u)\n", NUM_SOLVERS);
     for (size_t solver_id = 0; solver_id < NUM_SOLVERS; solver_id++) {
         struct palrup_tracer* tracer = palrup_tracer_init(NUM_ORIG_CLAUSES, true, FRAGMENT_PATH, solver_id, NUM_SOLVERS);
-        u64 new_id = 0, old_id = 0;
+        u64 new_id = 0, old_id = NUM_ORIG_CLAUSES;
         int nb_hints = 0;
         for (size_t i = 0; i < ID_COUNT; i++) {
             new_id = palrup_tracer_next_id(tracer, nb_hints, NULL);
