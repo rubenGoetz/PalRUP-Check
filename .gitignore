@@ -1,7 +1,9 @@
 .vscode
+.venv
 build
 working
 *.hash
 *.txt
 *.pdf
 *.trim
+__pycache__
