@@ -15,12 +15,15 @@ To use the PalRUP tracer library, integrate `palruo_tracer.h`/`palrup_tracer.hpp
 
 ## Case Study: CaDiCaL
 
-In the following we will outline how to extend the popular SAT-solver [CaDiCaL](https://github.com/arminbiere/cadical) to log PalRUP proof fragments by creating a new subclass of `Tracer` as an adapter to this library. We will call this Adapter `class ExampleTracer : public Tracer`:
+In the following we will outline how to extend the popular SAT-solver [CaDiCaL](https://github.com/arminbiere/cadical) to log PalRUP proof fragments by creating a new subclass of `FileTracer` as an adapter to this library. We will call this Adapter `class ExampleTracer : public FileTracer`:
 - extend ExampleTracer by an attribute `PalRUPTracer palrup_tracer`
 - extend `ExampleTracer()` to call `palrup_tracer = PalRUPTracer()` and `~ExampleTracer()` to call `~PalRUPTracer()`
 - if the ExampleTracer gets initialized before a formula is read, call `palrup_tracer_init_last_id()` after the formula is read to make sure no invalid IDs will be generated
-- extend `add_derived_clause()` to call `c_tracer.log_clause_addition()`
-- extend `delete_clause()` to call `c_tracer.log_clause_deletion()`
-- if CaDiCaL is integrated into a clasue sharing solver as a solver backend extend the respective clause import logic to call `c_tracer.log_clause_deletion()`
+- extend `add_derived_clause()` to call `palrup_tracer.log_clause_addition()`
+- extend `delete_clause()` to call `palrup_tracer.log_clause_deletion()`
+- if CaDiCaL is integrated into a clasue sharing solver as a solver backend extend the respective clause import logic to call `palrup_tracer.log_clause_deletion()`
+- Connect `ExampleTracer` to `solver` as shown in CaDiCaL's `example_tracer.cpp`.
+
+Note that the proof fragment file is owned by our PalRUP tracer library. Therefore it is not necessary to implement the ExampleTracer's inherited file logic.
 
 When building CaDiCaL `libpalrup_tracer_hpp.a` will have to be linked. Additionaly, the contents of `libpalrup_tracer_hpp.a` will have to be added to `libcadical.a` in the build process.
