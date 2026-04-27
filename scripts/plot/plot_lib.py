@@ -5,10 +5,6 @@ import math
 from matplotlib import rc
 from matplotlib import pyplot as plt
 
-###################
-## Generic Plots ##
-###################
-
 def plot_square(df,
                 xaxis='runtime_solve',
                 yaxis='runtime_check',
@@ -40,17 +36,15 @@ def plot_square(df,
     plt.grid()
     if filename:
         plt.savefig(filename, bbox_inches='tight')
-    plt.show()
 
-#####################
-## SAT_2026_PALRUP ##
-#####################
-
-def plot_solved_over_time(dfs, labels,
+def plot_CDF(dfs, labels,
                           column_to_plot='runtime_solve',
                           figsize=[5.5, 2.75],
                           line_styles=['-', '--'],
                           colors=['tab:blue', 'tab:blue', 'tab:orange', 'tab:orange'],
+                          xlim=None,
+                          ylim=None,
+                          show=False,
                           filename=None):
     if len(dfs) != len(labels):
         raise ValueError("dfs and labels need to be of same length")
@@ -62,15 +56,17 @@ def plot_solved_over_time(dfs, labels,
     # get xmax befor plots
     xmax = max([ max(df[df[column_to_plot].notnull()][column_to_plot]) for df in dfs ])
     ymax = max([ len(df[df[column_to_plot].notnull()]) - 1 for df in dfs ])
-    print('xmax', xmax)
-    print('ymax', ymax)
     
+    if xlim: xmax = xlim
+    if ylim: ymax = ylim
+
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot()
 
     for i in range(0, len(dfs)):
         df = dfs[i].sort_values(column_to_plot)
         df = df[df[column_to_plot].notnull()]
+        df = df[df[column_to_plot] <= xmax]
         label = labels[i]
 
         plt.plot(list(df[column_to_plot]) + [xmax],
@@ -84,14 +80,15 @@ def plot_solved_over_time(dfs, labels,
     ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')
     
     plt.xlabel('Runtime $t$ in s')
-    plt.ylabel('Solved instances in $\leq t$')
-    plt.xticks(range(0, math.ceil(xmax), 60))
+    plt.ylabel('\# solved instances in $\leq t$')
+    plt.xticks(range(0, math.ceil(xmax+1), 60))
     plt.grid()
     plt.legend()
     plt.tight_layout()
     if filename:
-        plt.savefig(filename)
-    plt.show()
+        plt.savefig(filename, bbox_inches='tight')
+    if show:
+        plt.show()
 
 def plot_tight_square(dfs,
                       labels='',
@@ -102,6 +99,7 @@ def plot_tight_square(dfs,
                 colors=['blue', 'orange', 'green', 'red'],
                 title='X Nodes',
                 figsize=[5.5, 2.75],
+                show=False,
                 filename=None):
     if len(dfs) != len(labels):
         raise ValueError("dfs and labels must have same length")
@@ -137,7 +135,6 @@ def plot_tight_square(dfs,
         _max = max(max(df[xaxis]),
                   max(check_time), _max)
     
-    print("_min:", _min, "_max:", _max)
     #ax.axis([_min, _max] * 2)
     ax.axis([_min, 300] * 2)
     plt.xscale('log')
@@ -150,7 +147,8 @@ def plot_tight_square(dfs,
     plt.grid()
     if filename:
         plt.savefig(filename, bbox_inches='tight')
-    plt.show()
+    if show:
+        plt.show()
 
 def plot_checker_components_runtime(dfs, titles,
                                     marks=['+', '.', 'x', '*'],
@@ -164,6 +162,7 @@ def plot_checker_components_runtime(dfs, titles,
                                     colors=['tab:blue', 'tab:red', 'tab:green', 'tab:cyan'],
                                     figsize=[5.5, 2.75],
                                     title='',
+                                    show=False,
                                     filename=None):
     if len(dfs) != len(titles):
         raise ValueError("dfs and titles must have same length")
@@ -206,12 +205,13 @@ def plot_checker_components_runtime(dfs, titles,
         ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
         ax.set_box_aspect(1)
 
-
-    fig.legend(labels=['runtime check']+labels, loc='center left', bbox_to_anchor=(1, 0.5), handlelength=.5)
-    if len(dfs) > 1: ax = axs[i]
-    else: ax = axs
-    ax.set(xlabel='Instances sorted by accumulated runtime')
+    fig.legend(labels=['WC runtime']+labels, loc='center left', bbox_to_anchor=(1, 0.5), handlelength=.5)
+    # only ceneters xlabel correctly for odd number of instances, whis is fine for our usecase
+    if len(dfs) > 1: ax = axs[int(len(dfs) / 2)]
+    else: ax = axs.set(xlabel='Instances sorted by Runtime')
+    ax.set(xlabel='Instances sorted by Runtime')
     fig.tight_layout()
     if filename:
        fig.savefig(filename, bbox_inches='tight')
-    fig.show()
+    if show:
+        plt.show()
