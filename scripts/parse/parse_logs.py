@@ -32,14 +32,11 @@ df = df.merge(get_checking_times(logs_path))
 print("* get validation times..")
 df = df.merge(get_validation_times(logs_path))
 
-print("* get avg itemized checking times..")
-df = df.merge(get_avg_itemized_checking_times(logs_path))
+print("   * get palrup success..")
+df = df.merge(get_success_palrup(logs_path))
 
-print("* get avg itemized waiting times..")
-df = df.merge(get_avg_itemized_waiting_times(logs_path))
-
-print("* get avg summed data sizes..")
-df = df.merge(get_summed_itemized_data_sizes(logs_path))
+print("* get pal info")
+df = df.merge(get_full_pal_info(logs_path, verbose=True))
 
 # make .csv of results
 print("* make .csv")
