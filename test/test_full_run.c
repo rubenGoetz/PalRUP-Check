@@ -145,8 +145,8 @@ int main(int argc, char const *argv[]) {
     printf("** run trim\n");
     run_trim();
 
-    printf("** run strat 3 with default params on trimmed proof\n");
-    run_strat3(PROOFS_TRIM_DIR);
+    //printf("** run strat 3 with default params on trimmed proof\n");
+    //run_strat3(PROOFS_TRIM_DIR);
 
     return 0;
 }

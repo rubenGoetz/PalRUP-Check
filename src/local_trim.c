@@ -152,7 +152,7 @@ static void mark_empty_clause(struct options* options) {
 
     // warn if no empty clause was found
     if (globbuf.gl_pathc == 0)
-        palrup_utils_log_warn("No empty clause waas found in local pass");
+        palrup_utils_log_warn("No empty clause was found in local pass");
 
     // get decisive pal_id with empty clasue
     u64 empty_pal_id = -1;
@@ -234,9 +234,9 @@ void local_trim_init(struct options* options) {
     FILE* input = fopen(frag_path, "rb");
     bfr = back_file_reader_init(input, options->read_buffer_size);
 
-    out_file_path = palrup_utils_malloc(1024);
-    snprintf(out_file_path, 1024, "%s.trim", frag_path);
-    snprintf(frag_path, 1024, "%s~", out_file_path);
+    out_file_path = palrup_utils_malloc(1025);
+    snprintf(out_file_path, 1029, "%s.trim", frag_path);
+    snprintf(frag_path, 1030, "%s~", out_file_path);
     out_file = fopen(frag_path, "wb+");
     if (!out_file) {
         snprintf(palrup_utils_msgstr, MSG_LEN, "could not open file at %s", out_file_path);

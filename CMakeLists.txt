@@ -1,8 +1,34 @@
 
 cmake_minimum_required(VERSION 3.11.4)
-project(palrup-checker)
+project(palrup-checker LANGUAGES C CXX)
 
-add_definitions("-std=gnu99 -Wall -Wextra -Werror -pedantic-errors -flto -lm") 
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_FLAGS "-Wcpp")
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_FLAGS "-Wall -Wextra -Werror -pedantic-errors -flto -flto -lm")
+
+#add_subdirectory(lib/briefkasten lib/briefkasten/build)
+include(FetchContent)
+FetchContent_Declare(BriefKAsten
+  GIT_REPOSITORY https://github.com/niklas-uhl/BriefKAsten
+  GIT_TAG v0.2.1
+)
+FetchContent_Declare(robin-map
+  GIT_REPOSITORY https://github.com/Tessil/robin-map
+  GIT_TAG v1.4.1
+)
+FetchContent_MakeAvailable(BriefKAsten)
+#find_package(MPI REQUIRED)
+add_executable(shenanigans
+               src/main_local_trim.cpp
+               src/local_trim.cpp
+               src/backward_file_reader.c
+               src/utils/palrup_utils.c
+               src/vectors.c)
+target_link_libraries(shenanigans BriefKAsten::BriefKAsten m)
+add_compile_definitions(KASSERT_ASSERTION_LEVEL=30) # silence warnings
+#target_compile_definitions(shenanigans PRIVATE "-")
 
 # Module Libraries
 

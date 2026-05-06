@@ -40,6 +40,7 @@ long back_file_reader_fill(struct back_file_reader* bfr) {
     bfr->read_idx = buffer->size - 1;
 
     fseek(file, -to_read, SEEK_CUR);
+    // TODO: fread seems to have problems if the buffer sizes are too small (~1KiB)
     u64 nb_read = UNLOCKED_IO(fread)(buffer->data, sizeof(u8), to_read, file);
     if (nb_read != (u64)to_read) {
         palrup_utils_log_err("Could not read file correctly");
