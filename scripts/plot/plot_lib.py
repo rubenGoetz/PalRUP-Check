@@ -2,14 +2,16 @@
 import itertools
 import math
 
+import statistics as stats
+
 from matplotlib import rc
 from matplotlib import pyplot as plt
 
 def plot_square(df,
                 xaxis='runtime_solve',
                 yaxis='runtime_check',
-                xlabel='solving time in s',
-                ylabel='checking time in s',
+                xlabel='Solving time in s',
+                ylabel='Checking time in s',
                 title='X Nodes',
                 mark='.',
                 filename=None):
@@ -45,6 +47,8 @@ def plot_CDF(dfs, labels,
                           xlim=None,
                           ylim=None,
                           show=False,
+                          legend_spacing=0,
+                          square=True,
                           filename=None):
     if len(dfs) != len(labels):
         raise ValueError("dfs and labels need to be of same length")
@@ -77,13 +81,14 @@ def plot_CDF(dfs, labels,
         
     
     ax.axis([0, xmax, 0, ymax])
-    ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')
+    if square:
+        ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')
     
     plt.xlabel('Runtime $t$ in s')
     plt.ylabel('\# solved instances in $\leq t$')
     plt.xticks(range(0, math.ceil(xmax+1), 60))
     plt.grid()
-    plt.legend()
+    plt.legend(labelspacing=legend_spacing)
     plt.tight_layout()
     if filename:
         plt.savefig(filename, bbox_inches='tight')
@@ -92,15 +97,16 @@ def plot_CDF(dfs, labels,
 
 def plot_tight_square(dfs,
                       labels='',
-                xaxis='runtime_solve',
-                xlabel='solving time in s',
-                ylabel='checking time in s',
-                marks=['+', '.', 'x', '*'],
-                colors=['blue', 'orange', 'green', 'red'],
-                title='X Nodes',
-                figsize=[5.5, 2.75],
-                show=False,
-                filename=None):
+                      xaxis='runtime_solve',
+                      xlabel='Solving time in s',
+                      ylabel='Checking time in s',
+                      marks=['+', '.', 'x', '*'],
+                      colors=['blue', 'orange', 'green', 'red'],
+                      title='',
+                      figsize=[5.5, 2.75],
+                      legend_spacing=0,
+                      show=False,
+                      filename=None):
     if len(dfs) != len(labels):
         raise ValueError("dfs and labels must have same length")
     
@@ -143,7 +149,7 @@ def plot_tight_square(dfs,
     plt.title(title)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), labelspacing=legend_spacing)
     plt.grid()
     if filename:
         plt.savefig(filename, bbox_inches='tight')
@@ -162,6 +168,7 @@ def plot_checker_components_runtime(dfs, titles,
                                     colors=['tab:blue', 'tab:red', 'tab:green', 'tab:cyan'],
                                     figsize=[5.5, 2.75],
                                     title='',
+                                    legend_spacing=0,
                                     show=False,
                                     filename=None):
     if len(dfs) != len(titles):
@@ -187,7 +194,7 @@ def plot_checker_components_runtime(dfs, titles,
         ax.plot(xrange,
                 df[overall_col],
                 next(mark_style),
-                label='overall runtime',
+                label='Overall Runtime',
                 markersize=3,
                 color=next(color))
         for (col, label) in zip(comp_cols, labels):
@@ -205,7 +212,7 @@ def plot_checker_components_runtime(dfs, titles,
         ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
         ax.set_box_aspect(1)
 
-    fig.legend(labels=['WC runtime']+labels, loc='center left', bbox_to_anchor=(1, 0.5), handlelength=.5)
+    fig.legend(labels=['WC runtime']+labels, loc='center left', bbox_to_anchor=(1, 0.5), handlelength=.5, labelspacing=legend_spacing)
     # only ceneters xlabel correctly for odd number of instances, whis is fine for our usecase
     if len(dfs) > 1: ax = axs[int(len(dfs) / 2)]
     else: ax = axs.set(xlabel='Instances sorted by Runtime')
@@ -213,5 +220,122 @@ def plot_checker_components_runtime(dfs, titles,
     fig.tight_layout()
     if filename:
        fig.savefig(filename, bbox_inches='tight')
+    if show:
+        plt.show()
+
+def plot_boxplots(dfs, columns_to_plot, labels,
+                  titles=[],
+                  figsize=[5.5, 2.75],
+                  show=False,
+                  filename=None):
+    if len(columns_to_plot) != len(labels):
+        raise ValueError("columns_to_plot needs to be of same length as labes")
+    
+    rc('text', usetex=True)
+    rc('font', family='serif')
+
+    fig, axs = plt.subplots(1, len(dfs), figsize=figsize)
+    titles += [''] * len(dfs)
+
+    for i in range(0, len(dfs)):
+        df = dfs[i]
+        if len(dfs) > 1: ax = axs[i]
+        else: ax = axs
+
+        data = []
+        for column in columns_to_plot:
+            data.append(df[df[column] > 0][column])
+
+        ax.boxplot(data,
+                   labels=labels,
+                   positions=[1/4, 2/4, 3/4])
+        #ax.yticks(ticks=[0,0.2,0.4,0.6,0.8,1],
+        #           labels=['0','0.2','0.4','0.6','0.8','1'])
+        ax.set_xticklabels(labels, rotation=40, ha='right')
+        ax.set(title=titles[i], xlim=[0, 1], ylim=[0,1])
+        ax.grid(axis='y')
+        ax.set_box_aspect(1)
+    
+    #plt.xticks(rotation=45, ha='right')
+    fig.tight_layout()
+    if filename:
+        fig.savefig(filename, bbox_inches='tight')
+    if show:
+        plt.show()
+
+def plot_scatter(dfs, labels,
+                 xaxis = 'runtime_solve',
+                 yaxis = 'proof_bytes',
+                 xlabel='Solving time in s',
+                 ylabel='Proof size in bytes',
+                 marks=['+', '.', 'x', '*'],
+                 colors=['blue', 'orange', 'green', 'red'],
+                 title='',
+                 figsize=[5.5, 2.75],
+                 show=False,
+                 xscale='log',
+                 xscale_base=10,
+                 yscale='log',
+                 yscale_base=10,
+                 xlim=None,
+                 ylim=None,
+                 square=True,
+                 legend_spacing=0,
+                 xticks=None,
+                 yticks=None,
+                 minor_ticks=False,
+                 plot_median=False,
+                 filename=None):
+    if len(dfs) != len(labels):
+        raise ValueError("labes has to be oof same length as dfs")
+    
+    mark_style = itertools.cycle(marks)
+    colors = itertools.cycle(colors)
+    rc('text', usetex=True)
+    rc('font', family='serif')
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot()
+
+    for i in range(0, len(dfs)):
+        df = dfs[i]
+        df = df[(df[xaxis].notnull()) & (df[yaxis].notnull())]
+        color = next(colors)
+
+        if plot_median:
+            median = stats.median([ y / x for x,y in zip(df[xaxis], df[yaxis]) ])
+            print(f"Median for {labels[i]}:",
+                  median, 'B,',
+                  median / 1024, 'KiB,',
+                  median / (1024**2), 'MiB,',
+                  median / (1024**3), 'GiB,')
+            xmed = [min(df[xaxis]), max(df[xaxis])]
+            if xlim: xmed = xlim
+            plt.plot(xmed,
+                     [ x * median for x in xmed ],
+                     color=color,
+                     alpha=.5)
+
+        plt.plot(df[xaxis],
+                 df[yaxis],
+                 next(mark_style),
+                 color=color,
+                 label=labels[i])
+    
+    plt.xscale(xscale, base=xscale_base)
+    plt.yscale(yscale, base=yscale_base)
+    if not minor_ticks:
+        plt.minorticks_off()
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    if xticks: plt.xticks(xticks)
+    if yticks: plt.yticks(yticks)
+    plt.grid(axis='y')
+    plt.legend(labelspacing=legend_spacing)
+    plt.title(title)
+    if square: ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')
+    if xlim: plt.xlim(xlim)
+    if ylim: plt.ylim(ylim)
+    if filename:
+        plt.savefig(filename, bbox_inches='tight')
     if show:
         plt.show()
