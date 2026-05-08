@@ -312,6 +312,7 @@ def plot_scatter(dfs, labels,
             if xlim: xmed = xlim
             plt.plot(xmed,
                      [ x * median for x in xmed ],
+                     '--',
                      color=color,
                      alpha=.5)
 
@@ -330,7 +331,7 @@ def plot_scatter(dfs, labels,
     if xticks: plt.xticks(xticks)
     if yticks: plt.yticks(yticks)
     plt.grid(axis='y')
-    plt.legend(labelspacing=legend_spacing)
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), labelspacing=legend_spacing)
     plt.title(title)
     if square: ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')
     if xlim: plt.xlim(xlim)

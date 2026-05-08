@@ -72,6 +72,7 @@ plots.plot_CDF(dfs=[cadical_solve_16, palrup_16, mono_16, cadical_solve_1, palru
                line_styles=['-', '--', ':', '-', '--', ':', '-.'],
                colors=['tab:red', 'tab:orange', 'tab:orange', 'darkblue', 'tab:blue', 'tab:blue', 'black'],
                xlim=300,
+               ylim=325,
                figsize=[2.8, 3],
                square=False,
                show=SHOW,
@@ -143,6 +144,6 @@ plots.plot_scatter([palrup_64, palrup_16, palrup_1, cadical_lrat],
                    xscale_base=2,
                    xticks=[ 2**i for i in range(0,9) ],
                    square=False,
-                   figsize=[4, 4],
+                   figsize=[2.75, 2.75],
                    plot_median=True,
-                   filename='throughput.pdf')
+                   filename='throughput.pdf')      
