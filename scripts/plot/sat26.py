@@ -34,9 +34,6 @@ def par2(df, timeout=300, N=400):
     nb_sat = len(df[df['result'] == 'SATISFIABLE'])
     nb_unsat = len(df[df['result'] == 'UNSATISFIABLE'])
 
-    #runtime_sat = sum(df[(df['result'] == 'SATISFIABLE') & (df['runtime_solve'].notnull())]['runtime_solve'])
-    #runtime_unsat = sum(df[(df['result'] == 'UNSATISFIABLE') & (df['runtime_solve'].notnull())]['runtime_solve'])
-
     runtime_sat = sum(df[df['result'] == 'SATISFIABLE']['runtime_solve'])
     runtime_unsat = sum(df[df['result'] == 'UNSATISFIABLE']['runtime_solve'])
 
@@ -67,10 +64,10 @@ print(table.astype(str).to_latex())
 
 
 # Fig. 5 left
-plots.plot_CDF(dfs=[cadical_solve_16, palrup_16, mono_16, cadical_solve_1, palrup_1, mono_1, cadical_lrat[cadical_lrat['runtime_solve'] <= 300]],
-               labels=['MallobSat-16', 'PalRUP-16', 'Mono-16', 'MallobSat-1', 'PalRUP-1', 'Mono-1', "CaDiCaL"],
+plots.plot_CDF(dfs=[palrup_64, cadical_solve_16, palrup_16, mono_16, cadical_solve_1, palrup_1, mono_1, cadical_lrat[cadical_lrat['runtime_solve'] <= 300]],
+               labels=['PalRUP-64', 'MallobSat-16', 'PalRUP-16', 'Mono-16', 'MallobSat-1', 'PalRUP-1', 'Mono-1', "CaDiCaL"],
                line_styles=['-', '--', ':', '-', '--', ':', '-.'],
-               colors=['tab:red', 'tab:orange', 'tab:orange', 'darkblue', 'tab:blue', 'tab:blue', 'black'],
+               colors=['black', 'tab:red', 'tab:orange', 'tab:orange', 'darkblue', 'tab:blue', 'tab:blue', 'black'],
                xlim=300,
                ylim=325,
                figsize=[2.8, 3],
