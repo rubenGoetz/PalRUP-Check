@@ -12,13 +12,10 @@ ProofTrimmer::ProofTrimmer(std::string proof_path, std::string working_path, u64
                 .with_splitter(briefkasten::aggregation::NoSplitter{})
                 .build(),
             briefkasten::GridIndirectionScheme{MPI_COMM_WORLD}}),
-    //proof_path(proof_path),
     working_path(working_path),
     delete_line(std::vector<u8>(16, 0)),
     write_buffer_cap(write_buffer_size)
-    {
-        //queue.synchronous_mode();
-        
+    {   
         // calculate paths with queue.rank() == MPI-rank == Pal-id
         int sqrt = std::ceil(std::sqrt((double) queue.size()));
         fragment_path = proof_path + "/" 
@@ -43,7 +40,7 @@ ProofTrimmer::ProofTrimmer(std::string proof_path, std::string working_path, u64
 
         mark_empty_clause(working_path + "/.unsat_found");
         write_buffer.reserve(write_buffer_size);
-        std::cout << ">> INIT done [" << queue.rank() << "]" << std::endl;
+
     }
 
 ProofTrimmer::~ProofTrimmer() {
@@ -59,13 +56,16 @@ ProofTrimmer::~ProofTrimmer() {
 void ProofTrimmer::trim() {
     auto on_message = [&](auto envelope){
         for (auto it = envelope.message.begin(); it != envelope.message.end(); it++) {
-            if (*it > 0)    // clause was used
-                marked_clauses.find(*it).value() = -1;
-            else {
+            if (*it >> 63) {    // clasue was not used
                 u64 id = -(*it);
-                marked_clauses.find(*it).value()--;
+                auto val_before = marked_clauses.find(id).value();
+                marked_clauses.find(id).value() -= 1;
+                auto val_after = marked_clauses.find(id).value();
+                // std::cout << "[" << queue.rank() << "] id " << id << " was not used" << std::endl;
+            } else {    // clause was used
+                marked_clauses.find(*it).value() = -1;
+                // std::cout << "[" << queue.rank() << "] id " << *it << " was used" << std::endl;
             }
-            std::cout << "[" << queue.rank() << "] received id " << (*it > 0 ? *it : -(*it)) << std::endl;
         }
     };
 
@@ -83,13 +83,13 @@ void ProofTrimmer::trim() {
 
             case TRUSTED_CHK_CLS_IMPORT: {
                 id = back_file_reader_decode_sl(proof_fragment, line_idx+1);
-                if (id == 232496)
-                    std::ignore = 1;
                 auto mark = marked_clauses.find(id);
                 if (mark != marked_clauses.end()) {
                     write_line_backwards(line_idx);
                     // send "used" message
-                    queue.post_message_blocking(id, id % queue.size(), on_message);
+                    queue.post_message_blocking(id,
+                                                id % queue.size(),
+                                                on_message);
                     marked_clauses.erase(mark);
                 }
                 else queue.post_message_blocking(-id, id % queue.size(), on_message); // send "unused" message
@@ -97,8 +97,6 @@ void ProofTrimmer::trim() {
 
             } case TRUSTED_CHK_CLS_PRODUCE: {
                 id = back_file_reader_decode_sl(proof_fragment, line_idx+1);
-                if (id == 232496)
-                    std::ignore = 1;
                 auto mark = marked_clauses.find(id);
                 if (mark == marked_clauses.end()) {     // Clause was not used by any pal but ..
                     if (expect_empty_clause) {          // .. might be the empty clause
@@ -125,9 +123,15 @@ void ProofTrimmer::trim() {
 
                         expect_empty_clause = false;
                     }
-                } else if (mark.value() == 0) {
-                    // Clause was imported by other pals but not used by any of them
-                } else if (mark.value() < 0) {     // Clause was marked by self or other pal
+                    break;
+                } 
+
+                while (mark.value() > 0) {     // Wait to see if clause was used
+                    std::ignore = queue.terminate(on_message);
+                    mark = marked_clauses.find(id);
+                }
+                
+                if (mark.value() < 0) {     // Clause was marked by self or other pal
                     marked_clauses.erase(mark);
                     u64 hint_idx = proof_fragment->read_idx;
 
@@ -139,10 +143,14 @@ void ProofTrimmer::trim() {
                         u64 hint = back_file_reader_vbl_sl(proof_fragment);
                         if (hint == 0)
                             break;
-                        if (marked_clauses.insert({hint, -1}).second) {
+                        auto insert_res = marked_clauses.insert({hint, -1});
+                        auto value = insert_res.first.value();
+                        if (insert_res.second) {
                             // ID was last used here and can thus be deleted
                             while (tmp_idx > proof_fragment->read_idx)
                                 delete_line.push_back(proof_fragment->buffer->data[tmp_idx--]);
+                        } else {
+                            insert_res.first.value() = -1;
                         }
                     }
 
@@ -155,10 +163,8 @@ void ProofTrimmer::trim() {
                     // write add line
                     proof_fragment->read_idx = hint_idx;
                     write_line_backwards(line_idx);
-                } else {    // mark.value() > 0
-                    // TODO: wait for messages
-                    while (marked_clauses.find(id).value() > 0)
-                        queue.poll_throttled(on_message);
+                } else {
+                    // Clause was imported by other pals but not used by any of them
                 }
 
                 break;
@@ -186,19 +192,18 @@ void ProofTrimmer::parse_palrup_trim_import(std::string path) {
         // read next id for this pal
         input.read((char *)&id, sizeof(id));
         //std::cout << queue.rank() << " id:" << id << std::endl;
-        if (id == 232496)
-            std::ignore = 1;
+
         if (!id) break;
         if (id % queue.size() != queue.rank())
             continue;
 
         // increment id count
         auto it = marked_clauses.find(id);
-        //if (it != marked_clauses.end())
-        //    it.value()++;
-        //else marked_clauses.insert({id, 1});
-        if (it != marked_clauses.end());
-        else marked_clauses.insert({id, -1});
+        if (it != marked_clauses.end())
+            it.value()++;
+        else marked_clauses.insert({id, 1});
+        //if (it != marked_clauses.end());
+        //else marked_clauses.insert({id, -1});
     }
     
 }
