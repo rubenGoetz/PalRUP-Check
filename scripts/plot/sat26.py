@@ -43,12 +43,6 @@ def par2(df, timeout=300, N=400):
 
     return res
 
-# Fig. 4
-plots.plot_checker_components_runtime(dfs=[palrup_1, palrup_16, palrup_64],
-                                      titles=['1 node', '16 nodes', '64 nodes'],
-                                      show=SHOW,
-                                      filename='runtime_checking_stages.pdf')
-
 
 # Table 1
 dfs = [cadical_lrat, mono_1, mono_16, palrup_1, palrup_16, palrup_64]
@@ -63,7 +57,7 @@ print('Table 1:')
 print(table.astype(str).to_latex())
 
 
-# Fig. 5 left
+# Fig. 4 left
 plots.plot_CDF(dfs=[palrup_64, cadical_solve_16, palrup_16, mono_16, cadical_solve_1, palrup_1, mono_1, cadical_lrat[cadical_lrat['runtime_solve'] <= 300]],
                labels=['PalRUP-64', 'MallobSat-16', 'PalRUP-16', 'Mono-16', 'MallobSat-1', 'PalRUP-1', 'Mono-1', "CaDiCaL"],
                line_styles=['-', '--', ':', '-', '--', ':', '-.'],
@@ -76,7 +70,7 @@ plots.plot_CDF(dfs=[palrup_64, cadical_solve_16, palrup_16, mono_16, cadical_sol
                filename='fullsolvingcdf.pdf')
 
 
-# Fig.5 right (Table)
+# Fig. 4 right (Table)
 dfs = [cadical_solve_1, cadical_solve_16, cadical_lrat, mono_1, mono_16, palrup_1, palrup_16, palrup_64]
 table = pd.DataFrame({'Setup': ['N 1x48', 'N 16x48', 'SP 1', 'SP 1x48', 'SP 16x48', 'PP 1x48', 'PP 16x48', 'PP 64x48'],
                       'Solver': ['MallobSat', 'MallobSat', 'CaDiCaL', 'Monolithic', 'Monolithic', 'PalRUP', 'PalRUP', 'PalRUP']})
@@ -90,7 +84,7 @@ print('Table in Fig. 5:')
 print(table.astype(str).to_latex())
 
 
-# Fig. 6 left
+# Fig. 5 left
 plots.plot_tight_square(dfs=[mono_1, mono_16, palrup_1, palrup_16, palrup_64, cadical_lrat[cadical_lrat['runtime_solve'] <= 300]],
                         labels=['Mono-1', 'Mono-16', 'PalRUP-1', 'PalRUP-16', 'PalRUP-64', 'CaDiCaL'],
                         marks=['.', '+', '.', '+', 'x', 'x'],
@@ -100,7 +94,7 @@ plots.plot_tight_square(dfs=[mono_1, mono_16, palrup_1, palrup_16, palrup_64, ca
                         filename='square_plot.pdf')
 
 
-# Fig. 6 right
+# Fig. 5 right
 cadical_lrat['runtime_end2end'] = [ s + c for s, c in zip(cadical_lrat['runtime_solve'], cadical_lrat['runtime_check']) ]
 mono_1['runtime_end2end'] = [ s + a + c for s, a, c in zip(mono_1['runtime_solve'], mono_1['runtime_assembly'], mono_1['runtime_check']) ]
 mono_16['runtime_end2end'] = [ s + a + c for s, a, c in zip(mono_16['runtime_solve'], mono_16['runtime_assembly'], mono_16['runtime_check']) ]
@@ -121,17 +115,16 @@ plots.plot_CDF(dfs=[palrup_64[palrup_64['success_palrup'] == True],
                show=SHOW,
                filename='end2end_runtimes.pdf')
 
+# Fig. 6
+plots.plot_checker_components_runtime(dfs=[palrup_1, palrup_16, palrup_64],
+                                      titles=['1 node', '16 nodes', '64 nodes'],
+                                      show=SHOW,
+                                      filename='runtime_checking_stages.pdf')
+
+
 # Appendix Figures
 
 # Fig. 7
-plots.plot_boxplots([palrup_1, palrup_16, palrup_64],
-                    ['palrup_bytes_iqr', 'proxy_bytes_iqr', 'import_bytes_iqr'],
-                    ['Proof', 'Import', 'Redist'],
-                    titles=['1 node (48 cores)', '16 nodes (768 cores)', '64 nodes (3072 cores)'],
-                    filename='proof_dist.pdf')
-
-
-# Fig. 8
 plots.plot_scatter([palrup_64, palrup_16, palrup_1, cadical_lrat],
                    ['PalRUP-64', 'PalRUP-16', 'PalRUP-1', 'CaDiCaL'],
                    xaxis='runtime_solve',
@@ -143,4 +136,12 @@ plots.plot_scatter([palrup_64, palrup_16, palrup_1, cadical_lrat],
                    square=False,
                    figsize=[2.75, 2.75],
                    plot_median=True,
-                   filename='throughput.pdf')      
+                   filename='throughput.pdf')   
+
+
+# Fig. 8
+plots.plot_boxplots([palrup_1, palrup_16, palrup_64],
+                    ['palrup_bytes_iqr', 'proxy_bytes_iqr', 'import_bytes_iqr'],
+                    ['Proof', 'Import', 'Redist'],
+                    titles=['1 node (48 cores)', '16 nodes (768 cores)', '64 nodes (3072 cores)'],
+                    filename='proof_dist.pdf')
