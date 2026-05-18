@@ -227,14 +227,6 @@ void ProofTrimmer::write_line_backwards(u64 idx) {
 
     // write as much data as possible into buffer
     u64 write_idx = std::max((long)idx, (long)(proof_fragment->read_idx - (write_buffer_cap - write_buffer.size())));
-    //std::cout << ">> [" << queue.rank() << "]"
-    //          << " idx:" << idx
-    //          << " read_idx:" << proof_fragment->read_idx
-    //          << " write_idx:" << write_idx
-    //          << " write_buffer_cap:" << write_buffer_cap
-    //          << " write_buffer.size():" << write_buffer.size()
-    //          << " write_buffer.capacity():" << write_buffer.capacity()
-    //          << std::endl;
     assert(proof_fragment->read_idx >= write_idx);
     while (proof_fragment->read_idx > write_idx)
         write_buffer.push_back(proof_fragment->buffer->data[proof_fragment->read_idx--]);

@@ -122,7 +122,8 @@ void import_extractor_run() {
         
         case TRUSTED_CHK_CLS_IMPORT:
             ie_stats.nb_imported++;
-            hash_table_insert(import_table, file_reader_read_vbl_sl(proof_fragment), SENTINEL);
+            // hash_table_insert(import_table, file_reader_read_vbl_sl(proof_fragment), SENTINEL);
+            log_id(file_reader_read_vbl_sl(proof_fragment));
             while (true)    // skip lits
                 if (!file_reader_read_vbl_int(proof_fragment))
                     break;
@@ -144,7 +145,7 @@ void import_extractor_run() {
                     break;
                 if (hash_table_find(import_table, hint)) {
                     hash_table_delete_last_found(import_table);
-                    log_id(hint);
+                    //log_id(hint);
                 }
             }
             continue;

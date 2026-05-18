@@ -30,23 +30,27 @@ static void mv_proof_trim() {
     printf("   * create proof trim\n");
     char cmd[512];
     snprintf(cmd, 512, "rm -r \"%s\" >/dev/null", PROOFS_TRIM_DIR);
-    do_assert(!system(cmd));
+    int res = system(cmd);
+    UNUSED(res);
 
     snprintf(cmd, 512, "for x in %s/r3unsat_300/*/*/out.palrup.trim; do dir=\"%s/r3unsat_300/\"; y=${x%%.trim}; y=${y#$dir}; mkdir -p \"%s/${y%%/out.palrup}\"; mv $x %s/$y; done >/dev/null",
              PROOFS_DIR, PROOFS_DIR, PROOFS_TRIM_DIR, PROOFS_TRIM_DIR);
-    do_assert(!system(cmd));
+    res = system(cmd);
+    UNUSED(res);
 }
 
 static void clean_working() {
     printf("   * clean up working dir\n");
     char cmd[512];
     snprintf(cmd, 512, "rm -r %s 2>/dev/null", WORKING_DIR);
-    do_assert(!system(cmd));
+    int res = system(cmd);
+    UNUSED(res);
 
     for (size_t i = 0; i < comm_size; i++) {
         int dir_hierarchy = i / palrup_utils_calc_root_ceil(NUM_SOLVERS);
         snprintf(cmd, 512, "mkdir -p %s/%i/%lu", WORKING_DIR, dir_hierarchy, i);
-        do_assert(!system(cmd));
+        res = system(cmd);
+        UNUSED(res);
     }
 }
 
@@ -88,12 +92,17 @@ static void run_trim() {
     }
 
     printf("   * run local trim\n");
-    for (size_t i = 0; i < NUM_SOLVERS; i++) {
-        snprintf(cmd, 1024, "./palrup_local_trim -palrup-path=%s/r3unsat_300 -working-path=%s -num-solvers=%i -pal-id=%lu >/dev/null",
-                 PROOFS_DIR, WORKING_DIR, NUM_SOLVERS, i);
-        int res = system(cmd);
-        do_assert(!res);
-    }
+    snprintf(cmd, 1024, "mpiexec -n %u --oversubscribe ./palrup_local_trim %s/r3unsat_300 %s >/dev/null",
+             NUM_SOLVERS, PROOFS_DIR, WORKING_DIR);
+    printf("cmd: %s\n", cmd);
+    int res = system(cmd);
+    do_assert(!res);
+    // for (size_t i = 0; i < NUM_SOLVERS; i++) {
+    //     snprintf(cmd, 1024, "./palrup_local_trim -palrup-path=%s/r3unsat_300 -working-path=%s -num-solvers=%i -pal-id=%lu >/dev/null",
+    //              PROOFS_DIR, WORKING_DIR, NUM_SOLVERS, i);
+    //     int res = system(cmd);
+    //     do_assert(!res);
+    // }
 
     mv_proof_trim();
 }
@@ -145,8 +154,8 @@ int main(int argc, char const *argv[]) {
     printf("** run trim\n");
     run_trim();
 
-    //printf("** run strat 3 with default params on trimmed proof\n");
-    //run_strat3(PROOFS_TRIM_DIR);
+    printf("** run strat 3 with default params on trimmed proof\n");
+    run_strat3(PROOFS_TRIM_DIR);
 
     return 0;
 }

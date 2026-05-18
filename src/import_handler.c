@@ -223,7 +223,7 @@ unit_static void flush_heap_to_file(struct clause_heap* clause_heap, int file_id
         merge_buffer_set_file_pointer(merge_buffer, get_merge_file_pos(get_clause_id(c), write_ptr));
 
         // merge file and heap
-        clause_ptr min_clause, file_clause, heap_clause;
+        clause_ptr min_clause = NULL, file_clause = NULL, heap_clause = NULL;
         file_clause = merge_buffer_next_clause(merge_buffer);
         if (clause_heap->size > (clause_heap->capacity * flush_ratio)) {
             ih_stats.nb_duplicates += heap_delete_duplicates(clause_heap);
