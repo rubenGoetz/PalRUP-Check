@@ -19,14 +19,6 @@ FetchContent_Declare(robin-map
   GIT_TAG v1.4.1
 )
 FetchContent_MakeAvailable(BriefKAsten)
-# add_executable(shenanigans
-#                src/main_local_trim.cpp
-#                src/local_trim.cpp
-#                src/backward_file_reader.c
-#                src/utils/palrup_utils.c
-#                src/vectors.c)
-# target_link_libraries(shenanigans BriefKAsten::BriefKAsten m)
-# add_compile_definitions(KASSERT_ASSERTION_LEVEL=30) # silence warnings
 
 # Module Libraries
 
@@ -89,16 +81,9 @@ add_library(clause_finder
             src/vectors.c)
 target_link_libraries(clause_finder m import_merger)
 
-# add_library(local_trim
-#             src/utils/palrup_utils.c
-#             src/options.c
-#             src/backward_file_reader.c
-#             src/hash.c
-#             src/vectors.c
-#             src/local_trim.c)
-
 add_library(local_trim
-            src/local_trim.cpp
+            src/trim/local_trim.cpp
+            src/trim/backward_import_merger.cpp
             src/backward_file_reader.c
             src/utils/palrup_utils.c
             src/vectors.c)
@@ -118,22 +103,22 @@ target_link_libraries(palrup_confirm clause_finder)
 
 add_executable(palrup_extract_imports
                src/utils/palrup_utils.c
-               src/import_extractor.c
+               src/trim/import_extractor.cpp
                src/options.c
                src/file_reader.c
                src/hash.c
                src/vectors.c
-               src/main_extract_imports.c)
+               src/trim/main_extract_imports.cpp)
 target_link_libraries(palrup_extract_imports m)
 
 add_executable(palrup_redistribute_trim
                src/utils/palrup_utils.c
                src/options.c
-               src/redist_trim_handler.c
-               src/main_redistribute_trim.c)
+               src/trim/redist_trim_handler.cpp
+               src/trim/main_redistribute_trim.cpp)
 target_link_libraries(palrup_redistribute_trim m)
 
-add_executable(palrup_local_trim src/main_local_trim.cpp)
+add_executable(palrup_local_trim src/trim/main_local_trim.cpp)
 target_link_libraries(palrup_local_trim m local_trim)
 
 add_custom_target(copy_scripts ALL

@@ -7,3 +7,4 @@ working
 *.pdf
 *.trim
 __pycache__
+proofs/trim

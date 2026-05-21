@@ -53,8 +53,65 @@ long back_file_reader_fill(struct back_file_reader* bfr) {
 bool back_file_reader_eof(struct back_file_reader* bfr) {
     return !ftell(bfr->file);
 }
+bool back_file_reader_empty(struct back_file_reader* bfr) {
+    return back_file_reader_eof(bfr) && !bfr->buffer->size;
+}
 
 // TODO: make uncoded binary readable
+u64 back_file_reader_char(struct back_file_reader* bfr) {
+    struct u8_vec* buffer = bfr->buffer;
+    
+    // u64 can consume at most 10 bytes in vbl encoding
+    if (buffer->size < sizeof(char))
+        back_file_reader_fill(bfr);
+    
+    if (buffer->size < sizeof(char)) {
+        assert(false); // not enough bytes are left in file
+        return -1;
+    }
+
+    bfr->read_idx -= sizeof(char);
+    buffer->size -= sizeof(char);
+    char ret;
+    memcpy(&ret, &(bfr->buffer->data[bfr->read_idx + 1]), sizeof(char));
+    return ret;
+}
+u64 back_file_reader_ul(struct back_file_reader* bfr) {
+    struct u8_vec* buffer = bfr->buffer;
+    
+    // u64 can consume at most 10 bytes in vbl encoding
+    if (buffer->size < sizeof(u64))
+        back_file_reader_fill(bfr);
+    
+    if (buffer->size < sizeof(u64)) {
+        assert(false); // not enough bytes are left in file
+        return -1;
+    }
+
+    bfr->read_idx -= sizeof(u64);
+    buffer->size -= sizeof(u64);
+    u64 ret;
+    memcpy(&ret, &(bfr->buffer->data[bfr->read_idx + 1]), sizeof(u64));
+    return ret;
+}
+u64 back_file_reader_int(struct back_file_reader* bfr) {
+    struct u8_vec* buffer = bfr->buffer;
+    
+    // u64 can consume at most 10 bytes in vbl encoding
+    if (buffer->size < sizeof(int))
+        back_file_reader_fill(bfr);
+    
+    if (buffer->size < sizeof(int)) {
+        assert(false); // not enough bytes are left in file
+        return -1;
+    }
+
+    bfr->read_idx -= sizeof(int);
+    buffer->size -= sizeof(int);
+    int ret;
+    memcpy(&ret, &(bfr->buffer->data[bfr->read_idx + 1]), sizeof(int));
+    return ret;
+}
 
 // TODO: decode backwards
 char back_file_reader_decode_char(struct back_file_reader* bfr, u64 idx) {
@@ -202,7 +259,7 @@ void back_file_reader_skip_bytes(struct back_file_reader* bfr, size_t n) {
     if (bfr->buffer->size < n)
         back_file_reader_fill(bfr);
     
-    bfr->read_idx = bfr->read_idx < n ? 0 : bfr->read_idx - n;
+    bfr->read_idx = bfr->read_idx < n ? (u64)-1 : bfr->read_idx - n;
     bfr->buffer->size = bfr->read_idx + 1;
 }
 

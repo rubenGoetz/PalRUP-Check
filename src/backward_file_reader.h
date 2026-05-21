@@ -24,8 +24,12 @@ void back_file_reader_free(struct back_file_reader* bfr);
 
 long back_file_reader_fill(struct back_file_reader* bfr);
 bool back_file_reader_eof(struct back_file_reader* bfr);
+bool back_file_reader_empty(struct back_file_reader* bfr);
 
 // TODO: make uncoded binary readable
+u64 back_file_reader_char(struct back_file_reader* bfr);
+u64 back_file_reader_ul(struct back_file_reader* bfr);
+u64 back_file_reader_int(struct back_file_reader* bfr);
 
 char back_file_reader_decode_char(struct back_file_reader* bfr, u64 idx);
 long back_file_reader_decode_sl(struct back_file_reader* bfr, u64 idx);

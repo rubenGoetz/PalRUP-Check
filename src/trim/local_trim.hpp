@@ -9,10 +9,11 @@
 #include <briefkasten/noop_indirection.hpp>
 #include <briefkasten/queue_builder.hpp>
 
-#include "../lib/tsl/robin_map.h"
+#include "../../lib/tsl/robin_map.h"
+#include "backward_import_merger.hpp"
 
 extern "C" {
-    #include "backward_file_reader.h"
+    #include "../backward_file_reader.h"
 }
 
 typedef unsigned long u64;
@@ -35,21 +36,15 @@ class ProofTrimmer {
          *  v > 0  : there are still v expected messages concerning this id
          *  v == 0 : all expected messages were received and c(id) is redundant in global proof
          *  v < 0  : c(id) is needed by at least one pal and thus not redundat
+         * Values get lazily decremented when messages arrive but are assured to encode
+         * expected number of messages by the time the respective clause gets processed.
          */
         tsl::robin_map<u64, int> marked_clauses;
         u8* data_pointer;
+        BackImpMerger importQ;
+        u64 last_importQ_id;
 
-
-        // TODO: use second u64 as bool and sentinel Merger/Splitter with 0 as sentinel :(
-        // Encode flase as negative for now. The current prove generation is using singed ids regardless
-        //
-        // template <typename MessageType,
-        //   MPIType BufferType = MessageType,
-        //   MPIBuffer<BufferType> BufferContainer = std::vector<BufferType>,
-        //   MPIBuffer<BufferType> ReceiveBufferContainer = std::vector<BufferType>,
-        //   aggregation::Merger<MessageType, BufferContainer> Merger = aggregation::AppendMerger,
-        //   aggregation::Splitter<MessageType, BufferContainer> Splitter = aggregation::NoSplitter,
-        //   aggregation::BufferCleaner<BufferContainer> BufferCleaner = aggregation::NoOpCleaner>
+        // Encode false as negative. (Works, since proof generation is using singed ids)
         bka::BufferedMessageQueue<
             u64,
             u64,
@@ -71,7 +66,9 @@ class ProofTrimmer {
     private:
         void parse_palrup_trim_import(std::string path);
         void mark_empty_clause(std::string unsat_found_path);
+        void mark_next_import();
         void write_line_backwards(u64 idx);
         void write_delete_line();
         void reverse_outfile();
+        vector<string> calc_input_paths();
 };

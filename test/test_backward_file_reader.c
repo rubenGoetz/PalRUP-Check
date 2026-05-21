@@ -4,6 +4,8 @@
 #include "test_utils.h"
 #include "../src/backward_file_reader.h"
 
+// TODO: make unit tests for non coded data
+
 static void test_back_file_reader_vbl_sl() {
     printf("   * fill file with vbl coded numbers\n");
     FILE* f = fopen("back_file_reader_test_file", "wb+");
@@ -44,7 +46,7 @@ static void test_back_file_reader_vbl_sl() {
     for (size_t i = 0; i < 7; i++)
         do_assert(expected[i] == back_file_reader_vbl_sl(bfr));
 
-    do_assert(back_file_reader_eof(bfr));
+    do_assert(back_file_reader_empty(bfr));
 
     printf("   * clean up\n");
     back_file_reader_free(bfr);
@@ -82,7 +84,7 @@ static void test_back_file_reader_vbl_int() {
     for (size_t i = 0; i < 7; i++)
         do_assert(expected[i] == back_file_reader_vbl_sl(bfr));
 
-    do_assert(back_file_reader_eof(bfr));
+    do_assert(back_file_reader_empty(bfr));
 
     printf("   * clean up\n");
     back_file_reader_free(bfr);
@@ -142,7 +144,7 @@ static void test_back_file_reader_get_start_line_idx() {
     do_assert(back_file_reader_vbl_int(bfr) == 371976);
     do_assert(back_file_reader_vbl_char(bfr) == 'a');
 
-    do_assert(back_file_reader_eof(bfr));
+    do_assert(back_file_reader_empty(bfr));
     do_assert(bfr->read_idx <= 0);
     do_assert(bfr->buffer->size == 0);
 
@@ -170,7 +172,7 @@ static void test_back_file_reader_skip_bytes() {
     back_file_reader_skip_bytes(bfr, 13);
     do_assert(back_file_reader_vbl_sl(bfr) == 0);
     back_file_reader_skip_bytes(bfr, 10);
-    do_assert(back_file_reader_eof(bfr));
+    do_assert(back_file_reader_empty(bfr));
 
     printf("   * clean up\n");
     back_file_reader_free(bfr);
