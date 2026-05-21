@@ -1,7 +1,7 @@
 
 # PalRUP-Check
 
-PalRUP-Check is a standalone proof checker for the **PalRUP** (Parallel LRUP) framework and thus enables scalable distributed proof checking.
+PalRUP-Check is a standalone proof checker for the [**PalRUP** (Parallel LRUP) framework](https://satres.kikit.kit.edu/papers/2026-sat-palrup.pdf) and thus enables scalable distributed proof checking.
 
 A PalRUP proof consists of $n$ *proof fragments* that are usually created by $n$ solver threads of a clause sharing solver.
 
