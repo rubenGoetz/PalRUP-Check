@@ -27,12 +27,12 @@ static void clean_working() {
     printf("   * clean up working dir\n");
     char cmd[512];
     snprintf(cmd, 512, "rm -r %s 2>/dev/null", WORKING_DIR);
-    system(cmd);
+    do_assert(!system(cmd));
 
     for (size_t i = 0; i < comm_size; i++) {
         int dir_hierarchy = i / palrup_utils_calc_root_ceil(NUM_SOLVERS);
         snprintf(cmd, 512, "mkdir -p %s/%i/%lu", WORKING_DIR, dir_hierarchy, i);
-        system(cmd);
+        do_assert(!system(cmd));
     }
 }
 

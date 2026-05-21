@@ -32,7 +32,6 @@ bool file_reader_eof_reached(struct file_reader* reader);
 
 int file_reader_read_int(struct file_reader* reader);
 void file_reader_read_ints(int* data, u64 nb_ints, struct file_reader* reader);
-long file_reader_read_vbl_sl(struct file_reader* reader);
 u64  file_reader_read_ul(struct file_reader* reader);
 void file_reader_read_uls(u64* data, u64 nb_uls, struct file_reader* reader);
 char file_reader_read_char(struct file_reader* reader);
@@ -40,6 +39,7 @@ void file_reader_skip_bytes(u64 nb_bytes, struct file_reader* reader);
 void file_reader_seek(u64 byte_pos, struct file_reader* reader);
 
 int file_reader_read_vbl_int(struct file_reader* reader);
+long file_reader_read_vbl_sl(struct file_reader* reader);
 u64 file_reader_read_vbl_ul(struct file_reader* reader);
 void file_reader_read_vbl_ints(int* data, u64 nb_ints, struct file_reader* reader);
 void file_reader_read_vbl_uls(u64* data, u64 nb_uls, struct file_reader* reader);

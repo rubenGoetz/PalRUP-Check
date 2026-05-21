@@ -34,3 +34,4 @@ bool hash_table_insert(struct hash_table* ht, u64 key, void* data);
 bool hash_table_delete(struct hash_table* ht, u64 key);
 bool hash_table_delete_last_found(struct hash_table* ht);
 void hash_table_free(struct hash_table* ht);
+void hash_table_light_free(struct hash_table* ht);

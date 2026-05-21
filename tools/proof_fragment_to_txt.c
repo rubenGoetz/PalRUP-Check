@@ -27,16 +27,6 @@ struct file_reader* reader;
 struct int_vec* lits_buffer;
 struct u64_vec* hints_buffer;
 
-static inline void read_literals(int nb_lits) {
-    int_vec_reserve(lits_buffer, nb_lits);
-    file_reader_read_vbl_ints(lits_buffer->data, nb_lits, reader);
-}
-
-static inline void read_hints(int nb_hints) {
-    u64_vec_reserve(hints_buffer, nb_hints);
-    file_reader_read_vbl_uls(hints_buffer->data, nb_hints, reader);
-}
-
 int main(int argc, char *argv[]) {
     if (argc != 3) {
         printf("* [ERROR] Need arguments <path_in> and <path_out>. ABORT.\n");
