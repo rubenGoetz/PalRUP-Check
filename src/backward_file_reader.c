@@ -112,7 +112,6 @@ u64 back_file_reader_int(struct back_file_reader* bfr) {
     return ret;
 }
 
-// TODO: decode backwards
 char back_file_reader_decode_char(struct back_file_reader* bfr, u64 idx) {
     return bfr->buffer->data[idx];
 }
@@ -154,45 +153,53 @@ char back_file_reader_vbl_char(struct back_file_reader* bfr) {
         back_file_reader_fill(bfr);
     bfr->buffer->size = bfr->read_idx;
 
-    return back_file_reader_decode_char(bfr, bfr->read_idx ? bfr->read_idx-- : 0);
+    return bfr->buffer->data[bfr->read_idx ? bfr->read_idx-- : 0];
 }
 long back_file_reader_vbl_sl(struct back_file_reader* bfr) {
     struct u8_vec* buffer = bfr->buffer;
+    u8* data = bfr->buffer->data;
     
     // u64 can consume at most 10 bytes in vbl encoding
     if (buffer->size < 10)
         back_file_reader_fill(bfr);
 
-    // find start of u64
-    while (bfr->read_idx > 0 && buffer->data[bfr->read_idx - 1] & 128) {
-        bfr->read_idx--;
-        if (bfr->read_idx == 0) {
-            assert(back_file_reader_eof(bfr));
-            break;
-        }
+    // make sure to start at the end of a number
+    assert(!(data[bfr->read_idx] & 128));
+    
+    // decode number backwards
+    long tmp = data[bfr->read_idx--];
+    while (data[bfr->read_idx] & 128) {
+        tmp *= 128;
+        tmp += data[bfr->read_idx--] & 127;
     }
-    buffer->size = bfr->read_idx;
+    buffer->size = bfr->read_idx + 1;
 
-    return back_file_reader_decode_sl(bfr, bfr->read_idx ? bfr->read_idx-- : 0);
+    if (tmp % 2)
+        return -(long)((tmp - 1) / 2);
+    return (long)(tmp / 2);
 }
 int back_file_reader_vbl_int(struct back_file_reader* bfr) {
     struct u8_vec* buffer = bfr->buffer;
+    u8* data = bfr->buffer->data;
     
     // int can consume at most 5 bytes in vbl encoding
     if (buffer->size < 5)
         back_file_reader_fill(bfr);
 
-    // find start of int
-    while (buffer->data[bfr->read_idx - 1] & 128) {
-        bfr->read_idx--;
-        if (bfr->read_idx == 0) {
-            assert(back_file_reader_eof(bfr));
-            break;
-        }
-    }
-    buffer->size = bfr->read_idx;
+    // make sure to start at the end of a number
+    assert(!(data[bfr->read_idx] & 128));
     
-    return back_file_reader_decode_int(bfr, bfr->read_idx ? bfr->read_idx-- : 0);
+    // decode number backwards
+    int tmp = data[bfr->read_idx--];
+    while (data[bfr->read_idx] & 128) {
+        tmp *= 128;
+        tmp += data[bfr->read_idx--] & 127;
+    }
+    buffer->size = bfr->read_idx + 1;
+
+    if (tmp % 2)
+        return -(int)((tmp - 1) / 2);
+    return (int)(tmp / 2);
 }
 
 
