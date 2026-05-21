@@ -57,7 +57,6 @@ bool back_file_reader_empty(struct back_file_reader* bfr) {
     return back_file_reader_eof(bfr) && !bfr->buffer->size;
 }
 
-// TODO: make uncoded binary readable
 u64 back_file_reader_char(struct back_file_reader* bfr) {
     struct u8_vec* buffer = bfr->buffer;
     
