@@ -15,14 +15,19 @@ char* PATH_OUT;
 struct int_vec* lits_buffer;
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
+    if (argc == 2) {
+        // INIT
+        PATH_IN = argv[1];
+        PATH_OUT = palrup_utils_malloc(1024 * sizeof(char));
+        snprintf(PATH_OUT, 1024, "%s.txt", PATH_IN);
+        printf("* Set outpath to %s\n", PATH_OUT);
+    } else if (argc == 3) {
+        PATH_IN = argv[1];
+        PATH_OUT = argv[2];
+    } else {
         printf("* Need arguments <path_in> and <path_out>. ABORT.\n");
         abort();
     }
-    
-    // INIT
-    PATH_IN = argv[1];
-    PATH_OUT = argv[2];
 
     // open files
     FILE* input = fopen(PATH_IN, "rb");
@@ -38,17 +43,19 @@ int main(int argc, char *argv[]) {
         abort();
     }
 
+    u64 id;
     u64 id_cnt = 0;
-    
     while (true) {
         // read id
-        u64 id = palrup_utils_read_ul(input);
-        if (!id) break;
+        u64 nb_read = UNLOCKED_IO(fread)(&id, sizeof(u64), 1, input);
+        if (nb_read < 1) break;     // eof reached
         
         // write id
         fprintf(output, "%lu\n", id);
         id_cnt++;
     }
+
+    printf("* read %lu IDs\n", id_cnt);
 
     fclose(input);
     fclose(output);
