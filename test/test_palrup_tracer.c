@@ -48,7 +48,7 @@ static void check_proof_fragment(size_t nb_expected_lines) {
             int_vec_resize(lits_buffer, 0);
             u64_vec_resize(hints_buffer, 0);
 
-            u64 id = (u64)file_reader_read_vbl_ul(reader);
+            u64 id = (u64)file_reader_read_vbl_sl(reader);
             do_assert(id > last_produced_id);
             //do_assert(id % NUM_SOLVERS == reader->pal_id);
 
@@ -60,7 +60,7 @@ static void check_proof_fragment(size_t nb_expected_lines) {
 
             // parse hints
             while (true) {
-                u64 hint = (u64)file_reader_read_vbl_ul(reader);
+                u64 hint = (u64)file_reader_read_vbl_sl(reader);
                 if (!hint) break;
                 do_assert(hint < id);
             }
@@ -70,7 +70,7 @@ static void check_proof_fragment(size_t nb_expected_lines) {
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
             int_vec_resize(lits_buffer, 0);
 
-            (u64)file_reader_read_vbl_ul(reader);
+            (u64)file_reader_read_vbl_sl(reader);
 
             // parse lits
             while (true) {
@@ -85,7 +85,7 @@ static void check_proof_fragment(size_t nb_expected_lines) {
 
             // parse hints
             while (true) {
-                u64 hint = (u64)file_reader_read_vbl_ul(reader);
+                u64 hint = (u64)file_reader_read_vbl_sl(reader);
                 if (!hint) break;
             }
 
@@ -209,27 +209,27 @@ static void test_log_clause_deletion() {
 
     // first delete line
     do_assert(file_reader_read_char(reader) == TRUSTED_CHK_CLS_DELETE);
-    for (size_t i = NUM_DELETIONS; i > 0; i--)
-        do_assert(file_reader_read_vbl_ul(reader) == i);
-    do_assert(file_reader_read_vbl_ul(reader) == 0);
+    for (long i = NUM_DELETIONS; i > 0; i--)
+        do_assert(file_reader_read_vbl_sl(reader) == i);
+    do_assert(file_reader_read_vbl_sl(reader) == 0);
     
     // addition lines
-    for (size_t i = 0; i < NUM_DELETIONS; i++) {
+    for (long i = 0; i < NUM_DELETIONS; i++) {
         do_assert(file_reader_read_vbl_char(reader) == TRUSTED_CHK_CLS_PRODUCE);
-        do_assert(file_reader_read_vbl_ul(reader) != i);    // mapped id
+        do_assert(file_reader_read_vbl_sl(reader) != i);    // mapped id
         do_assert(file_reader_read_vbl_int(reader) == 0);
         do_assert(file_reader_read_vbl_int(reader) == 0);
     }
 
     // second delete line
     do_assert(file_reader_read_vbl_char(reader) == TRUSTED_CHK_CLS_DELETE);
-    for (size_t i = 0; i < NUM_DELETIONS; i++)
-        do_assert(file_reader_read_vbl_ul(reader) != i+1);  // mapped ids
-    do_assert(file_reader_read_vbl_ul(reader) == 0);
+    for (long i = 0; i < NUM_DELETIONS; i++)
+        do_assert(file_reader_read_vbl_sl(reader) != i+1);  // mapped ids
+    do_assert(file_reader_read_vbl_sl(reader) == 0);
     
     // import line
     do_assert(file_reader_read_vbl_char(reader) == TRUSTED_CHK_CLS_IMPORT);
-    file_reader_read_vbl_ul(reader);
+    file_reader_read_vbl_sl(reader);
     do_assert(file_reader_read_vbl_int(reader) == 0);
 
     // EOF

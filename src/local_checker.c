@@ -131,7 +131,7 @@ static void parse() {
             int_vec_resize(buf_lits, 0);
             u64_vec_resize(buf_hints, 0);
             
-            u64 id = (u64)file_reader_read_vbl_ul(proof);
+            u64 id = (u64)file_reader_read_vbl_sl(proof);
             siphash_cls_update(clause_hash, (u8*)&id, sizeof(u64));
 
             // Starting point of assigned ids
@@ -172,7 +172,7 @@ static void parse() {
             // parse hints
             int nb_hints = 0;
             while (true) {
-                u64 hint = (u64)file_reader_read_vbl_ul(proof);
+                u64 hint = (u64)file_reader_read_vbl_sl(proof);
                 if (!hint) break;
                 u64_vec_push(buf_hints, hint);
                 nb_hints++;
@@ -202,7 +202,7 @@ static void parse() {
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
             int_vec_resize(buf_lits, 0);
 
-            u64 id = (u64)file_reader_read_vbl_ul(proof);
+            u64 id = (u64)file_reader_read_vbl_sl(proof);
 
             // Check ID against original formula
             if (id <= (u64)nb_clauses) {
@@ -239,7 +239,7 @@ static void parse() {
             // parse hints
             int nb_hints = 0;
             while (true) {
-                u64 hint = (u64)file_reader_read_vbl_ul(proof);
+                u64 hint = (u64)file_reader_read_vbl_sl(proof);
                 if (!hint) break;
                 u64_vec_push(buf_hints, hint);
                 nb_hints++;

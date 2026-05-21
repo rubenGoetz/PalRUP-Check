@@ -75,16 +75,17 @@ static inline void write_int(struct palrup_tracer* tracer, int i) {
     }
     else fprintf(tracer->proof_fragment, " %i", i);
 }
-static inline void write_ul(struct palrup_tracer* tracer, unsigned long ul) {
+static inline void write_long(struct palrup_tracer* tracer, long l) {
     if (tracer->use_binary) {
-        unsigned long tmp = ul;
+        unsigned long tmp = l < 0 ? -l : l;
+        tmp = (2 * tmp) + (l < 0);
         while (tmp & (~127UL)) {    // while more than 7 bits remain
             fputc((char)(tmp & 127UL) | 128, tracer->proof_fragment);
             tmp >>= 7;
         }
         fputc((char)tmp, tracer->proof_fragment);
     }
-    else fprintf(tracer->proof_fragment, " %lu", ul);
+    else fprintf(tracer->proof_fragment, " %lu", l >= 0 ? l : -l);
 }
 static inline void write_endline(struct palrup_tracer* tracer) {
     if (!tracer->use_binary) fprintf(tracer->proof_fragment, "\n");
@@ -127,7 +128,7 @@ static inline void write_deletes(struct palrup_tracer* tracer) {
     if (deletes->size) {
         write_char(tracer, TRUSTED_CHK_CLS_DELETE);
         while (deletes->size)
-            write_ul(tracer, deletes->data[--(deletes->size)]);
+            write_long(tracer, deletes->data[--(deletes->size)]);
         write_char(tracer, 0);
         write_endline(tracer);
     }
@@ -150,12 +151,12 @@ void palrup_tracer_log_clause_addition(struct palrup_tracer* tracer, const unsig
 
     //write add line
     write_char(tracer, TRUSTED_CHK_CLS_PRODUCE);
-    write_ul(tracer, ext_id);
+    write_long(tracer, ext_id);
     for (int i = 0; i < nb_lits; i++)
         write_int(tracer, lits[i]);
     write_char(tracer, 0);
     for (int i = 0; i < nb_hints; i++)
-        write_ul(tracer, ext_hints[i]);
+        write_long(tracer, ext_hints[i]);
     write_char(tracer, 0);
     write_endline(tracer);
 }
@@ -165,7 +166,7 @@ void palrup_tracer_log_clause_import(struct palrup_tracer* tracer, const unsigne
     
     // write import line
     write_char(tracer, TRUSTED_CHK_CLS_IMPORT);
-    write_ul(tracer, id);
+    write_long(tracer, id);
     for (int i = 0; i < nb_lits; i++)
         write_int(tracer, lits[i]);
     write_char(tracer, 0);
