@@ -231,3 +231,12 @@ add_executable(test_backward_file_reader
 target_link_libraries(test_backward_file_reader test_utils)
 add_test(NAME Test_Backward_File_Reader
          COMMAND test_backward_file_reader)
+
+add_executable(test_backward_import_merger
+               src/trim/backward_import_merger.cpp
+               src/trim/backward_file_reader.c
+               src/vectors.c
+               test/trim/test_backward_import_merger.cpp)
+target_link_libraries(test_backward_import_merger test_utils)
+add_test(NAME Test_Backward_Import_Merger
+         COMMAND test_backward_import_merger)
