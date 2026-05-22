@@ -26,11 +26,23 @@ class ImportExtractor {
     float Q_alpha;
 
     struct import_extractor_stats {
-        u64 nb_produced;
-        u64 nb_imported;
-        u64 nb_imported_used;
-        u64 nb_deleted;
-    } ie_stats = {0, 0, 0, 0};
+        u64 nb_produced         = 0;
+        u64 nb_imported         = 0;
+        u64 nb_imported_used    = 0;
+        u64 nb_deleted          = 0;
+        u64 nb_flushes          = 0;
+        u64 nb_flush_merges     = 0;
+
+        operator std::string() const {
+            return "import_extractor_stats: "
+                      "nb_produced:" + to_string(nb_produced) + " "
+                    + "nb_imported:" + to_string(nb_imported) + " "
+                    + "nb_imported_used:" + to_string(nb_imported_used) + " "
+                    + "nb_deleted:" + to_string(nb_deleted) + " "
+                    + "nb_flushes:" + to_string(nb_flushes) + " "
+                    + "nb_flush_merges:" + to_string(nb_flush_merges);
+        }
+    } stats;
 
     public:
         ImportExtractor(struct options* options);

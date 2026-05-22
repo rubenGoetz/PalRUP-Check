@@ -22,6 +22,17 @@ class TrimRedistributor {
     vector<string> out_file_names;
     vector<ofstream> out_files;
 
+    struct trim_redistributor_stats {
+        u64 read_ids    = 0;
+        u64 written_ids = 0;
+
+        operator std::string() {
+            return "trim_redistributor_stats: "
+                      "read_ids:" + to_string(read_ids) + " "
+                    + "written_ids:" + to_string(written_ids);
+        }
+    } stats;
+
     public:
         TrimRedistributor(struct options* options);
         ~TrimRedistributor();

@@ -32,6 +32,7 @@ void ImportExtractor::flush_Q(float alpha, int file_id) {
     auto &Q = Qs[file_id];
     if (Q.size() <= 0)
         return;
+    stats.nb_flushes++;    
 
     if (Q.top() >= file_max_ids[file_id]) {     // no merge necessary
         while (true) {
@@ -44,6 +45,7 @@ void ImportExtractor::flush_Q(float alpha, int file_id) {
             Q.pop();
         }
     } else {
+        stats.nb_flush_merges++;
         fstream &out_file = out_files[file_id];
 
         out_file.seekg(ios::beg);
@@ -94,12 +96,6 @@ void ImportExtractor::empty_clause_found() {
         snprintf(palrup_utils_msgstr, MSG_LEN, "Could not create unsat flag.");
         palrup_utils_log_err(palrup_utils_msgstr);
     }
-}
-
-void ImportExtractor::print_stats() {
-    char msg[512];
-    snprintf(msg, 512, "import_extractor_stats nb_produced:%lu, nb_imported:%lu, nb_imported_used:%lu, nb_deleted:%lu", ie_stats.nb_produced, ie_stats.nb_imported, ie_stats.nb_imported_used, ie_stats.nb_deleted);
-    palrup_utils_log(msg);
 }
 
 void ImportExtractor::init_strat_3(struct options* options) {
@@ -160,7 +156,7 @@ void ImportExtractor::run() {
 
         switch (c) {
         case TRUSTED_CHK_CLS_DELETE:
-            ie_stats.nb_deleted++;
+            stats.nb_deleted++;
             file_reader_read_vbl_sl(proof_fragment);    // skip id
             while (true) {    // skip hints
                 u64 hint = file_reader_read_vbl_sl(proof_fragment);
@@ -170,7 +166,7 @@ void ImportExtractor::run() {
             continue;
         
         case TRUSTED_CHK_CLS_IMPORT:
-            ie_stats.nb_imported++;
+            stats.nb_imported++;
             log_id(file_reader_read_vbl_sl(proof_fragment));
             while (true)    // skip lits
                 if (!file_reader_read_vbl_int(proof_fragment))
@@ -178,7 +174,7 @@ void ImportExtractor::run() {
             continue;
 
         case TRUSTED_CHK_CLS_PRODUCE:
-            ie_stats.nb_produced++;
+            stats.nb_produced++;
             id = file_reader_read_vbl_sl(proof_fragment);    // skip id
 
             // skip lits
@@ -213,5 +209,5 @@ ImportExtractor::~ImportExtractor() {
         rename((file_names[i] + "~").c_str(), file_names[i].c_str());
     }
 
-    print_stats();
+    palrup_utils_log(string(stats).c_str());
 }

@@ -59,11 +59,13 @@ ProofTrimmer::~ProofTrimmer() {
     std::rename((fragment_path + ".trim~").c_str(), (fragment_path + ".trim").c_str());
 
     back_file_reader_free(this->proof_fragment);
+    palrup_utils_log(string(stats).c_str());
 }
 
 void ProofTrimmer::trim() {
     // Handle incoming messages
     auto on_message = [&](auto envelope){
+        stats.messages_received++;
         for (auto it = envelope.message.begin(); it != envelope.message.end(); it++) {
             if (*it >> 63) {    // clasue was not used
                 u64 id = -(*it);
@@ -88,28 +90,35 @@ void ProofTrimmer::trim() {
     u64 line_count = 0;
     // trim local proof until done
     while (!back_file_reader_eof(proof_fragment) || !(proof_fragment->read_idx == 0)) {
+        stats.read_lines++;
         u64 line_idx = back_file_reader_get_start_line_idx(proof_fragment);
         switch (back_file_reader_decode_char(proof_fragment, line_idx)) {
             case TRUSTED_CHK_CLS_DELETE:
                 // skip delete lines. deletes will be placed for new hints.
+                stats.skipped_delete_lines++;
                 break;
 
             case TRUSTED_CHK_CLS_IMPORT: {
                 id = back_file_reader_decode_sl(proof_fragment, line_idx+1);
                 auto mark = marked_clauses.find(id);
                 if (mark != marked_clauses.end()) {
+                    stats.kept_imp_lines++;
                     write_line_backwards(line_idx);
                     // send "used" message
                     queue.post_message_blocking(id,
                                                 id % queue.size(),
                                                 on_message);
                     marked_clauses.erase(mark);
-                }
-                else    // send "unused" message 
+                } else {        // send "unused" message 
+                    stats.skipped_imp_lines++;
                     queue.post_message_blocking(-id,
                                                  id % queue.size(),
                                                  on_message);
+                }
+                
+                stats.messages_sent++;
                 break;
+
             } case TRUSTED_CHK_CLS_PRODUCE: {
                 id = back_file_reader_decode_sl(proof_fragment, line_idx+1);
                 if (id <= last_importQ_id)
@@ -121,10 +130,13 @@ void ProofTrimmer::trim() {
                         u64 tmp_idx = line_idx + 1;
                         while (proof_fragment->buffer->data[tmp_idx++] & 128);     // skip clause id
                         int tmp = back_file_reader_decode_int(proof_fragment, tmp_idx);
-                        if (tmp)    // not the empty clause
+                        if (tmp) {  // not the empty clause
+                            stats.skipped_add_lines++;
                             break;
+                        }
 
                         // write clause
+                        stats.kept_add_lines++;
                         snprintf(palrup_utils_msgstr, MSG_LEN, "Found empty clause with id %lu.", id);
                         palrup_utils_log(palrup_utils_msgstr);
                         u64 hint_idx = proof_fragment->read_idx;
@@ -141,19 +153,24 @@ void ProofTrimmer::trim() {
                         }
 
                         expect_empty_clause = false;
-                    }
+                    } else stats.skipped_add_lines++;
                     break;
-                } 
+                }
 
-                while (mark.value() > 0) {  // Wait to see if clause was used
+                // Wait to see if clause was used
+                while (mark.value() > 0) {
                     std::ignore = queue.terminate(on_message);
                     mark = marked_clauses.find(id);
                 }
 
-                if (mark.value() == 0)      // Clause was imported by other pals but not used by any of them
+                // Clause was imported by other pals but not used by any of them
+                if (mark.value() == 0) {
+                    stats.skipped_add_lines++;
                     break;
+                }
 
                 // Clause was marked by self or other pal
+                stats.kept_add_lines++;
                 marked_clauses.erase(mark);
                 u64 hint_idx = proof_fragment->read_idx;
 
@@ -165,6 +182,7 @@ void ProofTrimmer::trim() {
                     u64 hint = back_file_reader_vbl_sl(proof_fragment);
                     if (hint == 0)
                         break;
+                    stats.marked_hints++;
                     auto insert_res = marked_clauses.insert({hint, MARK});
                     auto value = insert_res.first.value();
                     if (insert_res.second) {
@@ -217,6 +235,7 @@ void ProofTrimmer::mark_empty_clause(std::string unsat_found_path) {
 }
 
 void ProofTrimmer::mark_next_import() {
+    stats.marked_imports++;
     auto&& next = importQ.next();
     u64 id = next.first;
     int count = next.second;
@@ -244,6 +263,7 @@ void ProofTrimmer::write_line_backwards(u64 idx) {
 
     // flush buffer if necessary
     if (write_buffer.size() == write_buffer_cap) {
+        stats.write_buffer_flushes++;
         palrup_utils_write_objs(write_buffer.data(), 1, write_buffer.size(), out_file);
         write_buffer.resize(0); // TODO: overwrites whole vector with 0 :(
     }
@@ -256,6 +276,7 @@ void ProofTrimmer::write_line_backwards(u64 idx) {
 }
 
 void ProofTrimmer::write_delete_line() {
+    stats.written_delete_lines++;
     // write as much data as possible
     u64 to_write = std::min((long)delete_line.size(), (long)(write_buffer_cap - write_buffer.size()));
     write_buffer.insert(write_buffer.end(), delete_line.begin(), delete_line.begin() + to_write);

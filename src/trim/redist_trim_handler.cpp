@@ -15,6 +15,7 @@ inline int TrimRedistributor::get_out_file_id(u64 clause_id) {
 }
 
 inline void TrimRedistributor::log_id(u64 id) {
+    stats.written_ids++;
     out_files[get_out_file_id(id)].write(reinterpret_cast<char*>(&id), sizeof(u64));
 }
 
@@ -90,6 +91,7 @@ void TrimRedistributor::run() {
         id = Q.top().first;
         i = Q.top().second;
         Q.pop();
+        stats.read_ids++;
 
         // log id if it belongs in column
         if ((id % num_solvers) % msg_group_size_in == column)
@@ -108,4 +110,6 @@ TrimRedistributor::~TrimRedistributor() {
         out_files[i].close();
         rename((out_file_names[i] + "~").c_str(), out_file_names[i].c_str());
     }
+
+    palrup_utils_log(string(stats).c_str());
 }
