@@ -137,7 +137,7 @@ static void parse() {
             // Starting point of assigned ids
             if (id <= (u64)nb_clauses) {
                 char msg[523];
-                snprintf(msg, 512, "Learned clause has ID lower that original formula. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
+                snprintf(msg, 512, "Learned clause has ID lower than original formula. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
                 palrup_utils_log_err(msg);
                 exit(1);
             }
@@ -207,7 +207,7 @@ static void parse() {
             // Check ID against original formula
             if (id <= (u64)nb_clauses) {
                 char msg[523];
-                snprintf(msg, 512, "Learned clause has ID lower that original formula. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
+                snprintf(msg, 512, "Learned clause has ID lower than original formula. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
                 palrup_utils_log_err(msg);
                 exit(1);
             }

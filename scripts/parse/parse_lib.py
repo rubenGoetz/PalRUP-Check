@@ -10,6 +10,10 @@ import re
 import glob
 
 import pandas as pd
+import statistics as stat
+
+from concurrent.futures import ThreadPoolExecutor
+MAX_THREADS = 8
 
 ## COLUMN NAMES
 INSTANCE_ID = 'instance_id'
@@ -18,6 +22,7 @@ RESULT = 'result'
 RUNTIME_SOLVE = 'runtime_solve'
 RUNTIME_CHECK = 'runtime_check'
 RUNTIME_VALIDATE = 'runtime_val'
+SUCCESS_PALRUP = 'success_palrup'
 RUNTIME_LOCAL_CHECK = 'runtime_lc'
 RUNTIME_REDISTRIBUTE = 'runtime_redist'
 RUNTIME_CONFIRM = 'runtime_con'
@@ -27,6 +32,9 @@ WAITTIME_CONFIRM = 'waittime_con'
 SIZE_PALRUP = 'palrup_bytes'
 SIZE_PROXY = 'proxy_bytes'
 SIZE_IMPORT = 'import_bytes'
+IQR_PALRUP = 'palrup_bytes_iqr'
+IQR_PROXY = 'proxy_bytes_iqr'
+IQR_IMPORT = 'import_bytes_iqr'
 
 ## REGEX
 GLOB_WC_TIME = 'GLOB_WC_TIME=([0-9]*.[0-9]+)'
@@ -142,6 +150,24 @@ def get_validation_times(logs_path):
                 runtime_val = float(res[1])
                 
         data[RUNTIME_VALIDATE].append(runtime_val)
+
+    return pd.DataFrame(data)
+
+def get_success_palrup(logs_path):
+    instances = next(os.walk(logs_path))[1]
+    instances.sort()
+
+    data = {INSTANCE_ID:[],
+            SUCCESS_PALRUP:[]}
+
+    for instance in instances:
+        instance_path = f"{logs_path}/{instance}"
+        data[INSTANCE_ID].append(instance)
+
+        if os.path.exists(f"{instance_path}/success.palrup"):
+            data[SUCCESS_PALRUP].append(True)
+        else:
+            data[SUCCESS_PALRUP].append(False)
 
     return pd.DataFrame(data)
 
@@ -266,4 +292,187 @@ def get_avg_itemized_waiting_times(logs_path):
             data[WAITTIME_REDISTRIBUTE].append(0.)
             data[WAITTIME_CONFIRM].append(0.)
 
+    return pd.DataFrame(data)
+
+def get_data_size_iqrs(logs_path):
+    instances = next(os.walk(logs_path))[1]
+    instances.sort()
+
+    data = {INSTANCE_ID:[],
+            IQR_PALRUP:[],
+            IQR_PROXY:[],
+            IQR_IMPORT:[]}
+    
+    for instance in instances:
+        instance_path = f"{logs_path}/{instance}"
+        data[INSTANCE_ID].append(instance)
+        
+        proof_sizes = []
+        proxy_sizes = []
+        import_sizes = []
+
+        pals = glob.glob(f"{instance_path}/pals/*/*")
+        if pals:
+            for pal in pals:
+                log = open(pal).read()
+
+                proof_size = re.findall(READ_PALRUP_SIZE, log)
+                proxy_size = re.findall(WRITTEN_PROXY_SIZE, log)
+                import_size = re.findall(WRITTEN_IMPORT_SIZE, log)
+
+                if proof_size:
+                    proof_sizes.append(int(proof_size[0]))
+            
+                if proxy_size:
+                    proxy_sizes.append(int(proxy_size[0]))
+
+                if import_size:
+                    import_sizes.append(int(import_size[0]))
+
+            # normalize
+            proof_max = max(proof_sizes)
+            proof_min = min(proof_sizes)
+            proxy_max = max(proxy_sizes)
+            proxy_min = min(proxy_sizes)
+            import_max = max(import_sizes)
+            import_min = min(import_sizes)
+            proof_sizes = [ (x - proof_min) / (proof_max - proof_min) if (proof_max - proof_min) != 0 else 0 for x in proof_sizes ]
+            proxy_sizes = [ (x - proxy_min) / (proxy_max - proxy_min) if (proxy_max - proxy_min) != 0 else 0 for x in proxy_sizes ]
+            import_sizes = [ (x - import_min) / (import_max - import_min) if (import_max - import_min) != 0 else 0 for x in import_sizes ]
+            proof_quartiles = stat.quantiles(proof_sizes)
+            proxy_quartiles = stat.quantiles(proxy_sizes)
+            import_quartiles = stat.quantiles(import_sizes)
+
+        data[IQR_PALRUP].append(proof_quartiles[2] - proof_quartiles[0])
+        data[IQR_PROXY].append(proxy_quartiles[2] - proxy_quartiles[0])
+        data[IQR_IMPORT].append(import_quartiles[2] - import_quartiles[0])
+
+    return pd.DataFrame(data)
+
+def parse_pal(pal, pal_data):
+    """ Parse a single pal. Only necessary for parallel parsing """
+    log = open(pal).read()
+
+    # runtimes
+    res = re.search(LC_WC_TIME, log)
+    if res: pal_data['runtime_lc'].append(float(res[1]))
+
+    res = re.search(REDIST_WC_TIME, log)
+    if res: pal_data['runtime_redist'].append(float(res[1]))
+    
+    res = re.search(CONF_WC_TIME, log)
+    if res: pal_data['runtime_conf'].append(float(res[1]))
+    
+    # file sizes
+    res = re.search(READ_PALRUP_SIZE, log)
+    if res: pal_data['proof_sizes'].append(int(res[1]))
+    
+    res = re.search(WRITTEN_PROXY_SIZE, log)
+    if res: pal_data['proxy_sizes'].append(int(res[1]))
+    
+    res = re.search(WRITTEN_IMPORT_SIZE, log)
+    if res: pal_data['import_sizes'].append(int(res[1]))
+    
+    # wait times
+    res = re.search(FP_WC_WAIT_TIME, log)
+    if res: pal_data['waittime_lc'].append(float(res[1]))
+    
+    res = re.search(RR_WC_WAIT_TIME, log)
+    if res: pal_data['waittime_redist'].append(float(res[1]))
+    
+    res = re.search(LP_WC_WAIT_TIME, log)
+    if res: pal_data['waittime_conf'].append(float(res[1]))
+
+def get_full_pal_info(logs_path, verbose=False):
+    """ Get all pal data at once to reduce file access """
+    instances = next(os.walk(logs_path))[1]
+    instances.sort()
+
+    data = {INSTANCE_ID:[],
+            RUNTIME_LOCAL_CHECK:[],
+            RUNTIME_REDISTRIBUTE:[],
+            RUNTIME_CONFIRM:[],
+            SIZE_PALRUP:[],
+            SIZE_PROXY:[],
+            SIZE_IMPORT:[],
+            WAITTIME_LOCAL_CHECK:[],
+            WAITTIME_REDISTRIBUTE:[],
+            WAITTIME_CONFIRM:[],
+            IQR_PALRUP:[],
+            IQR_PROXY:[],
+            IQR_IMPORT:[]}
+    
+    for instance in instances:
+        instance_path = f"{logs_path}/{instance}"
+        data[INSTANCE_ID].append(instance)
+        if verbose: print('   * instance_id:', instance)
+        
+        pal_data = {'runtime_lc': [],
+                    'runtime_redist': [],
+                    'runtime_conf': [],
+                    'waittime_lc': [],
+                    'waittime_redist': [],
+                    'waittime_conf': [],
+                    'proof_sizes': [],
+                    'proxy_sizes': [],
+                    'import_sizes': []}
+
+        # get data from pals
+        pals = glob.glob(f"{instance_path}/pals/*/*")
+        if pals:
+            with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+                for pal in pals:
+                    executor.submit(parse_pal, pal, pal_data)
+
+            data[RUNTIME_LOCAL_CHECK].append(sum(pal_data['runtime_lc']) / len(pals))
+            data[RUNTIME_REDISTRIBUTE].append(sum(pal_data['runtime_redist']) / len(pals))
+            data[RUNTIME_CONFIRM].append(sum(pal_data['runtime_conf']) / len(pals))
+
+            data[SIZE_PALRUP].append(sum(pal_data['proof_sizes']))
+            data[SIZE_PROXY].append(sum(pal_data['proxy_sizes']))
+            data[SIZE_IMPORT].append(sum(pal_data['import_sizes']))
+
+            data[WAITTIME_LOCAL_CHECK].append(sum(pal_data['waittime_lc']) / len(pals))
+            data[WAITTIME_REDISTRIBUTE].append(sum(pal_data['waittime_redist']) / len(pals))
+            data[WAITTIME_CONFIRM].append(sum(pal_data['waittime_conf']) / len(pals))
+
+            # normalize file sizes
+            if len(pal_data['proof_sizes']) > 0:
+                proof_min = min(pal_data['proof_sizes'])
+                proof_max = max(pal_data['proof_sizes'])
+                proof_quartiles = stat.quantiles([ (x - proof_min) / (proof_max - proof_min) if (proof_max - proof_min) != 0 else 0 for x in pal_data['proof_sizes'] ])
+                data[IQR_PALRUP].append(proof_quartiles[2] - proof_quartiles[0])
+            else: data[IQR_PALRUP].append(float('nan'))
+
+            if len(pal_data['proxy_sizes']) > 0:
+                proxy_min = min(pal_data['proxy_sizes'])
+                proxy_max = max(pal_data['proxy_sizes'])
+                proxy_quartiles = stat.quantiles([ (x - proxy_min) / (proxy_max - proxy_min) if (proxy_max - proxy_min) != 0 else 0 for x in pal_data['proxy_sizes'] ])
+                data[IQR_PROXY].append(proxy_quartiles[2] - proxy_quartiles[0])
+            else: data[IQR_PROXY].append(float('nan'))
+
+            if len(pal_data['import_sizes']) > 0:
+                import_max = max(pal_data['import_sizes'])
+                import_min = min(pal_data['import_sizes'])
+                import_quartiles = stat.quantiles([ (x - import_min) / (import_max - import_min) if (import_max - import_min) != 0 else 0 for x in pal_data['import_sizes'] ])
+                data[IQR_IMPORT].append(import_quartiles[2] - import_quartiles[0])
+            else: data[IQR_IMPORT].append(float("nan"))
+
+        else:   # if pals
+            data[RUNTIME_LOCAL_CHECK].append(float('nan'))
+            data[RUNTIME_REDISTRIBUTE].append(float('nan'))
+            data[RUNTIME_CONFIRM].append(float('nan'))
+
+            data[SIZE_PALRUP].append(0)
+            data[SIZE_PROXY].append(0)
+            data[SIZE_IMPORT].append(0)
+
+            data[WAITTIME_LOCAL_CHECK].append(float('nan'))
+            data[WAITTIME_REDISTRIBUTE].append(float('nan'))
+            data[WAITTIME_CONFIRM].append(float('nan'))
+
+            data[IQR_PALRUP].append(float('nan'))
+            data[IQR_PROXY].append(float('nan'))
+            data[IQR_IMPORT].append(float('nan'))
+            
     return pd.DataFrame(data)

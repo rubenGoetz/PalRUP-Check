@@ -90,6 +90,22 @@ add_library(local_trim
 target_link_libraries(local_trim BriefKAsten::BriefKAsten m)
 add_compile_definitions(KASSERT_ASSERTION_LEVEL=30) # silence warnings
 
+add_library(palrup_tracer STATIC
+            src/utils/palrup_utils.c
+            src/hash.c
+            src/vectors.c
+            src/file_reader.c
+            tracer/palrup_tracer.c)
+
+add_library(palrup_tracer_hpp STATIC
+            src/utils/palrup_utils.c
+            src/hash.c
+            src/vectors.c
+            src/file_reader.c
+            tracer/palrup_tracer.c
+            tracer/palrup_tracer.hpp)
+set_target_properties(palrup_tracer_hpp PROPERTIES LINKER_LANGUAGE CXX)
+
 # Executables
 
 add_executable(palrup_local_check src/main_local_check.c src/options.c)
@@ -217,6 +233,12 @@ add_executable(test_merge_buffer
 target_link_libraries(test_merge_buffer test_utils)
 add_test(NAME Test_Merge_Buffer
          COMMAND test_merge_buffer)
+
+add_executable(test_palrup_tracer
+               test/test_palrup_tracer.c)
+target_link_libraries(test_palrup_tracer palrup_tracer test_utils)
+add_test(NAME Test_PalRUP_Tracer
+         COMMAND test_palrup_tracer)
 
 add_executable(test_full_run
                test/test_full_run.c)
