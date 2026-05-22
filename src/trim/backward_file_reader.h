@@ -4,11 +4,11 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "utils/define.h"
+#include "../utils/define.h"
 
 #define TYPE u8
 #define TYPED(THING) u8_ ## THING
-#include "vec.h"
+#include "../vec.h"
 #undef TYPED
 #undef TYPE
 

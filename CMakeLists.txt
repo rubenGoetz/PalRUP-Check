@@ -84,7 +84,7 @@ target_link_libraries(clause_finder m import_merger)
 add_library(local_trim
             src/trim/local_trim.cpp
             src/trim/backward_import_merger.cpp
-            src/backward_file_reader.c
+            src/trim/backward_file_reader.c
             src/utils/palrup_utils.c
             src/vectors.c)
 target_link_libraries(local_trim BriefKAsten::BriefKAsten m)
@@ -225,9 +225,9 @@ add_test(NAME Test_Full_Run
          COMMAND test_full_run)
 
 add_executable(test_backward_file_reader
-               src/backward_file_reader.c
+               src/trim/backward_file_reader.c
                src/vectors.c
-               test/test_backward_file_reader.c)
+               test/trim/test_backward_file_reader.c)
 target_link_libraries(test_backward_file_reader test_utils)
 add_test(NAME Test_Backward_File_Reader
          COMMAND test_backward_file_reader)

@@ -1,8 +1,8 @@
 
 #include <math.h>
 
-#include "test_utils.h"
-#include "../src/backward_file_reader.h"
+#include "../test_utils.h"
+#include "../../src/trim/backward_file_reader.h"
 
 // TODO: make unit tests for non coded data
 

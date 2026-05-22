@@ -13,7 +13,7 @@
 #include "backward_import_merger.hpp"
 
 extern "C" {
-    #include "../backward_file_reader.h"
+    #include "backward_file_reader.h"
 }
 
 typedef unsigned long u64;

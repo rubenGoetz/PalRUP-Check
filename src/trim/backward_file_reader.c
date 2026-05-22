@@ -4,7 +4,7 @@
 #include <assert.h>
 
 #include "backward_file_reader.h"
-#include "utils/palrup_utils.h"
+#include "../utils/palrup_utils.h"
 
 struct back_file_reader* back_file_reader_init(FILE* file, u64 capacity) {
     struct back_file_reader* bfr = (struct back_file_reader*)palrup_utils_malloc(sizeof(struct back_file_reader));

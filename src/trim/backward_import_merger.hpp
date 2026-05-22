@@ -6,7 +6,7 @@
 #include <queue>
 
 extern "C" {
-    #include "../backward_file_reader.h"
+    #include "backward_file_reader.h"
 }
 
 using namespace std;
