@@ -17,7 +17,7 @@ class BackImpMerger {
 
     public:
     BackImpMerger() = default;
-    BackImpMerger(vector<string> file_paths, u64 capacity, int rank);
+    BackImpMerger(vector<string> file_paths, u64 capacity);
     ~BackImpMerger();
 
     pair<u64,int> next();

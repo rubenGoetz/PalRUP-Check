@@ -46,7 +46,7 @@ ProofTrimmer::ProofTrimmer(std::string proof_path, std::string working_path, u64
         data_pointer = proof_fragment->buffer->data;
 
         //auto someQ = BackImpMerger(calc_input_paths(), input_buffer_cap, queue.rank());
-        importQ = BackImpMerger(calc_input_paths(), input_buffer_cap, queue.rank());
+        importQ = BackImpMerger(calc_input_paths(), input_buffer_cap);
 
         mark_empty_clause(working_path + "/.unsat_found");
         write_buffer.reserve(write_buffer_size);

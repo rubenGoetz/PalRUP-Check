@@ -7,7 +7,7 @@ extern "C" {
 
 #include <iostream>
 
-BackImpMerger::BackImpMerger(vector<string> file_paths, u64 capacity, int rank) :
+BackImpMerger::BackImpMerger(vector<string> file_paths, u64 capacity) :
     bfrs(vector<struct back_file_reader*>(0)),
     Q(priority_queue<pair<u64,int>>()) {
     int i = 0;
