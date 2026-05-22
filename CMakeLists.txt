@@ -240,3 +240,14 @@ add_executable(test_backward_import_merger
 target_link_libraries(test_backward_import_merger test_utils)
 add_test(NAME Test_Backward_Import_Merger
          COMMAND test_backward_import_merger)
+
+add_executable(test_import_extractor
+               src/trim/import_extractor.cpp
+               src/utils/palrup_utils.c
+               src/file_reader.c
+               src/hash.c
+               src/options.c
+               test/trim/test_import_extractor.cpp)
+target_link_libraries(test_import_extractor test_utils)
+add_test(NAME Test_Import_Extractor
+         COMMAND test_import_extractor)

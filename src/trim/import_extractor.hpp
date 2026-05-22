@@ -53,8 +53,10 @@ class ImportExtractor {
     private:
         void init_strat_3(struct options* options);
         void empty_clause_found();
-        void print_stats();
         void log_id(u64 id);
         void flush_Q(float alpha, int file_id);
         int get_file_id(u64 id);
+
+    // make internals accessible to unit tests
+    friend class ImportExtractorTest;
 };
