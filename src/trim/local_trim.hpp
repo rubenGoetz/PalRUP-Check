@@ -67,6 +67,8 @@ class ProofTrimmer {
         u64 marked_hints            = 0;
         u64 marked_imports          = 0;
         u64 write_buffer_flushes    = 0;
+        u64 polls_while_waiting     = 0;
+        u64 polls_after_finish      = 0;
 
         operator std::string() {
             return "local_trim_stats: "
@@ -81,7 +83,9 @@ class ProofTrimmer {
                     + "written_delete_lines:" + to_string(written_delete_lines) + " "
                     + "marked_hints:" + to_string(marked_hints) + " "
                     + "marked_imports:" + to_string(marked_imports) + " "
-                    + "write_buffer_flushes:" + to_string(write_buffer_flushes);
+                    + "write_buffer_flushes:" + to_string(write_buffer_flushes) + " "
+                    + "polls_while_waiting:" + to_string(polls_while_waiting) + " "
+                    + "polls_after_finish:" + to_string(polls_after_finish);
         }
     } stats;
 

@@ -159,6 +159,7 @@ void ProofTrimmer::trim() {
 
                 // Wait to see if clause was used
                 while (mark.value() > 0) {
+                    stats.polls_while_waiting++;
                     std::ignore = queue.terminate(on_message);
                     mark = marked_clauses.find(id);
                 }
@@ -217,7 +218,8 @@ void ProofTrimmer::trim() {
     }
 
     // keep contributing to communication
-    while (!queue.terminate(on_message));
+    while (!queue.terminate(on_message))
+        stats.polls_after_finish++;
 }
 
 void ProofTrimmer::mark_empty_clause(std::string unsat_found_path) {
