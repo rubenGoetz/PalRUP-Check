@@ -12,6 +12,7 @@ extern char palrup_utils_msgstr[MSG_LEN];
 
 void palrup_utils_log(const char* msg);
 void palrup_utils_log_err(const char* msg);
+void palrup_utils_log_warn(const char* msg);
 
 void palrup_utils_exit_eof();
 

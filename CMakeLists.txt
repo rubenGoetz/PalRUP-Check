@@ -26,7 +26,7 @@ add_library(local_checker
             src/file_reader.c
             src/secret.c
             src/siphash_cls.c
-            src/top_check.c
+            src/lrat_top_check.c
             src/lrat_check.c
             src/siphash.c
             src/confirm.c
@@ -121,6 +121,18 @@ add_executable(proof_fragment_to_txt
                src/vectors.c
                tools/proof_fragment_to_txt.c)
 
+add_executable(check_rup_proof
+               src/utils/palrup_utils.c
+               src/drup_top_check.c
+               src/file_reader.c
+               src/drup_check.c
+               src/siphash.c
+               src/hash.c
+               src/secret.c
+               src/drup_clause.c
+               src/vectors.c
+               tools/check_rup_proof.c)
+
 # Tests
 include(CTest)
 add_library(test_utils
@@ -194,3 +206,14 @@ add_executable(test_full_run
 target_link_libraries(test_full_run m test_utils)
 add_test(NAME Test_Full_Run
          COMMAND test_full_run)
+
+add_executable(test_drup_check
+               test/test_drup_check.c
+               src/drup_check.c
+               src/hash.c
+               src/drup_clause.c
+               src/vectors.c)
+target_compile_definitions(test_drup_check PRIVATE UNIT_TEST)
+target_link_libraries(test_drup_check m test_utils)
+add_test(NAME Test_Drup_Check
+         COMMAND test_drup_check)

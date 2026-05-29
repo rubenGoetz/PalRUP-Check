@@ -14,6 +14,9 @@ void palrup_utils_log(const char* msg) {
 void palrup_utils_log_err(const char* msg) {
     printf("c [CORE %i] [ERROR] %s\n", getpid(), msg);
 }
+void palrup_utils_log_warn(const char* msg) {
+    printf("c [CORE %i] [WARNING] %s\n", getpid(), msg);
+}
 
 void palrup_utils_exit_eof() {
     palrup_utils_log("end-of-file - terminating");

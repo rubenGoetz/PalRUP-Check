@@ -20,12 +20,14 @@
 #undef TYPED
 #undef TYPE
 
+// TODO: make runtime option
+#define USE_RUP true
+
 char* PATH_IN;
 char* PATH_OUT;
 
 struct file_reader* reader;
 struct int_vec* lits_buffer;
-struct u64_vec* hints_buffer;
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
@@ -51,7 +53,6 @@ int main(int argc, char *argv[]) {
     }
 
     lits_buffer = int_vec_init(1);
-    hints_buffer = u64_vec_init(1);
     siphash_init(SECRET_KEY);
     reader = file_reader_init(1048576, input, 0);
     size_t nb_produced = 0, nb_imported = 0, nb_deleted = 0;
@@ -72,7 +73,6 @@ int main(int argc, char *argv[]) {
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
             int_vec_resize(lits_buffer, 0);
-            u64_vec_resize(hints_buffer, 0);
 
             u64 id = (u64)file_reader_read_vbl_sl(reader);
             siphash_update((u8*)&id, sizeof(u64));
@@ -89,21 +89,21 @@ int main(int argc, char *argv[]) {
             }
             siphash_update((u8*)lits_buffer->data, nb_lits * sizeof(int));
 
-            // parse hints
-            int nb_hints = 0;
-            while (true) {
-                u64 hint = (u64)file_reader_read_vbl_sl(reader);
-                fprintf(output, " %lu", hint);
-                if (!hint) break;
-                u64_vec_push(hints_buffer, hint);
-                nb_hints++;
+            if (!USE_RUP) {
+                // parse hints
+                int nb_hints = 0;
+                while (true) {
+                    u64 hint = (u64)file_reader_read_vbl_sl(reader);
+                    fprintf(output, " %lu", hint);
+                    if (!hint) break;
+                    nb_hints++;
+                }
             }
 
             fprintf(output, "\n");
             nb_produced++;
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
-            int_vec_resize(lits_buffer, 0);
 
             u64 id = (u64)file_reader_read_vbl_sl(reader);
             fprintf(output, "%c %lu", c, id);
@@ -114,7 +114,6 @@ int main(int argc, char *argv[]) {
                 int lit = file_reader_read_vbl_int(reader);
                 fprintf(output, " %i", lit);
                 if (!lit) break;
-                int_vec_push(lits_buffer, lit);
                 nb_lits++;
             }
 
@@ -122,21 +121,31 @@ int main(int argc, char *argv[]) {
             nb_imported++;
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
-            u64_vec_resize(hints_buffer, 0);
             fprintf(output, "%c", c);
 
-            // parse hints
-            int nb_hints = 0;
-            while (true) {
-                u64 hint = (u64)file_reader_read_vbl_sl(reader);
-                fprintf(output, " %lu", hint);
-                if (!hint) break;
-                u64_vec_push(hints_buffer, hint);
-                nb_hints++;
+            if (!USE_RUP) {
+                // parse hints
+                int nb_hints = 0;
+                while (true) {
+                    u64 hint = (u64)file_reader_read_vbl_sl(reader);
+                    fprintf(output, " %lu", hint);
+                    if (!hint) break;
+                    nb_hints++;
+                }
+                nb_deleted += nb_hints;
+            } else {
+                // parse lits
+                int nb_lits = 0;
+                while (true) {
+                    int lit = file_reader_read_vbl_int(reader);
+                    fprintf(output, " %i", lit);
+                    if (!lit) break;
+                    nb_lits++;
+                }
+                nb_deleted++;
             }
 
             fprintf(output, "\n");
-            nb_deleted += nb_hints;
 
         } else {
             printf("* [ERROR] Invalid directive %d", c);
@@ -147,7 +156,6 @@ int main(int argc, char *argv[]) {
     file_reader_end(reader);
     siphash_free();
     int_vec_free(lits_buffer);
-    u64_vec_free(hints_buffer);
     fclose(output);
     exit(0);
 }

@@ -11,7 +11,7 @@
 #include "lrat_check.h"
 #include "import_handler.h"
 #include "siphash_cls.h"
-#include "top_check.h"
+#include "lrat_top_check.h"
 #include "hash.h"
 #include "clause_flat.h"
 
@@ -106,7 +106,7 @@ static bool load_formula(FILE* formula) {
     return no_error;
 }
 
-static void parse() {
+static void parse_lrup() {
     u64 max_derived_id = 0;
     while (true) {
         char c = file_reader_read_vbl_char(proof);
@@ -301,7 +301,7 @@ void local_checker_init(struct options* options) {
 }
 
 int local_checker_run() {
-    parse();
+    parse_lrup();
     
     if (top_check_validate_unsat(NULL)) {
         char unsat_folder[525];

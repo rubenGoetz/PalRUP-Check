@@ -44,3 +44,10 @@ int* generate_shuffled_copy_array(int elem_count, int* a) {
     }
     return b;
 }
+
+bool is_in_array(int elem, int elem_count, int* a) {
+    for (int i = 0; i < elem_count; i++)
+        if (a[i] == elem)
+            return true;
+    return false;
+}
