@@ -15,6 +15,24 @@
 drup_clause* clauses;
 int vars;
 
+static bool compare_lits(const int* lits1, const int* lits2, int nb_lits) {
+    // lits are unsorted => quadratic
+    for (int i = 0; i < nb_lits; i++) {
+        int lit = lits1[i];
+        bool found = false;
+        for (int j = 0; j < nb_lits; j++) {
+            if (lits2[j] == lit) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            return false;
+    }
+    
+    return true;    // all lits found
+}
+
 static void test_drup_check_load() {
     printf("   * init drup checker\n");
     drup_check_init(vars);
@@ -45,8 +63,7 @@ static void test_drup_check_load() {
         int nb_lits = drup_clause_get_nb_lits(c);
         int* lits = drup_clause_get_lits(c);
         do_assert(nb_lits == drup_clause_get_nb_lits(clauses[i]));
-        for (int j = 0; j < nb_lits; j++)
-            do_assert(lits[j] == drup_clause_get_lits(clauses[i])[j]);
+        do_assert(compare_lits(lits, drup_clause_get_lits(clauses[i]), nb_lits));
     }
     drup_clause c = hash_table_find(clause_db, NUM_CLAUSES + 1);
     do_assert(c);
@@ -81,10 +98,10 @@ static void test_drup_check_add_axiomatic_clause() {
         int nb_lits = drup_clause_get_nb_lits(c_original);
         int* lits = drup_clause_get_lits(c_original);
         drup_clause c_db = hash_table_find(clause_db, id);
+        do_assert(c_db);
         do_assert(id == drup_clause_get_id(c_db));
         do_assert(nb_lits == drup_clause_get_nb_lits(c_db));
-        for (int j = 0; j < nb_lits; j++)
-            do_assert(lits[j] == drup_clause_get_lits(c_db)[j]);
+        do_assert(compare_lits(lits, drup_clause_get_lits(c_db), nb_lits));
     }
 
     printf("   * delete clauses\n");

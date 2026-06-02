@@ -1,6 +1,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "drup_check.h"
 #include "drup_clause.h"
@@ -25,12 +26,16 @@
 #undef TYPED
 #undef TYPE
 
+// TODO: check for duplicate lits somewhere?
+
 u64 nb_known_vars;
 bool unsat_found = false;
 bool formula_loaded = false;
 
 // full occurence list for literals
-// TODO: make 2 watch
+// TODO: Also keep a literal of each clause directly in occurrence list to check if satisfied
+// TODO: units do not need to be in occournce lists, since we assigned them permanently
+// TODO: do not delete unit clauses
 struct drup_clause_vec** occurences;
 
 // buffer for clause addition
@@ -43,82 +48,121 @@ u64 original_ids = 0;
 struct hash_table* clause_table;
 
 // current variable assignment
-u8* assignment;
+char* assignment;
 
 // stack of currently assigned variables
 struct int_vec* trail;
 
+// stack of variables to be propagated
+struct int_vec* prop_stack;
+
 // stack of permanent unit clauses
 struct int_vec* units;
 
+#define ABS(X) (X < 0 ? -X : X)
+
 static inline int get_idx(int lit) {
     assert(lit != 0);
+    assert(ABS(lit) <= nb_known_vars);
     int sign = lit > 0;
     int ulit = sign ? lit : -lit;
-    assert((ulit * 2) - sign <= (int)(2*nb_known_vars) + 1);
-    return (ulit * 2) - sign;
+    return (ulit * 2) - sign - 1;
 }
 static inline int get_var(int lit) {
-    return lit > 0 ? lit : -lit;
+    assert(lit != 0);
+    assert(ABS(lit) <= nb_known_vars);
+    return ABS(lit);
 }
-static int drup_check_unit_propagation(int lit) {
-    assert(lit > 0 ? (u64)lit <= 2*nb_known_vars : (u64)lit >= -2*nb_known_vars);
+static inline char get_sign(int lit) {
+    assert(lit != 0);
+    assert(ABS(lit) <= nb_known_vars);
+    return lit < 0 ? -1 : 1;
+}
+static int drup_check_unit_propagation() {
+    while (prop_stack->size > 0) {
+        int lit = prop_stack->data[--(prop_stack->size)];
+        assert(lit != 0);
+        assert(ABS(lit) <= nb_known_vars);
 
-    int var = get_var(lit);
-    u8 sign = assignment[var];
-    
-    // if var was already assigned a different value
-    if (sign != 0 && (sign != (u8)(lit > 0 ? 1 : -1)))
-        return 1;   // conflict found
+        int var = get_var(lit);
+        char a_sign = assignment[var];
+        char lit_sign = get_sign(lit);
 
-    // assign value
-    assignment[var] = lit > 0 ? 1 : -1;
-    int_vec_push(trail, lit);
-
-    // propagate
-    struct drup_clause_vec* v = occurences[get_idx(-lit)];
-    for (int i = 0; (u64)i < v->size; i++) {
-        drup_clause c = v->data[i];
-        assert(hash_table_find(clause_table, drup_clause_get_id(c)));
-        int unassigned_vars = 0;
-        int unsat_lits = 0;
-
-        // is unit?
-        int nb_lits = drup_clause_get_nb_lits(c);
-        int* lits = drup_clause_get_lits(c);
-        int lit;
-        for (int j = 0; j < nb_lits; j++) {
-            lit = lits[j];
-            int var = get_var(lit);
-
-            // lit is unassigned
-            if (assignment[var] == 0)
-                unassigned_vars++;
-            // lit satisfies clasue
-            else if (assignment[var] == (u8)(lit > 0 ? 1 : -1)) {
-                unassigned_vars = 0;
-                break;
-            // lit does not satisfy clause
-            } else
-                unsat_lits++;
-
-            if (unassigned_vars > 1)
-                break;
-        }
-
-        if (unsat_lits == nb_lits)
-            // clause is not satisfied with current assignment
-            //  => conflict found
-            return 1;
-
-        if (unassigned_vars != 1)
-            continue;   // clause does not become unit
-
-        // clause becomes unit => propagate
-        if (drup_check_unit_propagation(lit)) {
+        // if var was already assigned a different value
+        if (a_sign != 0 && (a_sign != lit_sign))
             return 1;   // conflict found
+
+        // assign value
+        assert((assignment[var] == lit_sign) || (assignment[var] == 0));
+        if (a_sign == 0) {
+            assignment[var] = lit_sign;
+            int_vec_push(trail, lit);        
         }
-    }
+        assert(assignment[var] == lit_sign);
+
+        // fix occurences and propagate
+        struct drup_clause_vec* v = occurences[get_idx(-lit)];
+        for (u64 i = 0; i < v->size; i++) {
+            drup_clause c = v->data[i];
+            assert(hash_table_find(clause_table, drup_clause_get_id(c)));
+            int nb_lits = drup_clause_get_nb_lits(c);
+            int* lits = drup_clause_get_lits(c);
+            if (nb_lits == 1)
+                return 1;   // conflict found
+            assert(nb_lits > 1);
+
+            // make first_watch -lit
+            int first_watch = lits[0];
+            int second_watch = lits[1];
+            if (second_watch == -lit) {
+                int tmp = first_watch;
+                first_watch = second_watch;
+                second_watch = tmp;
+
+                lits[0] = first_watch;
+                lits[1] = second_watch;
+            }
+            assert(first_watch == -lit);
+            assert(assignment[get_var(first_watch)] == get_sign(lit));
+
+            // check second_watch
+            if (assignment[get_var(second_watch)] == get_sign(second_watch))
+                continue;   // clause is satisfied
+            if (assignment[get_var(second_watch)] == -get_sign(second_watch)) {
+                // second watch should be last unassigned lit in any clause
+                // assert that all lits in clause are assigned
+                for (int j = 2; j < nb_lits; j++)
+                    assert(assignment[get_var(lits[j])] != 0);
+                return 1;   // conflict found
+            }
+            assert(assignment[get_var(first_watch)] == -get_sign(first_watch));
+            assert(assignment[get_var(second_watch)] == 0);
+
+            // find first unassigned lit in c
+            bool recurse = true;
+            for (int j = 2; j < nb_lits; j++) {
+                int c_lit = lits[j];
+                char c_sign = assignment[get_var(c_lit)];
+                if (c_sign == -get_sign(c_lit))
+                    continue;
+
+                // found unassigned or satisfied lit besides second_watch
+                //  => swap with first_watch and fix occourence lists
+                lits[0] = c_lit;
+                lits[j] = first_watch;
+
+                drup_clause_vec_push(occurences[get_idx(c_lit)], c);
+                v->data[i--] = v->data[--(v->size)];
+
+                recurse = false;
+                break;
+            }
+        
+            if (recurse)
+                int_vec_push(prop_stack, second_watch);
+        
+        }   // for all occurences
+    }   // while stack not empy
 
     return 0;   // no conflict found
 }
@@ -128,6 +172,11 @@ static void drup_check_reset_assignment() {
         assignment[get_var(trail->data[i])] = 0;
     // clear trail
     int_vec_clear(trail);
+    #ifndef NDEBUG
+    // assert no variables are still assigned
+    for (int i = 0; i < (int)nb_known_vars; i++)
+        assert(assignment[i] == 0);
+    #endif
 }
 static bool compare_lits(const int* lits1, const int* lits2, int nb_lits) {
     // lits are unsorted => quadratic
@@ -153,26 +202,27 @@ void drup_check_init(int nb_vars) {
     formula_loaded = false;
     original_ids = 0;
     int nb_lits = 2 * nb_vars;
-    occurences = (struct drup_clause_vec**)palrup_utils_malloc((1 + nb_lits) * sizeof(struct drup_clause_vec*));
-    for (int i = 0; i < nb_lits + 1; i++)
+    occurences = (struct drup_clause_vec**)palrup_utils_malloc(nb_lits * sizeof(struct drup_clause_vec*));
+    for (int i = 0; i < nb_lits; i++)
         occurences[i] = drup_clause_vec_init(4);
 
     add_buffer = int_vec_init(16);
     clause_table = hash_table_init(16);
     assignment = palrup_utils_calloc(nb_vars + 1, sizeof(u8));
     trail = int_vec_init(16);
+    prop_stack = int_vec_init(16);
     units = int_vec_init(16);
 }
 void drup_check_end() {
-    for (size_t i = 0; i < (nb_known_vars * 2) + 1; i++) {
+    for (size_t i = 0; i < (nb_known_vars * 2); i++)
         drup_clause_vec_free(occurences[i]);
-    }
     free(occurences);
     int_vec_free(add_buffer);
     original_ids = 0;
     hash_table_free(clause_table);
     free(assignment);
     int_vec_free(trail);
+    int_vec_free(prop_stack);
     int_vec_free(units);
 }
 
@@ -184,16 +234,8 @@ int drup_check_load(int lit) {
         u64 id = ++original_ids;
         int* lits = add_buffer->data;
         int nb_lits = add_buffer->size;
-        drup_clause c = drup_clause_init(id, lits, nb_lits);
-        // add clause to clause data base
-        if(!hash_table_insert(clause_table, id, c))
-            return 1;
-        // add clause to occurence lists
-        for (int i = 0; i < nb_lits; i++) {
-            int idx = get_idx(lits[i]);
-            drup_clause_vec_push(occurences[idx], c);
-        }
-        
+        drup_check_add_axiomatic_clause(id, lits, nb_lits);
+                
         int_vec_resize(add_buffer, 0);
     } else int_vec_push(add_buffer, lit);
     return 0;
@@ -218,15 +260,7 @@ u64 drup_check_get_nb_loaded_clauses() {
 }
 
 int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits) {
-    int res = 0;
-    // count clause as part of formula if formula is not fully loaded yet
-    if (!formula_loaded) {
-        if (id != ++original_ids) {
-            snprintf(palrup_utils_msgstr, MSG_LEN, "Original clauses should be loaded with incremental ids.");
-            palrup_utils_log_warn(palrup_utils_msgstr);
-            res = 1;
-        }
-    }
+    assert(nb_lits >= 0);
     
     // store clause
     drup_clause c = drup_clause_init(id, lits, nb_lits);
@@ -236,24 +270,27 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits) {
         return 1;
     }
     
-    // add clause to occurence lists
-    for (int i = 0; i < nb_lits; i++) {
-        int idx = get_idx(lits[i]);        
-        drup_clause_vec_push(occurences[idx], c);
+    // mark unsat as found
+    if (nb_lits == 0) {
+        unsat_found = true;
+        return 0;
     }
-
-    // remember units
+    
+    // remember unit
     if (nb_lits == 1) {
         int lit = lits[0];
         int_vec_push(units, lit);
-        assignment[get_var(lit)] = lit > 0 ? 1 : -1;
+        drup_clause_vec_push(occurences[get_idx(lit)], c);
+        return 0;
     }
 
-    // mark unsat as found
-    if (nb_lits == 0)
-        unsat_found = true;
+    // add clause to occurence list of first two lits
+    int idx = get_idx(lits[0]);
+    drup_clause_vec_push(occurences[idx], c);
+    idx = get_idx(lits[1]);
+    drup_clause_vec_push(occurences[idx], c);
 
-    return res;
+    return 0;
 }
 int drup_check_add_clause(u64 id, const int* lits, int nb_lits) {
     if (!formula_loaded) {
@@ -263,25 +300,26 @@ int drup_check_add_clause(u64 id, const int* lits, int nb_lits) {
     }
     
     int res = 1;
-    for (int i = 0; i < nb_lits; i++) {
-        if (drup_check_unit_propagation(-lits[i])) {   // conflict found
-            drup_check_reset_assignment();
-            drup_check_add_axiomatic_clause(id, lits, nb_lits);
-            res = 0;
-            break;
-        }
-    }
+    int_vec_resize(prop_stack, units->size);
+    memcpy(prop_stack->data, units->data, units->size * sizeof(int));
+    for (int i = 0; i < nb_lits; i++)
+        int_vec_push(prop_stack, -lits[i]);
+    if (drup_check_unit_propagation()) {   // conflict found
+        drup_check_reset_assignment();
+        drup_check_add_axiomatic_clause(id, lits, nb_lits);
+        res = 0;
+    } else drup_check_reset_assignment();
     
-    if (nb_lits == 0) {
-        // propagate known units to check empty clause
-        for (size_t i = 0; i < units->size; i++) {
-            if (drup_check_unit_propagation(units->data[i])) {   // conflict found
-                drup_check_add_axiomatic_clause(id, lits, nb_lits);
-                res = 0;
-                break;
-            }
-        }
-    }
+    //if (nb_lits == 0) {
+    //    // propagate known units to check empty clause
+    //    int_vec_resize(prop_stack, units->size);
+    //    memcpy(prop_stack->data, units->data, units->size * sizeof(int));
+    //    if (drup_check_unit_propagation()) {   // conflict found
+    //        drup_check_reset_assignment();
+    //        drup_check_add_axiomatic_clause(id, lits, nb_lits);
+    //        res = 0;
+    //    }
+    //}
 
     return res;
 }
@@ -378,6 +416,18 @@ bool drup_check_formula_loaded() {
     return formula_loaded;
 }
 u64 drup_check_get_clause_id(const int* lits, int nb_lits) {
+    // TODO: find empty clause
+    //if (nb_lits == 1) {
+    //    // scan units
+    //    int lit = *lits;
+    //    for (u64 i = 0; i < units->size; i++) {
+    //        drup_clause c = units->data[i];
+    //        if (lit == *(drup_clause_get_lits(c)))
+    //            return drup_clause_get_id(c);
+    //    }
+    //    return 0;   // clause not found
+    //}
+
     for (int i = 0; i < nb_lits; i++) {
         int lit = lits[i];
         int idx = get_idx(lit);
