@@ -4,9 +4,7 @@
 #include <string.h>
 
 #include "drup_check.h"
-#include "drup_clause.h"
 #include "utils/palrup_utils.h"
-#include "hash.h"
 
 #define TYPE int
 #define TYPED(THING) int_##THING
@@ -32,10 +30,9 @@ u64 nb_known_vars;
 bool unsat_found = false;
 bool formula_loaded = false;
 
-// full occurence list for literals
-// TODO: Also keep a literal of each clause directly in occurrence list to check if satisfied
-// TODO: units do not need to be in occournce lists, since we assigned them permanently
-// TODO: do not delete unit clauses
+// occurence list for 2 watched literals
+// units do not need to be in occournce lists, since we assign them permanently
+// TODO: Keep a literal of each clause directly in occurrence list to check if satisfied
 struct drup_clause_vec** occurences;
 
 // buffer for clause addition
@@ -43,9 +40,6 @@ struct int_vec* add_buffer;
 
 // numer of original clasues added via load function
 u64 original_ids = 0;
-
-// stores clauses by id
-struct hash_table* clause_table;
 
 // current variable assignment
 char* assignment;
@@ -56,7 +50,7 @@ struct int_vec* trail;
 // stack of variables to be propagated
 struct int_vec* prop_stack;
 
-// stack of permanent unit clauses
+// stack of permanent unit clauses and their literals
 struct int_vec* units;
 
 #define ABS(X) (X < 0 ? -X : X)
@@ -78,7 +72,7 @@ static inline char get_sign(int lit) {
     assert(ABS(lit) <= nb_known_vars);
     return lit < 0 ? -1 : 1;
 }
-static int drup_check_unit_propagation() {
+static int drup_check_propagate() {
     while (prop_stack->size > 0) {
         int lit = prop_stack->data[--(prop_stack->size)];
         assert(lit != 0);
@@ -104,7 +98,6 @@ static int drup_check_unit_propagation() {
         struct drup_clause_vec* v = occurences[get_idx(-lit)];
         for (u64 i = 0; i < v->size; i++) {
             drup_clause c = v->data[i];
-            assert(hash_table_find(clause_table, drup_clause_get_id(c)));
             int nb_lits = drup_clause_get_nb_lits(c);
             int* lits = drup_clause_get_lits(c);
             if (nb_lits == 1)
@@ -130,9 +123,11 @@ static int drup_check_unit_propagation() {
                 continue;   // clause is satisfied
             if (assignment[get_var(second_watch)] == -get_sign(second_watch)) {
                 // second watch should be last unassigned lit in any clause
-                // assert that all lits in clause are assigned
-                for (int j = 2; j < nb_lits; j++)
-                    assert(assignment[get_var(lits[j])] != 0);
+                #ifndef NDEBUG
+                    // assert that all lits in clause are assigned
+                    for (int j = 2; j < nb_lits; j++)
+                        assert(assignment[get_var(lits[j])] != 0);
+                #endif
                 return 1;   // conflict found
             }
             assert(assignment[get_var(first_watch)] == -get_sign(first_watch));
@@ -173,9 +168,9 @@ static void drup_check_reset_assignment() {
     // clear trail
     int_vec_clear(trail);
     #ifndef NDEBUG
-    // assert no variables are still assigned
-    for (int i = 0; i < (int)nb_known_vars; i++)
-        assert(assignment[i] == 0);
+        // assert units are still assigned
+        for (u64 i = 0; i < nb_known_vars + 1; i++)
+            assert(assignment[i] == 0);
     #endif
 }
 static bool compare_lits(const int* lits1, const int* lits2, int nb_lits) {
@@ -207,23 +202,34 @@ void drup_check_init(int nb_vars) {
         occurences[i] = drup_clause_vec_init(4);
 
     add_buffer = int_vec_init(16);
-    clause_table = hash_table_init(16);
     assignment = palrup_utils_calloc(nb_vars + 1, sizeof(u8));
     trail = int_vec_init(16);
     prop_stack = int_vec_init(16);
     units = int_vec_init(16);
 }
 void drup_check_end() {
-    for (size_t i = 0; i < (nb_known_vars * 2); i++)
-        drup_clause_vec_free(occurences[i]);
+    formula_loaded = true;
+    for (size_t i = 0; i < (nb_known_vars * 2); i++) {
+        struct drup_clause_vec* v = occurences[i];
+        for (size_t j = 0; j < v->size; j++) {
+            // Could be way more eficient, but we are only cleaning up
+            drup_clause c = v->data[j--];
+            drup_check_delete_clause(drup_clause_get_lits(c), drup_clause_get_nb_lits(c));
+        }
+        drup_clause_vec_free(v);
+    }
     free(occurences);
     int_vec_free(add_buffer);
-    original_ids = 0;
-    hash_table_free(clause_table);
     free(assignment);
     int_vec_free(trail);
     int_vec_free(prop_stack);
     int_vec_free(units);
+
+    // reset gloabl variables
+    nb_known_vars = 0;
+    unsat_found = false;
+    formula_loaded = false;
+    original_ids = 0;
 }
 
 int drup_check_load(int lit) {
@@ -262,13 +268,8 @@ u64 drup_check_get_nb_loaded_clauses() {
 int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits) {
     assert(nb_lits >= 0);
     
-    // store clause
+    // init clause
     drup_clause c = drup_clause_init(id, lits, nb_lits);
-    if (!hash_table_insert(clause_table, id, c)) {
-        snprintf(palrup_utils_msgstr, MSG_LEN, "Could not load clause %lu into checker.", id);
-        palrup_utils_log_err(palrup_utils_msgstr);
-        return 1;
-    }
     
     // mark unsat as found
     if (nb_lits == 0) {
@@ -276,7 +277,7 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits) {
         return 0;
     }
     
-    // remember unit
+    // handle unit as special case
     if (nb_lits == 1) {
         int lit = lits[0];
         int_vec_push(units, lit);
@@ -304,7 +305,7 @@ int drup_check_add_clause(u64 id, const int* lits, int nb_lits) {
     memcpy(prop_stack->data, units->data, units->size * sizeof(int));
     for (int i = 0; i < nb_lits; i++)
         int_vec_push(prop_stack, -lits[i]);
-    if (drup_check_unit_propagation()) {   // conflict found
+    if (drup_check_propagate()) {   // conflict found
         drup_check_reset_assignment();
         drup_check_add_axiomatic_clause(id, lits, nb_lits);
         res = 0;
@@ -314,7 +315,7 @@ int drup_check_add_clause(u64 id, const int* lits, int nb_lits) {
     //    // propagate known units to check empty clause
     //    int_vec_resize(prop_stack, units->size);
     //    memcpy(prop_stack->data, units->data, units->size * sizeof(int));
-    //    if (drup_check_unit_propagation()) {   // conflict found
+    //    if (drup_check_propagate()) {   // conflict found
     //        drup_check_reset_assignment();
     //        drup_check_add_axiomatic_clause(id, lits, nb_lits);
     //        res = 0;
@@ -330,83 +331,42 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
         return 1;
     }
 
-    // find id
-    u64 id = drup_check_get_clause_id(lits, nb_lits);
-    if (!id) {
-        snprintf(palrup_utils_msgstr, MSG_LEN, "Could not find clause to delete.");
-        palrup_utils_log_err(palrup_utils_msgstr);
-        return 1;
-    }
-
-    // delete clause from db
-    drup_clause c = hash_table_find(clause_table, id);
-    if (!c) {
-        snprintf(palrup_utils_msgstr, MSG_LEN, "Clause %lu not in clause table.", drup_clause_get_id(c));
-        palrup_utils_log_err(palrup_utils_msgstr);
-        return 1;
-    }
-    if (!hash_table_delete_last_found(clause_table)) {
-        snprintf(palrup_utils_msgstr, MSG_LEN, "Could not delete clause %lu from clause table.", drup_clause_get_id(c));
-        palrup_utils_log_err(palrup_utils_msgstr);
-        return 1;
-    };
-
-    // delete c from all its lits' occourence lists
-    for (int j = 0; j < nb_lits; j++) {
-        int idx = get_idx(lits[j]);
+    // find first clause occurences and delete it 
+    for (int i = 0; i < nb_lits; i++) {
+        int lit = lits[i];
+        int idx = get_idx(lit);
         struct drup_clause_vec* v = occurences[idx];
-        for (u64 k = 0; k < v->size; k++) {
-            if (v->data[k] == c) {
-                v->data[k] = v->data[--(v->size)];
-                break;
+
+        for (u64 j = 0; j < v->size; j++) {
+            drup_clause c = v->data[j];
+            if (drup_clause_get_nb_lits(c) != nb_lits)
+                continue;
+            if (compare_lits(lits, drup_clause_get_lits(c), nb_lits)) {
+                // remove clause from occurence lists and delete
+                v->data[j] = v->data[--(v->size)];
+                if (drup_clause_get_nb_lits(c) == 1) {
+                    drup_clause_free(c);
+                    return 0;
+                }
+
+                int second_watch = drup_clause_get_lits(c)[0];
+                if (second_watch == lit)
+                    second_watch = drup_clause_get_lits(c)[1];
+                struct drup_clause_vec* v2 = occurences[get_idx(second_watch)];
+                for (size_t k = 0; k < v2->size; k++) {
+                    drup_clause c2 = v2->data[k];
+                    if (c2 != c) continue;
+                    v2->data[k] = v2->data[--(v2->size)];
+                    drup_clause_free(c2);
+                    return 0;
+                }
+                
+                return 1;   // second watch not found
             }
         }
     }
-
-    // delete c from memory
-    drup_clause_free(c);
 
     return 0;
-}
-int drup_check_delete_clauses(const u64* ids, int nb_ids) {
-    if (!formula_loaded) {
-        snprintf(palrup_utils_msgstr, MSG_LEN, "Can not delete clauses before formula is fully loaded.");
-        palrup_utils_log_err(palrup_utils_msgstr);
-        return 1;
-    }
-    
-    int res = 0;
-    for (int i = 0; i < nb_ids; i++) {
-        u64 id = ids[i];
-        drup_clause c = hash_table_find(clause_table, id);
-        if (!c) {
-            res++;
-            continue;
-        }
-        int* lits = drup_clause_get_lits(c);
-        // delete c from all its lits' occourence lists
-        for (int j = 0; j < drup_clause_get_nb_lits(c); j++) {
-            int idx = get_idx(lits[j]);
-            struct drup_clause_vec* v = occurences[idx];
-            for (u64 k = 0; k < v->size; k++) {
-                if (v->data[k] == c) {
-                    v->data[k] = v->data[--(v->size)];
-                    break;
-                }
-            }
-        }
-
-        // delete c from known clauses
-        if (!hash_table_delete_last_found(clause_table)) {
-            snprintf(palrup_utils_msgstr, MSG_LEN, "Was not able to delete clause %lu from checker.", id);
-            palrup_utils_log_warn(palrup_utils_msgstr);
-            res++;
-        }
-
-        // delete clause from memory
-        drup_clause_free(c);
-    }
-    return res;     // return number of mishaps
 }
 
 bool drup_check_unsat_found() {
@@ -417,17 +377,11 @@ bool drup_check_formula_loaded() {
 }
 u64 drup_check_get_clause_id(const int* lits, int nb_lits) {
     // TODO: find empty clause
-    //if (nb_lits == 1) {
-    //    // scan units
-    //    int lit = *lits;
-    //    for (u64 i = 0; i < units->size; i++) {
-    //        drup_clause c = units->data[i];
-    //        if (lit == *(drup_clause_get_lits(c)))
-    //            return drup_clause_get_id(c);
-    //    }
-    //    return 0;   // clause not found
-    //}
-
+    drup_clause c = find_clause(lits, nb_lits);
+    if (c) return drup_clause_get_id(c);
+    return 0; // clause not found
+}
+drup_clause find_clause(const int* lits, int nb_lits) {
     for (int i = 0; i < nb_lits; i++) {
         int lit = lits[i];
         int idx = get_idx(lit);
@@ -438,13 +392,12 @@ u64 drup_check_get_clause_id(const int* lits, int nb_lits) {
             if (drup_clause_get_nb_lits(c) != nb_lits)
                 continue;
             if (compare_lits(lits, drup_clause_get_lits(c), nb_lits))
-                return drup_clause_get_id(c);   // clause found
+                return c;   // clause found
         }
     }
-    
-    return 0; // clause not found
+    return NULL; // clause not found
 }
 
 #ifdef UNIT_TEST
-struct hash_table* get_clause_db() { return clause_table; }
+struct drup_clause_vec** get_occurences() { return occurences; }
 #endif

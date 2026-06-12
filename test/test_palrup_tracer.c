@@ -27,7 +27,7 @@
 #define FRAGMENT_PATH "Testing/palrup_tracer_test"
 #define ADD_LINES 100
 #define IMP_LINES 100
-#define MAX_LIT 999
+#define MAX_VAR 999
 #define NUM_DELETIONS 15
 
 // TODO: add missing tests
@@ -135,7 +135,7 @@ static void test_log_clause_addition() {
         int nb_lits = drand48() * MAX_NUM_HINTS;
         int lits[nb_lits];
         for (int i = 0; i < nb_lits; i++)
-            lits[i] = drand48() < 0.5 ? (random() % MAX_LIT) + 1 : (-random() % MAX_LIT) - 1;
+            lits[i] = drand48() < 0.5 ? (random() % MAX_VAR) + 1 : (-random() % MAX_VAR) - 1;
         
         int nb_hints = drand48() * MAX_NUM_HINTS;
         unsigned long hints[nb_hints];
@@ -171,7 +171,7 @@ static void test_log_clause_import() {
         int nb_lits = drand48() * MAX_NUM_HINTS;
         int lits[nb_lits];
         for (int i = 0; i < nb_lits; i++)
-            lits[i] = drand48() < 0.5 ? (random() % MAX_LIT) + 1 : (-random() % MAX_LIT) - 1;
+            lits[i] = drand48() < 0.5 ? (random() % MAX_VAR) + 1 : (-random() % MAX_VAR) - 1;
         
         palrup_tracer_log_clause_import(tracer, (unsigned long)ids[i], nb_lits, lits);
     }
