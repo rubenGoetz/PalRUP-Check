@@ -14,6 +14,7 @@ struct options* options_init() {
     options->pal_id = 0;
     options->read_buffer_size = 4096 * 1024;
     options->redist_strat = 3;
+    options->drup=false;
 
     // partially needed
     options->formula_path = 0;
@@ -114,6 +115,10 @@ void options_print(struct options* options) {
     if (options->redist_strat) {
         add_str(op_list, &str_cap, " -redist-strat=");
         add_u64(op_list, &str_cap, options->redist_strat);
+    }
+    if (options->drup) {
+        add_str(op_list, &str_cap, " -drup=");
+        add_u64(op_list, &str_cap, options->drup);
     }
 
     if (options->formula_path) {

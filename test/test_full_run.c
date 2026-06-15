@@ -3,6 +3,7 @@
 #include <glob.h>
 #include <dirent.h>
 #include <math.h>
+#include <string.h>
 
 #include "test_utils.c"
 
@@ -10,6 +11,10 @@
 #define PROOFS_DIR "../proofs"
 #define WORKING_DIR "Testing/working"
 #define NUM_SOLVERS 12
+
+enum proof_format {
+    LRUP, DRUP
+};
 
 size_t comm_size;
 
@@ -27,7 +32,8 @@ static void clean_working() {
     printf("   * clean up working dir\n");
     char cmd[512];
     snprintf(cmd, 512, "rm -r %s 2>/dev/null", WORKING_DIR);
-    do_assert(!system(cmd));
+    int res = system(cmd);
+    (void)res;
 
     for (size_t i = 0; i < comm_size; i++) {
         int dir_hierarchy = i / palrup_utils_calc_root_ceil(NUM_SOLVERS);
@@ -50,15 +56,18 @@ static void validate() {
     do_assert(globbuf.gl_pathc == NUM_SOLVERS);
 }
 
-static void run_strat3() {
+static void run_strat3(enum proof_format proof_format) {
     clean_proof();
     clean_working();
     char cmd[1024];
+    const char* instance = "r3unsat_300";
 
     printf("   * run local check\n");
     for (size_t i = 0; i < NUM_SOLVERS; i++) {
-        snprintf(cmd, 1024, "./palrup_local_check -formula-path=%s/r3unsat_300.cnf -palrup-path=%s/r3unsat_300 -working-path=%s -num-solvers=%i -pal-id=%lu >/dev/null",
-                 FORMULA_DIR, PROOFS_DIR, WORKING_DIR, NUM_SOLVERS, i);
+        snprintf(cmd, 1024, "./palrup_local_check -formula-path=%s/%s.cnf -palrup-path=%s/%s/%s -working-path=%s -num-solvers=%i -pal-id=%lu -drup=%i >/dev/null",
+                 FORMULA_DIR, instance,
+                 PROOFS_DIR, proof_format == DRUP ? "padrup" : "palrup", instance,
+                 WORKING_DIR, NUM_SOLVERS, i, proof_format);
         int res = system(cmd);
         do_assert(!res);
     }
@@ -73,8 +82,9 @@ static void run_strat3() {
     
     printf("   * run confirm\n");
     for (size_t i = 0; i < NUM_SOLVERS; i++) {
-        snprintf(cmd, 1024, "./palrup_confirm -palrup-path=%s/r3unsat_300 -working-path=%s -num-solvers=%i -pal-id=%lu >/dev/null",
-                 PROOFS_DIR, WORKING_DIR, NUM_SOLVERS, i);
+        snprintf(cmd, 1024, "./palrup_confirm -palrup-path=%s/%s/%s -working-path=%s -num-solvers=%i -pal-id=%lu -drup=%i >/dev/null",
+                 PROOFS_DIR, proof_format == DRUP ? "padrup" : "palrup", instance,
+                 WORKING_DIR, NUM_SOLVERS, i, proof_format);
         int res = system(cmd);
         do_assert(!res);
     }
@@ -89,7 +99,10 @@ int main(int argc, char const *argv[]) {
     comm_size = pow(palrup_utils_calc_root_ceil(NUM_SOLVERS), 2);
 
     printf("** run strat 3 with default params\n");
-    run_strat3();
+    run_strat3(LRUP);
+
+    printf("** run strat 3 with drup and default params\n");
+    run_strat3(DRUP);
 
     clean_proof();
     return 0;

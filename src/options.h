@@ -12,6 +12,7 @@ struct options {
     u64 pal_id;
     u64 read_buffer_size;   // defaults to 4096 KiB
     u64 redist_strat;       // defaults to 3
+    bool drup;              // defaults to false
 
     // partially needed
     char* formula_path;

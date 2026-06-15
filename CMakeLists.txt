@@ -28,6 +28,9 @@ add_library(local_checker
             src/siphash_cls.c
             src/lrat_top_check.c
             src/lrat_check.c
+            src/drup_top_check.c
+            src/drup_check.c
+            src/drup_clause.c
             src/siphash.c
             src/confirm.c
             src/vectors.c

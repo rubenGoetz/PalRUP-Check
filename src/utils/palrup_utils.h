@@ -44,3 +44,26 @@ u64 palrup_utils_rank_to_x(u64 rank, u64 n);
 u64 palrup_utils_rank_to_y(u64 rank, u64 n);
 
 size_t palrup_utils_calc_root_ceil(u64 num_solvers);
+
+// TODO: replace logs with macros
+#define LOG(...) do {   \
+        snprintf(palrup_utils_msgstr, MSG_LEN, __VA_ARGS__); \
+        palrup_utils_log(palrup_utils_msgstr);  \
+    } while (0)
+#define COND_LOG(COND, ...) do {   \
+        if (COND) LOG(__VA_ARGS__);    \
+    } while (0)
+#define LOG_ERR(...) do {   \
+        snprintf(palrup_utils_msgstr, MSG_LEN, __VA_ARGS__); \
+        palrup_utils_log_err(palrup_utils_msgstr);  \
+    } while (0)
+#define COND_ERR(COND, ...) do {   \
+        if (COND) { LOG_ERR(__VA_ARGS__); exit(1); } \
+    } while (0)
+#define LOG_WARN(...) do {   \
+        snprintf(palrup_utils_msgstr, MSG_LEN, __VA_ARGS__); \
+        palrup_utils_log_warn(palrup_utils_msgstr);  \
+    } while (0)
+#define COND_WARN(COND, ...) do {   \
+        if (COND) LOG_WARN(__VA_ARGS__); \
+    } while (0)

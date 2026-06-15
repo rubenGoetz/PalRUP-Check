@@ -13,6 +13,7 @@ int main(int argc, char *argv[]) {
         options_try_match_ul(argv[i], "-read-buffer-KB=", &(options->read_buffer_size));
         options_try_match_ul(argv[i], "-redist-strat=", &(options->redist_strat));
         options_try_match_bool(argv[i], "-palrup_binary=", &(options->palrup_binary));
+        options_try_match_bool(argv[i], "-drup=", &(options->drup));
     }
 
     options_buffer_sizes_to_bytes(options);

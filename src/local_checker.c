@@ -9,9 +9,11 @@
 #include "utils/palrup_utils.h"
 #include "utils/checker_utils.h"
 #include "lrat_check.h"
+#include "drup_check.h"
 #include "import_handler.h"
 #include "siphash_cls.h"
 #include "lrat_top_check.h"
+#include "drup_top_check.h"
 #include "hash.h"
 #include "clause_flat.h"
 
@@ -42,6 +44,8 @@ long nb_clauses;
 // global values
 u64 lc_num_solvers;
 u64 lc_pal_id;
+u64 lc_max_derived_id = 0;
+u64 lc_drup;
 bool palrup_binary;
 char fragment_path[512];
 char working_path[512];
@@ -54,7 +58,7 @@ struct int_vec* buf_lits;
 struct u64_vec* buf_hints;
 struct hash_table* import_table;
 
-static bool load_formula(FILE* formula) {
+static inline int parse_header(FILE* formula) {
     int nb_vars;
 
     char buffer[1024];
@@ -73,109 +77,117 @@ static bool load_formula(FILE* formula) {
     }
 
     if (!foundPcnf) {
-        palrup_utils_log_err("Error: 'p cnf' line not found in the formula file");
+        LOG_ERR("Error: 'p cnf' line not found in the formula file");
         return false;
     }
 
-    if (lc_pal_id == 0) {
-        char msg[512];
-        snprintf(msg, 512, "Start reading the formula file: cnf %i %li:", nb_vars, nb_clauses);
-        palrup_utils_log(msg);
-    }
+    LOG("Start reading the formula file: cnf %i %li:", nb_vars, nb_clauses);
+    return nb_vars;
+}
 
-    top_check_init(nb_vars, false, false);
-    bool no_error = true;
+static void load_formula_lrat(FILE* formula) {
+    int nb_vars = parse_header(formula);
+    int tmp = 0;
+
+    lrat_top_check_init(nb_vars, false, false);
     while (true) {
         int lit;
         tmp = fscanf(formula, " %i ", &lit);
-
         if (tmp == EOF) break;
 
-        top_check_load(lit);
+        lrat_top_check_load(lit);
     }
 
-    top_check_end_load();
-    u64 lc_nb_loaded_clauses = top_check_get_nb_loaded_clauses();
+    lrat_top_check_end_load();
+    u64 lc_nb_loaded_clauses = lrat_top_check_get_nb_loaded_clauses();
 
-    if (lc_pal_id == 0) {
-        char log_str[512];
-        snprintf(log_str, 512, "Formula loaded nb_clauses:%lu", lc_nb_loaded_clauses);
-        palrup_utils_log(log_str);
+    LOG("Formula loaded nb_clauses:%lu", lc_nb_loaded_clauses);
+}
+
+static void load_formula_drup(FILE* formula) {
+    int nb_vars = parse_header(formula);
+    int tmp = 0;
+
+    drup_top_check_init(nb_vars);
+    while (true) {
+        int lit;
+        tmp = fscanf(formula, " %i ", &lit);
+        if (tmp == EOF) break;
+
+        drup_top_check_load(lit);
     }
 
-    return no_error;
+    drup_top_check_end_load();
+    u64 lc_nb_loaded_clauses = drup_top_check_get_nb_loaded_clauses();
+
+    LOG("Formula loaded nb_clauses:%lu", lc_nb_loaded_clauses);
+}
+
+static inline void finish_parse() {
+    u8* sig = siphash_cls_digest(clause_hash);
+
+    // write .palrup.hash file
+    char finger_print_path[517];
+    snprintf(finger_print_path, 517, "%s.hash", fragment_path);
+    FILE* finger_print = fopen(finger_print_path, "wb");
+    COND_ERR(!finger_print, "Can't open file %s", finger_print_path);
+                
+    palrup_utils_write_sig(sig, finger_print);
+    fclose(finger_print);
+}
+static inline void check_id(u64 id, bool all) {
+    // Starting point of assigned ids
+    if (id <= (u64)nb_clauses) {
+        LOG_ERR("Learned clause has ID lower than original formula. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
+        exit(1);
+    }
+    if (!all) return;
+
+    // locality of assigned IDs
+    if (id % lc_num_solvers != lc_pal_id) {
+        LOG_ERR("Learned clause has non local ID. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
+        exit(1);
+    }
+
+    // Monotonicity of assigned IDs
+    if (id < lc_max_derived_id) {
+        LOG_ERR("Learned clause has lower ID that previously learned clause. newID:%lu, prevID:%lu", id, lc_max_derived_id);
+        exit(1);
+    }
+
+    lc_max_derived_id = id;
+}
+static inline void parse_lits() {
+    int_vec_resize(buf_lits, 0);
+    while (true) {
+        int lit = file_reader_read_vbl_int(proof);
+        if (!lit) break;
+        int_vec_push(buf_lits, lit);
+    }
 }
 
 static void parse_lrup() {
-    u64 max_derived_id = 0;
     while (true) {
         char c = file_reader_read_vbl_char(proof);
         if (file_reader_eof_reached(proof)) {
-            u8* sig = siphash_cls_digest(clause_hash);
-
-            // write .palrup.hash file
-            char finger_print_path[517];
-            snprintf(finger_print_path, 517, "%s.hash", fragment_path);
-            FILE* finger_print = fopen(finger_print_path, "wb");
-            if (!finger_print) {
-                char msg[1024];
-                snprintf(msg, 1024, "Can't open file %s", finger_print_path);
-                palrup_utils_log_err(msg);
-            }
-                
-            palrup_utils_write_sig(sig, finger_print);
-            fclose(finger_print);
+            finish_parse();
             break;
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
-            int_vec_resize(buf_lits, 0);
             u64_vec_resize(buf_hints, 0);
             
             u64 id = (u64)file_reader_read_vbl_sl(proof);
             siphash_cls_update(clause_hash, (u8*)&id, sizeof(u64));
 
-            // Starting point of assigned ids
-            if (id <= (u64)nb_clauses) {
-                char msg[523];
-                snprintf(msg, 512, "Learned clause has ID lower than original formula. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
-                palrup_utils_log_err(msg);
-                exit(1);
-            }
-
-            // locality of assigned IDs
-            if (id % lc_num_solvers != lc_pal_id) {
-                char msg[523];
-                snprintf(msg, 512, "Learned clause has non local ID. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
-                palrup_utils_log_err(msg);
-                exit(1);
-            }
-
-            // Monotonicity of assigned IDs
-            if (id < max_derived_id) {
-                char msg[523];
-                snprintf(msg, 512, "Learned clause has lower ID that previously learned clause. newID:%lu, prevID:%lu", id, max_derived_id);
-                palrup_utils_log_err(msg);
-                exit(1);
-            }
-            max_derived_id = id;
-
-            // parse lits
-            int nb_lits = 0;
-            while (true) {
-                int lit = file_reader_read_vbl_int(proof);
-                if (!lit) break;
-                int_vec_push(buf_lits, lit);
-                nb_lits++;
-            }
-            siphash_cls_update(clause_hash, (u8*)buf_lits->data, nb_lits * sizeof(int));
+            check_id(id, true);
+            parse_lits();
+            siphash_cls_update(clause_hash, (u8*)buf_lits->data, buf_lits->size * sizeof(int));
 
             // parse hints
-            int nb_hints = 0;
             while (true) {
                 u64 hint = (u64)file_reader_read_vbl_sl(proof);
                 if (!hint) break;
                 u64_vec_push(buf_hints, hint);
-                nb_hints++;
 
                 // if hint is imported clause => log clause
                 clause_ptr c = hash_table_find(import_table, hint);
@@ -187,49 +199,29 @@ static void parse_lrup() {
             }
 
             //check IDs in hints
-            if (!checker_utils_check_hints(id, buf_hints->data, nb_hints)) {
-                char msg[523];
-                snprintf(msg, 512, "Discoverd hint >= id in produced clause. ID:%lu", id);
-                palrup_utils_log_err(msg);
+            if (!checker_utils_check_hints(id, buf_hints->data, buf_hints->size)) {
+                LOG_ERR("Discoverd hint >= id in produced clause. ID:%lu", id);
                 exit(1);
             }
 
             // forward to checker
-            top_check_produce(id, buf_lits->data, nb_lits,
-                              buf_hints->data, nb_hints);
+            lrat_top_check_produce(id, buf_lits->data, buf_lits->size,
+                                   buf_hints->data, buf_hints->size);
             lc_stats.nb_produced++;
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
-            int_vec_resize(buf_lits, 0);
-
             u64 id = (u64)file_reader_read_vbl_sl(proof);
-
-            // Check ID against original formula
-            if (id <= (u64)nb_clauses) {
-                char msg[523];
-                snprintf(msg, 512, "Learned clause has ID lower than original formula. ID:%lu, pal_id:%lu, num_solvers:%lu", id, lc_pal_id, lc_num_solvers);
-                palrup_utils_log_err(msg);
-                exit(1);
-            }
-
-            // parse lits
-            int nb_lits = 0;
-            while (true) {
-                int lit = file_reader_read_vbl_int(proof);
-                if (!lit) break;
-                int_vec_push(buf_lits, lit);
-                nb_lits++;
-            }
+            check_id(id, false);
+            parse_lits();
 
             // forward to checker
-            lrat_check_add_axiomatic_clause(id, buf_lits->data, nb_lits);
+            lrat_check_add_axiomatic_clause(id, buf_lits->data, buf_lits->size);
             lc_stats.nb_imported++;
 
             // hold to see if clause will be used
-            clause_ptr c = create_flat_clause(id, nb_lits, buf_lits->data);
+            clause_ptr c = create_flat_clause(id, buf_lits->size, buf_lits->data);
             if (!hash_table_insert(import_table, id, c)) {
-                snprintf(palrup_utils_msgstr, MSG_LEN, "Could not insert clause of id %lu into hash table", id);
-                palrup_utils_log_err(palrup_utils_msgstr);
+                LOG_ERR("Could not insert clause of id %lu into hash table", id);
                 abort();
             }
 
@@ -237,29 +229,80 @@ static void parse_lrup() {
             u64_vec_resize(buf_hints, 0);
 
             // parse hints
-            int nb_hints = 0;
             while (true) {
                 u64 hint = (u64)file_reader_read_vbl_sl(proof);
                 if (!hint) break;
                 u64_vec_push(buf_hints, hint);
-                nb_hints++;
 
                 // imported clause was not used
                 hash_table_delete(import_table, hint);
             }
 
-            top_check_delete(buf_hints->data, nb_hints);
-            lc_stats.nb_deleted += nb_hints;
+            lrat_top_check_delete(buf_hints->data, buf_hints->size);
+            lc_stats.nb_deleted += buf_hints->size;
 
         } else {
-            char errlog[512];
-            snprintf(errlog, 512, "Invalid directive! c: %d filesize:%lu", c, proof->total_bytes);
-            palrup_utils_log_err(errlog);
+            LOG_ERR("Invalid directive! c: %d filesize:%lu", c, proof->total_bytes);
             exit(1);
         }
 
-        if (UNLIKELY(!top_check_valid())) {    
-            palrup_utils_log_err(palrup_utils_msgstr);
+        if (UNLIKELY(!lrat_top_check_valid())) {    
+            LOG_ERR("Checker not valid anymore");
+            exit(1);
+        }
+    }
+}
+
+static void parse_drup() {
+    while (true) {
+        char c = file_reader_read_vbl_char(proof);
+        if (file_reader_eof_reached(proof)) {
+            finish_parse();
+            break;
+
+        } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
+            u64 id = (u64)file_reader_read_vbl_sl(proof);
+            siphash_cls_update(clause_hash, (u8*)&id, sizeof(u64));
+            check_id(id, true);
+            parse_lits();
+            siphash_cls_update(clause_hash, (u8*)buf_lits->data, buf_lits->size * sizeof(int));
+
+            // forward to checker
+            drup_top_check_add(id, buf_lits->data, buf_lits->size);
+            lc_stats.nb_produced++;
+
+        } else if (c == TRUSTED_CHK_CLS_IMPORT) {
+            u64 id = (u64)file_reader_read_vbl_sl(proof);
+            check_id(id, false);
+            parse_lits();
+
+            // forward to checker
+            drup_check_add_axiomatic_clause(id, buf_lits->data, buf_lits->size);
+            lc_stats.nb_imported++;
+
+            // hold to see if clause will be used
+            clause_ptr c = create_flat_clause(id, buf_lits->size, buf_lits->data);
+            if (!hash_table_insert(import_table, id, c)) {
+                LOG_ERR("Could not insert clause of id %lu into hash table", id);
+                abort();
+            }
+
+        } else if (c == TRUSTED_CHK_CLS_DELETE) {
+            parse_lits();
+            u64 id = drup_check_get_clause_id(buf_lits->data, buf_lits->size);
+
+            // imported clause was not used
+            hash_table_delete(import_table, id);
+            drup_top_check_delete(buf_lits->data, buf_lits->size);
+            lc_stats.nb_deleted++;
+
+        } else {
+            LOG_ERR("Invalid directive! c: %d filesize:%lu", c, proof->total_bytes);
+            exit(1);
+        }
+
+        if (UNLIKELY(!drup_top_check_valid())) {    
+            LOG_ERR("Checker not valid anymore");
             exit(1);
         }
     }
@@ -268,6 +311,7 @@ static void parse_lrup() {
 void local_checker_init(struct options* options) {
     lc_num_solvers = options->num_solvers;
     lc_pal_id = options->pal_id;
+    lc_drup = options->drup;
     palrup_binary = options->palrup_binary;
     lc_stats = local_checker_stats_init;
     clause_hash = siphash_cls_init(SECRET_KEY);
@@ -293,17 +337,16 @@ void local_checker_init(struct options* options) {
         snprintf(palrup_utils_msgstr, MSG_LEN, "Formula could not be opened at %s", options->formula_path);
         palrup_utils_log_err(palrup_utils_msgstr);
     }        
-    if (!load_formula(formula))
-        exit(0);
+    lc_drup ? load_formula_drup(formula) : load_formula_lrat(formula);
     fclose(formula);
 
     import_handler_init(options);
 }
 
 int local_checker_run() {
-    parse_lrup();
+    lc_drup ? parse_drup() : parse_lrup();
     
-    if (top_check_validate_unsat(NULL)) {
+    if (lc_drup ? drup_top_check_unsat_found() : lrat_top_check_validate_unsat(NULL)) {
         char unsat_folder[525];
         snprintf(unsat_folder, 525, "%s/.unsat_found", working_path);
         if (mkdir(unsat_folder, 0777) == 0) {
@@ -312,9 +355,8 @@ int local_checker_run() {
             mkdir(unsat_folder_sub, 0777);
         }
     }
-    snprintf(palrup_utils_msgstr, 512, "rank:%lu prod:%lu imp:%lu imp_used:%lu del:%lu n_s:%lu",
-             lc_pal_id, lc_stats.nb_produced, lc_stats.nb_imported, lc_stats.nb_imported_used, lc_stats.nb_deleted, lc_num_solvers);
-    palrup_utils_log(palrup_utils_msgstr);
+    LOG("rank:%lu prod:%lu imp:%lu imp_used:%lu del:%lu n_s:%lu",
+        lc_pal_id, lc_stats.nb_produced, lc_stats.nb_imported, lc_stats.nb_imported_used, lc_stats.nb_deleted, lc_num_solvers);
 
     return 0;
 }
@@ -324,7 +366,8 @@ void local_checker_end() {
     int_vec_free(buf_lits);
     u64_vec_free(buf_hints);
     file_reader_end(proof);
-    top_check_end();
+    u8 sig[SIG_SIZE_BYTES];
+    lc_drup ? drup_top_check_end(sig) : lrat_top_check_end();
     siphash_cls_free(clause_hash);
     hash_table_free(import_table);
 }
