@@ -12,12 +12,6 @@
 #undef TYPED
 #undef TYPE
 
-#define TYPE u8
-#define TYPED(THING) u8_##THING
-#include "vec.h"
-#undef TYPED
-#undef TYPE
-
 #define TYPE drup_clause
 #define TYPED(THING) drup_clause_##THING
 #include "vec.h"
@@ -77,25 +71,24 @@ static int drup_check_propagate() {
         int lit = prop_stack->data[--(prop_stack->size)];
         assert(lit != 0);
         assert(ABS(lit) <= nb_known_vars);
-
-        int var = get_var(lit);
-        char a_sign = assignment[var];
-        char lit_sign = get_sign(lit);
+        int idx = get_idx(lit);
+        char a_sign = assignment[idx];
 
         // if var was already assigned a different value
-        if (a_sign != 0 && (a_sign != lit_sign))
+        if (a_sign != 0 && (a_sign == -1))
             return 1;   // conflict found
 
         // assign value
-        assert((assignment[var] == lit_sign) || (assignment[var] == 0));
+        assert((a_sign == 1) || (a_sign == 0));
         if (a_sign == 0) {
-            assignment[var] = lit_sign;
-            int_vec_push(trail, lit);        
+            assignment[idx] = 1;
+            assignment[idx ^ 1] = -1;
+            int_vec_push(trail, lit);
         }
-        assert(assignment[var] == lit_sign);
+        assert(assignment[idx] == 1 && assignment[idx ^ 1] == -1);
 
         // fix occurences and propagate
-        struct drup_clause_vec* v = occurences[get_idx(-lit)];
+        struct drup_clause_vec* v = occurences[idx ^ 1];
         for (u64 i = 0; i < v->size; i++) {
             drup_clause c = v->data[i];
             int nb_lits = drup_clause_get_nb_lits(c);
@@ -116,29 +109,31 @@ static int drup_check_propagate() {
                 lits[1] = second_watch;
             }
             assert(first_watch == -lit);
-            assert(assignment[get_var(first_watch)] == get_sign(lit));
+            assert(assignment[get_idx(first_watch)] == -1);
+            int second_idx = get_idx(second_watch);
 
             // check second_watch
-            if (assignment[get_var(second_watch)] == get_sign(second_watch))
+            if (assignment[second_idx] == 1)
                 continue;   // clause is satisfied
-            if (assignment[get_var(second_watch)] == -get_sign(second_watch)) {
+            if (assignment[second_idx] == -1) {
                 // second watch should be last unassigned lit in any clause
                 #ifndef NDEBUG
                     // assert that all lits in clause are assigned
                     for (int j = 2; j < nb_lits; j++)
-                        assert(assignment[get_var(lits[j])] != 0);
+                        assert(assignment[get_idx(lits[j])] != 0);
                 #endif
                 return 1;   // conflict found
             }
-            assert(assignment[get_var(first_watch)] == -get_sign(first_watch));
-            assert(assignment[get_var(second_watch)] == 0);
+            int first_watch_assignment = assignment[get_idx(first_watch)];(void)first_watch_assignment; // TODO: remove
+            assert(assignment[get_idx(first_watch)] == -1);
+            assert(assignment[second_idx] == 0);
 
             // find first unassigned lit in c
             bool recurse = true;
             for (int j = 2; j < nb_lits; j++) {
                 int c_lit = lits[j];
-                char c_sign = assignment[get_var(c_lit)];
-                if (c_sign == -get_sign(c_lit))
+                char c_sign = assignment[get_idx(c_lit)];
+                if (c_sign == -1)
                     continue;
 
                 // found unassigned or satisfied lit besides second_watch
@@ -163,13 +158,16 @@ static int drup_check_propagate() {
 }
 static void drup_check_reset_assignment() {
     // reset assignments
-    for (u64 i = 0; i < trail->size; i++)
-        assignment[get_var(trail->data[i])] = 0;
+    for (u64 i = 0; i < trail->size; i++) {
+        int idx = get_idx(trail->data[i]);
+        assignment[idx] = 0;
+        assignment[idx ^ 1] = 0;
+    }
     // clear trail
     int_vec_clear(trail);
     #ifndef NDEBUG
-        // assert units are still assigned
-        for (u64 i = 0; i < nb_known_vars + 1; i++)
+        // assert no assignments persist
+        for (u64 i = 0; i < nb_known_vars * 2; i++)
             assert(assignment[i] == 0);
     #endif
 }
@@ -202,7 +200,7 @@ void drup_check_init(int nb_vars) {
         occurences[i] = drup_clause_vec_init(4);
 
     add_buffer = int_vec_init(16);
-    assignment = palrup_utils_calloc(nb_vars + 1, sizeof(u8));
+    assignment = palrup_utils_calloc(nb_lits, sizeof(u8));
     trail = int_vec_init(16);
     prop_stack = int_vec_init(16);
     units = int_vec_init(16);
