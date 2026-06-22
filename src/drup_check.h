@@ -6,6 +6,16 @@
 #include "utils/define.h"
 #include "drup_clause.h"
 
+struct watcher {
+    int nb_lits;
+    int blocking_lit;
+    union {
+        int* ptr;
+        int lit;
+    } c;
+};
+typedef struct watcher watcher;
+
 void drup_check_init(int nb_vars);
 void drup_check_end();
 
@@ -23,5 +33,5 @@ u64 drup_check_get_clause_id(const int* lits, int nb_lits);
 drup_clause find_clause(const int* lits, int nb_lits);
 
 #ifdef UNIT_TEST
-struct drup_clause_vec** get_occurences();
+struct watcher_vec** get_occurences();
 #endif

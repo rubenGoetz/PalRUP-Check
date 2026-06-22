@@ -5,6 +5,7 @@
 
 #include "../src/drup_top_check.h"
 #include "../src/file_reader.h"
+//#include "../src/dummy_file_reader.h"
 
 // Instantiate int_vec
 #define TYPE int
@@ -116,6 +117,7 @@ bool check_proof() {
     while (true) {
         char c = file_reader_read_vbl_char(reader);
         if (file_reader_eof_reached(reader)) {
+        //if (c == EOF) {
             return true;
             break;
 
@@ -237,6 +239,7 @@ int main(int argc, char *argv[]) {
     printf("   - signature: %i, %i, %i, %i\n", (int)sig[0], (int)sig[4], (int)sig[8], (int)sig[12]);
     printf("   - %lf cpu seconds to check proof\n", (double)(end_proof - start_proof) / CLOCKS_PER_SEC);
 
+    file_reader_end(reader);
     return 0;
 }
 

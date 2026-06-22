@@ -289,10 +289,11 @@ static void parse_drup() {
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
             parse_lits();
-            u64 id = drup_check_get_clause_id(buf_lits->data, buf_lits->size);
+            //u64 id = drup_check_get_clause_id(buf_lits->data, buf_lits->size);
 
             // imported clause was not used
-            hash_table_delete(import_table, id);
+            // TODO: store ids somewhere?
+            //hash_table_delete(import_table, id);
             drup_top_check_delete(buf_lits->data, buf_lits->size);
             lc_stats.nb_deleted++;
 

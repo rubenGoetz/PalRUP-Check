@@ -1,4 +1,6 @@
 
+//#define NDEBUG  //TODO: remove
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,8 +20,14 @@
 #undef TYPED
 #undef TYPE
 
-// TODO: check for duplicate lits somewhere?
+#define TYPE watcher
+#define TYPED(THING) watcher_##THING
+#include "vec.h"
+#undef TYPED
+#undef TYPE
 
+// TODO: check for duplicate lits somewhere?
+u64 blocking_lit_used = 0;
 u64 nb_known_vars;
 bool unsat_found = false;
 bool formula_loaded = false;
@@ -27,12 +35,13 @@ bool formula_loaded = false;
 // occurence list for 2 watched literals
 // units do not need to be in occournce lists, since we assign them permanently
 // TODO: Keep a literal of each clause directly in occurrence list to check if satisfied
-struct drup_clause_vec** occurences;
+// TODO: make occurences direct array of vec structs
+struct watcher_vec* occurences;
 
 // buffer for clause addition
 struct int_vec* add_buffer;
 
-// numer of original clasues added via load function
+// numer of original clauses added via load function
 u64 original_ids = 0;
 
 // current variable assignment
@@ -56,16 +65,16 @@ static inline int get_idx(int lit) {
     int ulit = sign ? lit : -lit;
     return (ulit * 2) - sign - 1;
 }
-static inline int get_var(int lit) {
-    assert(lit != 0);
-    assert(ABS(lit) <= nb_known_vars);
-    return ABS(lit);
-}
-static inline char get_sign(int lit) {
-    assert(lit != 0);
-    assert(ABS(lit) <= nb_known_vars);
-    return lit < 0 ? -1 : 1;
-}
+//static inline int get_var(int lit) {
+//    assert(lit != 0);
+//    assert(ABS(lit) <= nb_known_vars);
+//    return ABS(lit);
+//}
+//static inline char get_sign(int lit) {
+//    assert(lit != 0);
+//    assert(ABS(lit) <= nb_known_vars);
+//    return lit < 0 ? -1 : 1;
+//}
 static int drup_check_propagate() {
     while (prop_stack->size > 0) {
         int lit = prop_stack->data[--(prop_stack->size)];
@@ -88,27 +97,29 @@ static int drup_check_propagate() {
         assert(assignment[idx] == 1 && assignment[idx ^ 1] == -1);
 
         // fix occurences and propagate
-        struct drup_clause_vec* v = occurences[idx ^ 1];
+        struct watcher_vec * const v = &(occurences[idx ^ 1]);
         for (u64 i = 0; i < v->size; i++) {
-            drup_clause c = v->data[i];
-            int nb_lits = drup_clause_get_nb_lits(c);
-            int* lits = drup_clause_get_lits(c);
+            watcher w = v->data[i];
+            //__builtin_prefetch(w.c.ptr);
+            //__builtin_prefetch(w.c.ptr + 1);
+            int nb_lits = w.nb_lits;
             if (nb_lits == 1)
                 return 1;   // conflict found
             assert(nb_lits > 1);
 
-            // make first_watch -lit
-            int first_watch = lits[0];
-            int second_watch = lits[1];
-            if (second_watch == -lit) {
-                int tmp = first_watch;
-                first_watch = second_watch;
-                second_watch = tmp;
-
-                lits[0] = first_watch;
-                lits[1] = second_watch;
+            if (assignment[get_idx(w.blocking_lit)] == 1) {
+                blocking_lit_used++;
+                continue;   // clause is satisfied
             }
+
+            int first_watch = -lit;
+            int second_watch;
+            if (nb_lits == 2)   // binary clauses are stored in watch directly
+                second_watch = w.blocking_lit == first_watch ? w.c.lit : w.blocking_lit;
+            else
+                second_watch = w.c.ptr[0] == first_watch ? w.c.ptr[1] : w.c.ptr[0];
             assert(first_watch == -lit);
+            assert(first_watch != second_watch);
             assert(assignment[get_idx(first_watch)] == -1);
             int second_idx = get_idx(second_watch);
 
@@ -120,16 +131,16 @@ static int drup_check_propagate() {
                 #ifndef NDEBUG
                     // assert that all lits in clause are assigned
                     for (int j = 2; j < nb_lits; j++)
-                        assert(assignment[get_idx(lits[j])] != 0);
+                        assert(assignment[get_idx(w.c.ptr[j])] != 0);
                 #endif
                 return 1;   // conflict found
             }
-            int first_watch_assignment = assignment[get_idx(first_watch)];(void)first_watch_assignment; // TODO: remove
             assert(assignment[get_idx(first_watch)] == -1);
             assert(assignment[second_idx] == 0);
 
             // find first unassigned lit in c
             bool recurse = true;
+            int* lits = w.c.ptr;
             for (int j = 2; j < nb_lits; j++) {
                 int c_lit = lits[j];
                 char c_sign = assignment[get_idx(c_lit)];
@@ -138,10 +149,11 @@ static int drup_check_propagate() {
 
                 // found unassigned or satisfied lit besides second_watch
                 //  => swap with first_watch and fix occourence lists
-                lits[0] = c_lit;
+                int x = lits[0] == first_watch ? 0 : 1;    // first watch might correspond to first or second lit
+                lits[x] = c_lit;
                 lits[j] = first_watch;
 
-                drup_clause_vec_push(occurences[get_idx(c_lit)], c);
+                watcher_vec_push(&(occurences[get_idx(c_lit)]), w);
                 v->data[i--] = v->data[--(v->size)];
 
                 recurse = false;
@@ -195,9 +207,14 @@ void drup_check_init(int nb_vars) {
     formula_loaded = false;
     original_ids = 0;
     int nb_lits = 2 * nb_vars;
-    occurences = (struct drup_clause_vec**)palrup_utils_malloc(nb_lits * sizeof(struct drup_clause_vec*));
-    for (int i = 0; i < nb_lits; i++)
-        occurences[i] = drup_clause_vec_init(4);
+    occurences = (struct watcher_vec*)palrup_utils_malloc(nb_lits * sizeof(struct watcher_vec));
+    for (int i = 0; i < nb_lits; i++) {
+        // init vectors manualy to save indirection introduced by vec_init
+        struct watcher_vec * const vec = &(occurences[i]);
+        vec->size = 0;
+        vec->capacity = 4;
+        vec->data = palrup_utils_calloc(4, sizeof(watcher));
+    }
 
     add_buffer = int_vec_init(16);
     assignment = palrup_utils_calloc(nb_lits, sizeof(u8));
@@ -208,13 +225,17 @@ void drup_check_init(int nb_vars) {
 void drup_check_end() {
     formula_loaded = true;
     for (size_t i = 0; i < (nb_known_vars * 2); i++) {
-        struct drup_clause_vec* v = occurences[i];
-        for (size_t j = 0; j < v->size; j++) {
+        struct watcher_vec * const v = &(occurences[i]);
+        while (v->size > 0) {
             // Could be way more eficient, but we are only cleaning up
-            drup_clause c = v->data[j--];
-            drup_check_delete_clause(drup_clause_get_lits(c), drup_clause_get_nb_lits(c));
+            watcher w = v->data[--(v->size)];
+            //drup_check_delete_clause(drup_clause_get_lits(c), drup_clause_get_nb_lits(c));
+            if (w.nb_lits > 2) {
+                if (w.c.ptr[0] == 0) free(w.c.ptr);
+                else w.c.ptr[0] = 0;    // mark clause as visited. will be freed with second watched lit
+            }
         }
-        drup_clause_vec_free(v);
+        free(v->data);
     }
     free(occurences);
     int_vec_free(add_buffer);
@@ -228,6 +249,7 @@ void drup_check_end() {
     unsat_found = false;
     formula_loaded = false;
     original_ids = 0;
+    printf(">> blocking_lit_used:%lu\n", blocking_lit_used);
 }
 
 int drup_check_load(int lit) {
@@ -267,7 +289,8 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits) {
     assert(nb_lits >= 0);
     
     // init clause
-    drup_clause c = drup_clause_init(id, lits, nb_lits);
+    //drup_clause c = drup_clause_init(id, lits, nb_lits);
+    (void)id;
     
     // mark unsat as found
     if (nb_lits == 0) {
@@ -275,19 +298,37 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits) {
         return 0;
     }
     
+    //int nb_lits;
+    //int blocking_lit;
+    //clause c;
+
     // handle unit as special case
     if (nb_lits == 1) {
         int lit = lits[0];
         int_vec_push(units, lit);
-        drup_clause_vec_push(occurences[get_idx(lit)], c);
+        //drup_clause_vec_push(occurences[get_idx(lit)], c);
+        watcher w = { .nb_lits = 1, .blocking_lit = lit, .c.ptr = NULL };
+        watcher_vec_push(&(occurences[get_idx(lit)]), w);
+        return 0;
+    }
+
+    // handle binary as special case
+    if (nb_lits == 2) {
+        watcher w = { .nb_lits = 2, .blocking_lit = lits[0], .c.lit = lits[1] };
+        watcher_vec_push(&(occurences[get_idx(lits[0])]), w);
+        watcher_vec_push(&(occurences[get_idx(lits[1])]), w);
         return 0;
     }
 
     // add clause to occurence list of first two lits
+    assert(nb_lits > 2);
+    int* c = malloc(nb_lits * sizeof(int));
+    memcpy(c, lits, nb_lits * sizeof(int));
+    watcher w = { .nb_lits = nb_lits, .blocking_lit = lits[nb_lits - 1], .c.ptr = c };
     int idx = get_idx(lits[0]);
-    drup_clause_vec_push(occurences[idx], c);
+    watcher_vec_push(&(occurences[idx]), w);
     idx = get_idx(lits[1]);
-    drup_clause_vec_push(occurences[idx], c);
+    watcher_vec_push(&(occurences[idx]), w);
 
     return 0;
 }
@@ -333,29 +374,32 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
     for (int i = 0; i < nb_lits; i++) {
         int lit = lits[i];
         int idx = get_idx(lit);
-        struct drup_clause_vec* v = occurences[idx];
+        struct watcher_vec * const v = &(occurences[idx]);
 
         for (u64 j = 0; j < v->size; j++) {
-            drup_clause c = v->data[j];
-            if (drup_clause_get_nb_lits(c) != nb_lits)
+            watcher w = v->data[j];
+            if (w.nb_lits != nb_lits)
                 continue;
-            if (compare_lits(lits, drup_clause_get_lits(c), nb_lits)) {
+            // lits are stored inside watch if nb_lits < 3
+            // TODO: check if comparison for binary clause works
+            if (nb_lits > 2 ? compare_lits(lits, w.c.ptr, nb_lits) : compare_lits(lits, &(w.blocking_lit), nb_lits)) {
                 // remove clause from occurence lists and delete
                 v->data[j] = v->data[--(v->size)];
-                if (drup_clause_get_nb_lits(c) == 1) {
-                    drup_clause_free(c);
-                    return 0;
-                }
+                if (nb_lits == 1)
+                    return 0;   // only occurence was deleted
 
-                int second_watch = drup_clause_get_lits(c)[0];
-                if (second_watch == lit)
-                    second_watch = drup_clause_get_lits(c)[1];
-                struct drup_clause_vec* v2 = occurences[get_idx(second_watch)];
+                if (nb_lits == 2)
+                    break;  // second watch will be found and deleted by second iteration
+
+                // Skip some iterations of outer loop since we know the second occurence list.
+                int second_watch = w.c.ptr[0] == lit ? w.c.ptr[1] : w.c.ptr[0];
+                struct watcher_vec * const v2 = &(occurences[get_idx(second_watch)]);
                 for (size_t k = 0; k < v2->size; k++) {
-                    drup_clause c2 = v2->data[k];
-                    if (c2 != c) continue;
+                    watcher w2 = v2->data[k];
+                    if (w2.c.ptr != w.c.ptr) continue;
+                    // watch points to same clause => free clause and delete watch
                     v2->data[k] = v2->data[--(v2->size)];
-                    drup_clause_free(c2);
+                    free(w2.c.ptr);
                     return 0;
                 }
                 
@@ -374,28 +418,35 @@ bool drup_check_formula_loaded() {
     return formula_loaded;
 }
 u64 drup_check_get_clause_id(const int* lits, int nb_lits) {
-    // TODO: find empty clause
-    drup_clause c = find_clause(lits, nb_lits);
-    if (c) return drup_clause_get_id(c);
+    // TODO: implement?
+    (void)lits;
+    (void)nb_lits;
+    //drup_clause c = find_clause(lits, nb_lits);
+    //if (c) return drup_clause_get_id(c);
     return 0; // clause not found
 }
 drup_clause find_clause(const int* lits, int nb_lits) {
-    for (int i = 0; i < nb_lits; i++) {
-        int lit = lits[i];
-        int idx = get_idx(lit);
-        struct drup_clause_vec* v = occurences[idx];
+    // TODO: implement?
+    (void)lits;
+    (void)nb_lits;
+    return 0;
 
-        for (u64 j = 0; j < v->size; j++) {
-            drup_clause c = v->data[j];
-            if (drup_clause_get_nb_lits(c) != nb_lits)
-                continue;
-            if (compare_lits(lits, drup_clause_get_lits(c), nb_lits))
-                return c;   // clause found
-        }
-    }
-    return NULL; // clause not found
+    //for (int i = 0; i < nb_lits; i++) {
+    //    int lit = lits[i];
+    //    int idx = get_idx(lit);
+    //    struct drup_clause_vec* v = occurences[idx];
+
+    //    for (u64 j = 0; j < v->size; j++) {
+    //        drup_clause c = v->data[j];
+    //        if (drup_clause_get_nb_lits(c) != nb_lits)
+    //            continue;
+    //        if (compare_lits(lits, drup_clause_get_lits(c), nb_lits))
+    //            return c;   // clause found
+    //    }
+    //}
+    //return NULL; // clause not found
 }
 
 #ifdef UNIT_TEST
-struct drup_clause_vec** get_occurences() { return occurences; }
+struct watcher_vec** get_occurences() { return occurences; }
 #endif

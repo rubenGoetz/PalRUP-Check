@@ -1,6 +1,7 @@
 
 #include "utils/palrup_utils.h"  // for u64, u8
 #include "drup_clause.h"
+#include "drup_check.h"
 
 #define TYPE u8
 #define TYPED(THING) u8_ ## THING
@@ -31,3 +32,10 @@
 #include "vec.c"
 #undef TYPED
 #undef TYPE
+
+#define TYPE watcher
+#define TYPED(THING) watcher_##THING
+#include "vec.c"
+#undef TYPED
+#undef TYPE
+
