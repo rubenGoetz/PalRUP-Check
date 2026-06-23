@@ -10,7 +10,7 @@ struct watcher {
     int nb_lits;
     int blocking_lit;
     union {
-        int* ptr;
+        int ptr;
         int lit;
     } c;
 };
