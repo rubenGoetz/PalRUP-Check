@@ -8,10 +8,10 @@
 
 struct watcher {
     int nb_lits;
-    int blocking_lit;
+    unsigned blocking_lit;
     union {
-        int ptr;
-        int lit;
+        unsigned ptr;
+        unsigned lit;
     } c;
 };
 typedef struct watcher watcher;
@@ -23,7 +23,7 @@ int drup_check_load(int lit);
 int drup_check_end_load();
 u64 drup_check_get_nb_loaded_clauses();
 
-int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits);
+int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool internal_lits);
 int drup_check_add_clause(u64 id, const int* lits, int nb_lits);
 int drup_check_delete_clause(const int* lits, int nb_lits);
 

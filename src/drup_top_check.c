@@ -66,7 +66,7 @@ bool drup_top_check_add(u64 id, const int* lits, int nb_lits) {
     return drup_valid;
 }
 bool drup_top_check_import(u64 id, const int* lits, int nb_lits) {
-    int res = drup_check_add_axiomatic_clause(id, lits, nb_lits);
+    int res = drup_check_add_axiomatic_clause(id, lits, nb_lits, false);
 
     siphash_update((u8*) &id, sizeof(u64));
     siphash_update((u8*) lits, nb_lits*sizeof(int));

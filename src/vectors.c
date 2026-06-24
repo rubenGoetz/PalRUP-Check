@@ -21,6 +21,12 @@
 #undef TYPED
 #undef TYPE
 
+#define TYPE unsigned
+#define TYPED(THING) unsigned_ ## THING
+#include "vec.c"
+#undef TYPED
+#undef TYPE
+
 #define TYPE u64
 #define TYPED(THING) u64_ ## THING
 #include "vec.c"
