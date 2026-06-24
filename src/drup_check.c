@@ -184,8 +184,8 @@ int drup_check_propagate() {
 
                 // found unassigned or satisfied lit besides second_watch
                 //  => swap with first_watch and fix occourence lists
-                unsigned x = lits[0] == first_watch ? 0 : 1;    // first watch might correspond to first or second lit
-                lits[x] = c_lit;
+                lits[0] = c_lit;
+                lits[1] = second_watch;
                 lits[j] = first_watch;
 
                 watcher_vec_push(&(occurences[c_lit]), w);
