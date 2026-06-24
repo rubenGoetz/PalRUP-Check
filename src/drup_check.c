@@ -138,7 +138,7 @@ int drup_check_propagate() {
         struct watcher_vec * const v = &(occurences[NEG(lit)]);
         for (u64 i = 0; i < v->size; i++) {
             watcher w = v->data[i];
-            //__builtin_prefetch(db.lits + (v->data[i + 16]).c.ptr);
+            __builtin_prefetch(db.lits + (v->data[i + 16]).c.ptr);
             int nb_lits = w.nb_lits;
             if (nb_lits == 1) return 1;   // conflict found
             assert(nb_lits > 1);
