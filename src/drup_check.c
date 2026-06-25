@@ -37,6 +37,8 @@ struct clause_db {
     unsigned* lits;
     unsigned lits_size;
     unsigned lits_capacity;
+    unsigned earliest_delete;
+    unsigned delete_count;
 } db;
 
 // TODO: check for duplicate lits somewhere?
@@ -47,8 +49,6 @@ bool formula_loaded = false;
 
 // occurence list for 2 watched literals
 // units do not need to be in occournce lists, since we assign them permanently
-// TODO: Keep a literal of each clause directly in occurrence list to check if satisfied
-// TODO: make occurences direct array of vec structs
 struct watcher_vec* occurences;
 
 // buffer for clause addition
@@ -85,26 +85,52 @@ static inline unsigned get_ilit(int elit) {
     assert(ABS(elit) <= nb_known_vars);
     int sign = elit > 0;
     int ulit = sign ? elit : -elit;
-    return (ulit * 2) - sign - 1;
+    unsigned ilit = (ulit * 2) - sign - 1;
+    assert(ilit != -1U);
+    return ilit;
 }
 static inline int get_elit(unsigned ilit) {
+    assert(ilit != -1U);
     int sign = 1 - (ilit & 1U);
     int ulit = (ilit + 1 + sign) / 2;
     return sign ? ulit : -ulit;
 }
-/*static inline int get_var(int lit) {
-    assert(lit != 0);
-    assert(ABS(lit) <= nb_known_vars);
-    return ABS(lit);
+static void compress_db() {
+    unsigned i = db.earliest_delete - 1;
+    unsigned new_size = db.earliest_delete;
+    unsigned* db_lits = db.lits;(void)db_lits;// TODO: remove
+    do {
+        // skip unused spaces
+        while (db.lits[++i] == -1U);
+        if (i >= db.lits_size) break;
+        
+        // correct watches for next clause
+        unsigned first_watch = db.lits[i];
+        unsigned second_watch = db.lits[i+1];
+        int efw = get_elit(first_watch);(void)efw;//TODO:remove
+        assert(ABS(get_elit(first_watch)) <= nb_known_vars);
+        assert(ABS(get_elit(second_watch)) <= nb_known_vars);
+        struct watcher_vec* v1 = &(occurences[first_watch]);
+        struct watcher_vec* v2 = &(occurences[second_watch]);
+        for (u64 j = 0; j < v1->size; j++)
+            if(v1->data[j].nb_lits > 2 && v1->data[j].c.ptr == i) v1->data[j].c.ptr = new_size;
+        for (u64 j = 0; j < v2->size; j++)
+            if(v2->data[j].nb_lits > 2 && v2->data[j].c.ptr == i) v2->data[j].c.ptr = new_size;
+        
+        // copy clause into new space
+        while (db.lits[i] != -1U)
+            db.lits[new_size++] = db.lits[i++];
+        db.lits[new_size++] = -1U;
+    } while (i < db.lits_size);
+    db.lits_size = new_size;
+    db.earliest_delete = db.lits_capacity;
+    db.delete_count = 0;
 }
-static inline char get_sign(int lit) {
-    assert(lit != 0);
-    assert(ABS(lit) <= nb_known_vars);
-    return lit < 0 ? -1 : 1;
-}*/
 static inline void add_clause_to_db(const unsigned* lits, int nb_lits) {
     assert(db.lits_size + nb_lits > db.lits_size);    // check for uint overflow
-    if (db.lits_size + nb_lits > db.lits_capacity) {  // resize DB if necessary
+    if (db.lits_size + nb_lits >= db.lits_capacity)   // compress DB if necessary
+        compress_db();
+    if (db.lits_size + nb_lits >= db.lits_capacity) {  // resize DB if necessary
         LOG("resize clause db");
         int new_cap = MIN((unsigned)-1, db.lits_size * 1.3);
         db.lits = palrup_utils_realloc(db.lits, new_cap * sizeof(unsigned));
@@ -113,12 +139,16 @@ static inline void add_clause_to_db(const unsigned* lits, int nb_lits) {
 
     memcpy(db.lits + db.lits_size, lits, nb_lits * sizeof(unsigned));
     db.lits_size += nb_lits;
+    db.lits[db.lits_size++] = -1U;    // clasue separator
     assert(db.lits_size <= db.lits_capacity);
 }
 static inline void delete_clasue_from_db(const unsigned offset, unsigned nb_lits) {
     assert(db.lits_size >= offset + nb_lits);
     assert(offset < offset + nb_lits);
-    memset(db.lits + offset, 0, nb_lits);    // zero out lits for later compression
+    memset(db.lits + offset, -1U, nb_lits * sizeof(unsigned));    // mark unused space with -1U
+    db.earliest_delete = MIN(db.earliest_delete, offset);
+    if (++db.delete_count >= 10000) // TODO: tune parameter and make option?
+        compress_db();
 }
 int drup_check_propagate() {
     while (prop_stack->size > 0) {
@@ -258,6 +288,8 @@ void drup_check_init(int nb_vars) {
     db.lits = palrup_utils_malloc(capazity * sizeof(int));
     db.lits_size = 0;
     db.lits_capacity = capazity;
+    db.earliest_delete = capazity;
+    db.delete_count = 0;
 
     add_buffer = int_vec_init(16);
     assignment = palrup_utils_calloc(nb_lits, sizeof(u8));
