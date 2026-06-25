@@ -115,6 +115,11 @@ static inline void add_clause_to_db(const unsigned* lits, int nb_lits) {
     db.lits_size += nb_lits;
     assert(db.lits_size <= db.lits_capacity);
 }
+static inline void delete_clasue_from_db(const unsigned offset, unsigned nb_lits) {
+    assert(db.lits_size >= offset + nb_lits);
+    assert(offset < offset + nb_lits);
+    memset(db.lits + offset, 0, nb_lits);    // zero out lits for later compression
+}
 int drup_check_propagate() {
     while (prop_stack->size > 0) {
         unsigned lit = prop_stack->data[--(prop_stack->size)];
@@ -135,10 +140,11 @@ int drup_check_propagate() {
         assert(assignment[lit] == 1 && assignment[NEG(lit)] == -1);
 
         // fix occurences and propagate
+        unsigned first_watch = NEG(lit);
         struct watcher_vec * const v = &(occurences[NEG(lit)]);
         for (u64 i = 0; i < v->size; i++) {
-            watcher w = v->data[i];
             __builtin_prefetch(db.lits + (v->data[i + 16]).c.ptr);
+            watcher w = v->data[i];
             int nb_lits = w.nb_lits;
             if (nb_lits == 1) return 1;   // conflict found
             assert(nb_lits > 1);
@@ -148,7 +154,6 @@ int drup_check_propagate() {
                 continue;   // clause is satisfied
             }
 
-            unsigned first_watch = NEG(lit);
             unsigned second_watch;
             unsigned* lits = db.lits + w.c.ptr;
             if (nb_lits == 2)   // binary clauses are stored in watch directly
@@ -175,11 +180,9 @@ int drup_check_propagate() {
             assert(assignment[second_watch] == 0);
 
             // find first unassigned lit in c
-            bool recurse = true;
             for (int j = 2; j < nb_lits; j++) {
                 unsigned c_lit = lits[j];
-                char c_sign = assignment[c_lit];
-                if (c_sign == -1)
+                if (assignment[c_lit] == -1)
                     continue;
 
                 // found unassigned or satisfied lit besides second_watch
@@ -191,12 +194,12 @@ int drup_check_propagate() {
                 watcher_vec_push(&(occurences[c_lit]), w);
                 v->data[i--] = v->data[--(v->size)];
 
-                recurse = false;
-                break;
+                goto no_recurse;
             }
         
-            if (recurse)
-                unsigned_vec_push(prop_stack, second_watch);
+            unsigned_vec_push(prop_stack, second_watch);
+            
+            no_recurse:;
         
         }   // for all occurences
     }   // while stack not empy
@@ -281,10 +284,7 @@ void drup_check_end() {
     unsat_found = false;
     formula_loaded = false;
     original_ids = 0;
-    db.lits = 0;
-    db.lits_size = 0;
-    db.lits_capacity = 0;
-    printf(">> blocking_lit_used:%lu\n", blocking_lit_used);    // TODO: Make stats somewhat consistent
+    memset(&db, 0, sizeof(struct clause_db));
 }
 
 int drup_check_load(int lit) {
@@ -420,7 +420,7 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
                     if (w2.nb_lits != w.nb_lits || w2.c.ptr != w.c.ptr) continue;
                     // watch points to same clause => delete watch
                     v2->data[k] = v2->data[--(v2->size)];
-                    memset(c, 0, w.nb_lits);    // zero out lits for debugging and to possibly compress db later
+                    delete_clasue_from_db(w.c.ptr, w.nb_lits);
                     return 0;
                 }
                 
