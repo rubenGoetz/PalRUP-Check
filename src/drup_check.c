@@ -42,7 +42,6 @@ struct clause_db {
 } db;
 
 // TODO: check for duplicate lits somewhere?
-u64 blocking_lit_used = 0;
 int nb_known_vars;
 bool unsat_found = false;
 bool formula_loaded = false;
@@ -155,8 +154,13 @@ int drup_check_propagate() {
         char a_sign = assignment[lit];
 
         // if var was already assigned a different value
-        if (a_sign == -1)
-            return 1;   // conflict found
+        //if (a_sign == -1)
+        //    return 1;   // conflict found
+        switch (a_sign) {
+            case -1: return 1;
+            case 1 : continue;
+            default: break;
+        }
 
         // assign value
         assert((a_sign == 1) || (a_sign == 0));
@@ -177,10 +181,8 @@ int drup_check_propagate() {
             if (nb_lits == 1) return 1;   // conflict found
             assert(nb_lits > 1);
 
-            if (assignment[w.blocking_lit] == 1) {
-                blocking_lit_used++;
+            if (assignment[w.blocking_lit] == 1)
                 continue;   // clause is satisfied
-            }
 
             unsigned second_watch;
             unsigned* lits = db.lits + w.c.ptr;
@@ -194,16 +196,17 @@ int drup_check_propagate() {
             assert(assignment[first_watch] == -1);
 
             // check second_watch
-            if (assignment[second_watch] == 1)
-                continue;   // clause is satisfied
-            if (assignment[second_watch] == -1) {
-                // second watch should be last unassigned lit in any clause
-                #ifndef NDEBUG
-                    // assert that all lits in clause are assigned
-                    for (int j = 2; j < nb_lits; j++)
-                        assert(assignment[lits[j]] != 0);
-                #endif
-                return 1;   // conflict found
+            switch (assignment[second_watch]) {
+                case 1: continue;
+                case -1:
+                    // second watch should be last unassigned lit in any clause
+                    #ifndef NDEBUG
+                        // assert that all lits in clause are assigned
+                        for (int j = 2; j < nb_lits; j++)
+                            assert(assignment[lits[j]] != 0);
+                    #endif
+                    return 1;   // conflict found
+                default: break;
             }
             assert(assignment[second_watch] == 0);
 
