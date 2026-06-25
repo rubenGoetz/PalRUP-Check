@@ -98,7 +98,6 @@ static inline int get_elit(unsigned ilit) {
 static void compress_db() {
     unsigned i = db.earliest_delete - 1;
     unsigned new_size = db.earliest_delete;
-    unsigned* db_lits = db.lits;(void)db_lits;// TODO: remove
     do {
         // skip unused spaces
         while (db.lits[++i] == -1U);
@@ -107,15 +106,14 @@ static void compress_db() {
         // correct watches for next clause
         unsigned first_watch = db.lits[i];
         unsigned second_watch = db.lits[i+1];
-        int efw = get_elit(first_watch);(void)efw;//TODO:remove
         assert(ABS(get_elit(first_watch)) <= nb_known_vars);
         assert(ABS(get_elit(second_watch)) <= nb_known_vars);
         struct watcher_vec* v1 = &(occurences[first_watch]);
         struct watcher_vec* v2 = &(occurences[second_watch]);
         for (u64 j = 0; j < v1->size; j++)
-            if(v1->data[j].nb_lits > 2 && v1->data[j].c.ptr == i) v1->data[j].c.ptr = new_size;
+            if((v1->data[j].nb_lits > 2) & (v1->data[j].c.ptr == i)) v1->data[j].c.ptr = new_size;
         for (u64 j = 0; j < v2->size; j++)
-            if(v2->data[j].nb_lits > 2 && v2->data[j].c.ptr == i) v2->data[j].c.ptr = new_size;
+            if((v2->data[j].nb_lits > 2) & (v2->data[j].c.ptr == i)) v2->data[j].c.ptr = new_size;
         
         // copy clause into new space
         while (db.lits[i] != -1U)
