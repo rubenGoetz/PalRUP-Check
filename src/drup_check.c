@@ -153,9 +153,6 @@ int drup_check_propagate() {
         assert(ABS(get_elit(lit)) <= nb_known_vars);
         char a_sign = assignment[lit];
 
-        // if var was already assigned a different value
-        //if (a_sign == -1)
-        //    return 1;   // conflict found
         switch (a_sign) {
             case -1: return 1;
             case 1 : continue;
@@ -247,7 +244,6 @@ static void drup_check_reset_assignment() {
     unsigned_vec_clear(trail);
     #ifndef NDEBUG
         // assert no assignments persist
-        // TODO: make assertion again
         for (int i = 0; i < nb_known_vars * 2; i++)
             assert(assignment[i] == 0);
     #endif
