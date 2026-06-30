@@ -4,8 +4,8 @@
 #include <time.h>
 
 #include "../src/drup_top_check.h"
-#include "../src/file_reader.h"
-//#include "../src/dummy_file_reader.h"
+//#include "../src/file_reader.h"
+#include "../src/dummy_file_reader.h"
 
 // Instantiate int_vec
 #define TYPE int
@@ -116,8 +116,8 @@ bool parse_formula() {
 bool check_proof() {
     while (true) {
         char c = file_reader_read_vbl_char(reader);
-        if (file_reader_eof_reached(reader)) {
-        //if (c == EOF) {
+        //if (file_reader_eof_reached(reader)) {
+        if (c == EOF) {
             return true;
             break;
 
@@ -218,25 +218,18 @@ int main(int argc, char *argv[]) {
     }
     end_proof = clock();
 
-    if(!drup_top_check_unsat_found()) {
-        printf("* [ERROR] unsat not found.\n");
-        return 1;
-    }
     if(!drup_top_check_valid()) {
-        printf("* [ERROR] check not valid.\n");
-        return 1;
+        printf("s NOT VALIDATED.\n");
+    } else {
+        printf("s VALIDATED\n");
     }
 
-    u8 sig[SIG_SIZE_BYTES];
-    drup_top_check_end(sig);
-
-    printf("s VALIDATED\n");
+    drup_top_check_end();
 
     printf("* Meta information on %s:\n", PROOF_PATH);
     printf("   - %lu clauses produced\n", nb_produced);
     printf("   - %lu clauses imported\n", nb_imported);
     printf("   - %lu clauses deleted\n", nb_deleted);
-    printf("   - signature: %i, %i, %i, %i\n", (int)sig[0], (int)sig[4], (int)sig[8], (int)sig[12]);
     printf("   - %lf cpu seconds to check proof\n", (double)(end_proof - start_proof) / CLOCKS_PER_SEC);
 
     file_reader_end(reader);

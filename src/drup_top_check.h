@@ -5,7 +5,7 @@
 #include "utils/define.h"
 
 void drup_top_check_init(int nb_vars);
-void drup_top_check_end(u8* sig);
+void drup_top_check_end();
 
 bool drup_top_check_load(int lit);
 bool drup_top_check_end_load();

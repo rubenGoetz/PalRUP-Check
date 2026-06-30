@@ -33,5 +33,5 @@ u64 drup_check_get_clause_id(const int* lits, int nb_lits);
 drup_clause find_clause(const int* lits, int nb_lits);
 
 #ifdef UNIT_TEST
-struct watcher_vec** get_occurences();
+struct watcher_vec* get_occurences();
 #endif
