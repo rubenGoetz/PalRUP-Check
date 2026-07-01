@@ -218,9 +218,8 @@ int drup_check_propagate() {
             unsigned* lits = db.lits + w.c.ptr;
             if (nb_lits == 2)   // binary clauses are stored in watch directly
                 second_watch = w.blocking_lit == first_watch ? w.c.lit : w.blocking_lit;
-            else {
+            else
                 second_watch = lits[0] == first_watch ? lits[1] : lits[0];
-            }
             assert(first_watch == NEG(lit));
             assert(first_watch != second_watch);
             assert(assignment[first_watch] == -1);
@@ -371,7 +370,7 @@ void drup_check_init(int nb_vars) {
         struct watcher_vec * const vec = &(occurences[i]);
         vec->size = 0;
         vec->capacity = 4;
-        vec->data = palrup_utils_calloc(4, sizeof(watcher));
+        vec->data = palrup_utils_calloc(vec->capacity, sizeof(watcher));
     }
 
     unsigned capazity = 1 << 31;

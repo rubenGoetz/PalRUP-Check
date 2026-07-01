@@ -277,7 +277,7 @@ static void parse_drup() {
             parse_lits();
 
             // forward to checker
-            drup_check_add_axiomatic_clause(id, buf_lits->data, buf_lits->size);
+            drup_check_add_axiomatic_clause(id, buf_lits->data, buf_lits->size, false);
             lc_stats.nb_imported++;
 
             // hold to see if clause will be used
