@@ -100,6 +100,9 @@ static void compress_db() {
     unsigned new_size = db.earliest_delete;
     do {
         // skip unused spaces
+        // Code analysis might complain about jump depending on uninitialized value.
+        // compress_db however will never be called before any deletions occoured
+        // and thus i < db.lits_size, i.e. db.lits[i] is initialized.
         while (db.lits[++i] == -1U);
         if (i >= db.lits_size) break;
         
@@ -373,11 +376,11 @@ void drup_check_init(int nb_vars) {
         vec->data = palrup_utils_calloc(vec->capacity, sizeof(watcher));
     }
 
-    unsigned capazity = 1 << 31;
-    db.lits = palrup_utils_malloc(capazity * sizeof(int));
+    unsigned capacity = 1 << 31;
+    db.lits = palrup_utils_malloc(capacity * sizeof(int));
     db.lits_size = 0;
-    db.lits_capacity = capazity;
-    db.earliest_delete = capazity;
+    db.lits_capacity = capacity;
+    db.earliest_delete = capacity;
     db.delete_count = 0;
 
     add_buffer = int_vec_init(16);

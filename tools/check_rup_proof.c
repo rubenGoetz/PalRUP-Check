@@ -103,12 +103,17 @@ bool parse_formula() {
         if (feof(formula)) break;
         if (lit == 0) parsed++;
         if (ABS(lit) > max_var) max_var = ABS(lit);
-        if (!drup_top_check_load(lit))
+        if (!drup_top_check_load(lit)) {
+            fclose(formula);
             return false;
+        }
     }
-    if (!drup_top_check_end_load())
+    if (!drup_top_check_end_load()) {
+        fclose(formula);
         return false;
+    }
 
+    fclose(formula);
     assert((u64)clauses == drup_top_check_get_nb_loaded_clauses());
     return true;
 }
@@ -225,6 +230,9 @@ int main(int argc, char *argv[]) {
     }
 
     drup_top_check_end();
+    file_reader_end(reader);
+    int_vec_free(lits_buffer);
+    //fclose(f);
 
     printf("* Meta information on %s:\n", PROOF_PATH);
     printf("   - %lu clauses produced\n", nb_produced);
@@ -232,7 +240,6 @@ int main(int argc, char *argv[]) {
     printf("   - %lu clauses deleted\n", nb_deleted);
     printf("   - %lf cpu seconds to check proof\n", (double)(end_proof - start_proof) / CLOCKS_PER_SEC);
 
-    file_reader_end(reader);
     return 0;
 }
 
