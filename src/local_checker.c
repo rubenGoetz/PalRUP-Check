@@ -45,7 +45,7 @@ long nb_clauses;
 u64 lc_num_solvers;
 u64 lc_pal_id;
 u64 lc_max_derived_id = 0;
-u64 lc_drup;
+bool lc_drup;
 bool palrup_binary;
 char fragment_path[512];
 char working_path[512];
@@ -280,12 +280,8 @@ static void parse_drup() {
             drup_check_add_axiomatic_clause(id, buf_lits->data, buf_lits->size, false);
             lc_stats.nb_imported++;
 
-            // hold to see if clause will be used
             clause_ptr c = create_flat_clause(id, buf_lits->size, buf_lits->data);
-            if (!hash_table_insert(import_table, id, c)) {
-                LOG_ERR("Could not insert clause of id %lu into hash table", id);
-                abort();
-            }
+            import_handler_log(c);
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
             parse_lits();
