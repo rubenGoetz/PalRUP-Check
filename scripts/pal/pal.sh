@@ -193,7 +193,8 @@ if (( $id < $num_solvers )); then
     cmd="./build/palrup_confirm \
     -palrup-path=$palrup_path -working-path=$working_path \
     -num-solvers=$num_solvers -pal-id=$id -read-buffer-KB=$read_buffer_size \
-    -redist-strat=$redist_strat -palrup_binary=$palrup_binary"
+    -redist-strat=$redist_strat -palrup_binary=$palrup_binary \
+    -drup=$use_drup"
 
     echo "run $cmd" &>> "$log" &>> "$log"
     start=$(date +%s.%N)
