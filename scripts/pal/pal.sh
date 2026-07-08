@@ -32,6 +32,7 @@ write_buffer_size=16384 #  16 MiB
 merge_buffer_size=8192  #   8 MiB
 q_size=409600           # 400 MiB
 q_alpha=0.5
+use_drup=0
 
 if [[ $PALRUP_BINARY ]]; then palrup_binary=$PALRUP_BINARY; fi
 if [[ $READ_BUFFER_SIZE -gt 0 ]]; then read_buffer_size=$READ_BUFFER_SIZE; fi
@@ -40,6 +41,7 @@ if [[ $WRITE_BUFFER_SIZE -gt 0 ]]; then write_buffer_size=$WRITE_BUFFER_SIZE; fi
 if [[ $MERGE_BUFFER_SIZE -gt 0 ]]; then merge_buffer_size=$MERGE_BUFFER_SIZE; fi
 if [[ $Q_SIZE -gt 0 ]]; then q_size=$Q_SIZE; fi
 if [[ $(echo "$Q_ALPHA > 0" | bc) -gt 0 ]]; then q_alpha=$Q_ALPHA; fi
+if [[ $USE_DRUP -gt 0 ]]; then use_drup=$USE_DRUP; fi
 
 glob_start=$(date +%s.%N)
 check_timeout() {
@@ -118,7 +120,8 @@ if (( $id < $num_solvers )); then
     -pal-id=$id -read-buffer-KB=$read_buffer_size \
     -redist-strat=$redist_strat -write-buffer-KB=$write_buffer_size \
     -merge-buffer-KB=$merge_buffer_size -q-size-KB=$q_size \
-    -q-alpha=$q_alpha -palrup-binary=$palrup_binary"
+    -q-alpha=$q_alpha -palrup-binary=$palrup_binary \
+    -drup=$use_drup"
 
     echo "run $cmd" &>> "$log" &>> "$log"
     start=$(date +%s.%N)

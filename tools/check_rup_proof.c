@@ -4,8 +4,8 @@
 #include <time.h>
 
 #include "../src/drup_top_check.h"
-//#include "../src/file_reader.h"
-#include "../src/dummy_file_reader.h"
+#include "../src/file_reader.h"
+//#include "../src/dummy_file_reader.h"
 
 // Instantiate int_vec
 #define TYPE int
@@ -121,8 +121,8 @@ bool parse_formula() {
 bool check_proof() {
     while (true) {
         char c = file_reader_read_vbl_char(reader);
-        //if (file_reader_eof_reached(reader)) {
-        if (c == EOF) {
+        if (file_reader_eof_reached(reader)) {
+        //if (c == EOF) {
             return true;
             break;
 
