@@ -207,23 +207,23 @@ int drup_check_propagate() {
         // fix occurences and propagate
         unsigned first_watch = NEG(lit);
         struct watcher_vec * const v = &(occurences[first_watch]);
-        //for (u64 i = 0; i < v->size; i++) {
-        for (u64 i = 0; i < v->size;) {
-            __builtin_prefetch(db.lits + (v->data[i + 2]).c.ptr);    // Segmentation Faults?
-            watcher w = v->data[i];
-            int nb_lits = w.nb_lits;
+        watcher* w = v->data;
+        watcher* end = v->data + v->size;
+        while (w != end) {
+            __builtin_prefetch(db.lits + (w + 2)->c.ptr);
+            int nb_lits = w->nb_lits;
             if (nb_lits == 1) return 1;   // conflict found
             assert(nb_lits > 1);
 
-            if (assignment[w.blocking_lit] == 1) {
-                i++;
+            if (assignment[w->blocking_lit] == 1) {
+                w++;
                 continue;   // clause is satisfied
             }
 
             unsigned second_watch;
-            unsigned* lits = db.lits + w.c.ptr;
+            unsigned* lits = db.lits + w->c.ptr;
             if (nb_lits == 2)   // binary clauses are stored in watch directly
-                second_watch = w.blocking_lit == first_watch ? w.c.lit : w.blocking_lit;
+                second_watch = w->blocking_lit == first_watch ? w->c.lit : w->blocking_lit;
             else
                 second_watch = lits[0] == first_watch ? lits[1] : lits[0];
             assert(first_watch == NEG(lit));
@@ -232,7 +232,7 @@ int drup_check_propagate() {
 
             // check second_watch
             switch (assignment[second_watch]) {
-                case 1: i++; continue;
+                case 1: w++; continue;
                 case -1:
                     // second watch should be last unassigned lit in any clause
                     #ifndef NDEBUG
@@ -246,25 +246,28 @@ int drup_check_propagate() {
             assert(assignment[second_watch] == 0);
 
             // find first unassigned lit in c
-            for (int j = 2; j < nb_lits; j++) {
-                unsigned c_lit = lits[j];
-                if (assignment[c_lit] == -1)
+            for (unsigned* c_lit = lits + 2; c_lit != lits + nb_lits; c_lit++) {
+                assert(*c_lit != first_watch);
+                assert(*c_lit != second_watch);
+                if (assignment[*c_lit] == -1)
                     continue;
 
                 // found unassigned or satisfied lit besides second_watch
                 //  => swap with first_watch and fix occourence lists
-                lits[0] = c_lit;
-                lits[1] = second_watch;
-                lits[j] = first_watch;
+                *lits = *c_lit;
+                *(lits + 1) = second_watch;
+                *c_lit = first_watch;
 
-                watcher_vec_push(&(occurences[c_lit]), w);
-                v->data[i] = v->data[--(v->size)];
+                watcher_vec_push(&(occurences[*lits]), *w);
+                //v->data[i] = v->data[--(v->size)];
+                *w = *(--end);
+                v->size--;
 
                 goto no_recurse;
             }
         
             unsigned_vec_push(prop_stack, second_watch);
-            i++;
+            w++;
             
             no_recurse:;
         
