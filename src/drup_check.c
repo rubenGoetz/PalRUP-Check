@@ -32,6 +32,8 @@
 #undef TYPED
 #undef TYPE
 
+// TODO: DO NOT KEEP ASSIGNMENT OF UNITS :(
+
 // Clasue DB
 struct clause_db {
     unsigned* lits;
@@ -162,9 +164,7 @@ static void drup_check_reset_assignment() {
     #ifndef NDEBUG
         // assert no assignments persist
         for (int i = 0; i < nb_known_vars * 2; i++)
-            //assert(assignment[i] == 0);
-            if (assignment[i] != 0){};
-                //printf(">> assignment[%i] != 0\n", i);
+            assert(assignment[i] == 0);
     #endif
 }
 static bool compare_lits(const unsigned* lits1, const unsigned* lits2, int nb_lits) {
@@ -207,15 +207,18 @@ int drup_check_propagate() {
         // fix occurences and propagate
         unsigned first_watch = NEG(lit);
         struct watcher_vec * const v = &(occurences[first_watch]);
-        for (u64 i = 0; i < v->size; i++) {
-            __builtin_prefetch(db.lits + (v->data[i + 16]).c.ptr);
+        //for (u64 i = 0; i < v->size; i++) {
+        for (u64 i = 0; i < v->size;) {
+            __builtin_prefetch(db.lits + (v->data[i + 2]).c.ptr);    // Segmentation Faults?
             watcher w = v->data[i];
             int nb_lits = w.nb_lits;
             if (nb_lits == 1) return 1;   // conflict found
             assert(nb_lits > 1);
 
-            if (assignment[w.blocking_lit] == 1)
+            if (assignment[w.blocking_lit] == 1) {
+                i++;
                 continue;   // clause is satisfied
+            }
 
             unsigned second_watch;
             unsigned* lits = db.lits + w.c.ptr;
@@ -229,7 +232,7 @@ int drup_check_propagate() {
 
             // check second_watch
             switch (assignment[second_watch]) {
-                case 1: continue;
+                case 1: i++; continue;
                 case -1:
                     // second watch should be last unassigned lit in any clause
                     #ifndef NDEBUG
@@ -255,12 +258,13 @@ int drup_check_propagate() {
                 lits[j] = first_watch;
 
                 watcher_vec_push(&(occurences[c_lit]), w);
-                v->data[i--] = v->data[--(v->size)];
+                v->data[i] = v->data[--(v->size)];
 
                 goto no_recurse;
             }
         
             unsigned_vec_push(prop_stack, second_watch);
+            i++;
             
             no_recurse:;
         
@@ -268,97 +272,6 @@ int drup_check_propagate() {
     }   // while stack not empy
 
     return 0;   // no conflict found
-}
-int drup_check_propagate_unit(unsigned unit) {
-    unsigned_vec_resize(prop_stack, 1);
-    prop_stack->data[0] = unit;
-    int conflicts_found = 0;
-    
-    while (prop_stack->size > 0) {
-        unsigned lit = prop_stack->data[--(prop_stack->size)];
-        assert(ABS(get_elit(lit)) <= nb_known_vars);
-        char a_sign = assignment[lit];
-
-        switch (a_sign) {
-            case -1: return ++conflicts_found;  // conflict found
-            case 1 : continue;  // already assigned to same value and propagated
-            default: break;
-        }
-
-        // assign value
-        assert(a_sign == 0);
-        assignment[lit] = 1;
-        assignment[NEG(lit)] = -1;
-        assert(assignment[lit] == 1 && assignment[NEG(lit)] == -1);
-
-        // fix occurences and propagate
-        unsigned first_watch = NEG(lit);
-        struct watcher_vec * const v = &(occurences[first_watch]);
-        for (u64 i = 0; i < v->size; i++) {
-            __builtin_prefetch(db.lits + (v->data[i + 16]).c.ptr);
-            watcher w = v->data[i];
-            int nb_lits = w.nb_lits;
-            if (nb_lits == 1) {
-                return ++conflicts_found;   // conflict found
-            }
-            assert(nb_lits > 1);
-
-            if (assignment[w.blocking_lit] == 1)
-                continue;   // clause is satisfied
-
-            unsigned second_watch;
-            unsigned* lits = db.lits + w.c.ptr;
-            if (nb_lits == 2)   // binary clauses are stored in watch directly
-                second_watch = w.blocking_lit == first_watch ? w.c.lit : w.blocking_lit;
-            else {
-                second_watch = lits[0] == first_watch ? lits[1] : lits[0];
-            }
-            assert(first_watch == NEG(lit));
-            assert(first_watch != second_watch);
-            assert(assignment[first_watch] == -1);
-
-            // check second_watch
-            switch (assignment[second_watch]) {
-                case 1: continue;   // clasue is satisfied
-                case -1:
-                    // second watch should be last unassigned lit in any clause
-                    #ifndef NDEBUG
-                        // assert that all lits in clause are negatively assigned
-                        for (int j = 2; j < nb_lits; j++)
-                            assert(assignment[lits[j]] == -1);
-                    #endif
-                    return ++conflicts_found;   // conflict found
-                default: break;
-            }
-            assert(assignment[second_watch] == 0);
-
-            // find first unassigned lit in c
-            for (int j = 2; j < nb_lits; j++) {
-                unsigned c_lit = lits[j];
-                if (assignment[c_lit] == -1)
-                    continue;
-
-                // found unassigned or satisfied lit besides second_watch
-                //  => swap with first_watch and fix occourence lists
-                lits[0] = c_lit;
-                lits[1] = second_watch;
-                lits[j] = first_watch;
-
-                watcher_vec_push(&(occurences[c_lit]), w);
-                v->data[i--] = v->data[--(v->size)];
-
-                goto no_recurse;
-            }
-        
-            unsigned_vec_push(prop_stack, second_watch);
-            unsigned_vec_push(units, second_watch);
-            
-            no_recurse:;
-        
-        }   // for all occurences
-    }   // while stack not empy
-
-    return conflicts_found;   // no conflict found
 }
 
 void drup_check_init(int nb_vars) {
@@ -458,42 +371,11 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
     else 
         OVERWRITE_WITH_ILITS(ilits, lits, nb_lits);
 
-    // TODO: meassure if this is actually worth it
-    unsigned actual_size = nb_lits;
-    unsigned tmp;
-    for (unsigned i = 0; i < actual_size; i++)
-        switch (assignment[ilits[i]]) {
-            case -1:
-                // sort to the back
-                tmp = ilits[i];
-                ilits[i--] = ilits[--actual_size];
-                ilits[actual_size] = tmp;
-                break;
-            case 1: return 0;
-            default: break;
-        }
-
     // handle unit as special case
-    if ((nb_lits == 1) | (actual_size == 1)) {
+    if (nb_lits == 1) {
         unsigned lit = ilits[0];
         unsigned_vec_push(units, lit);
         watcher w = { .nb_lits = 1, .blocking_lit = lit, .c.ptr = -1 };
-        if (propagate_units) {
-            if (drup_check_propagate_unit(lit)) {
-                // units are conflicting already
-                //  => can not keep them assigned any longer
-                LOG("Conflict found for clause %lu", id);
-                for (u64 i = 0; i < units->size; i++) {
-                    assignment[units->data[i]] = 0;
-                    assignment[NEG(units->data[i])] = 0;
-                }
-                #ifndef NDEBUG
-                    for (int i = 0; i < nb_known_vars * 2; i++)
-                        assert(assignment[i] == 0);
-                #endif
-                propagate_units = false;
-            }
-        }
         watcher_vec_push(&(occurences[lit]), w);
         return 0;
     }
@@ -546,7 +428,7 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
     DEFINE_ILITS;
 
     // find first clause occurences and delete it 
-     for (int i = 0; i < nb_lits; i++) {
+    for (int i = 0; i < nb_lits; i++) {
         unsigned lit = ilits[i];
         struct watcher_vec * const v = &(occurences[lit]);
 
