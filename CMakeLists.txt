@@ -23,7 +23,8 @@ add_library(local_checker
             src/utils/palrup_utils.c
             src/utils/checker_utils.c
             src/local_checker.c
-            src/file_reader.c
+            #src/file_reader.c
+            src/dummy_file_reader.h
             src/secret.c
             src/siphash_cls.c
             src/lrat_top_check.c
@@ -120,7 +121,8 @@ add_executable(proof_fragment_to_txt
                src/clause_flat.c
                src/siphash.c
                src/secret.c
-               src/file_reader.c
+               #src/file_reader.c
+               src/dummy_file_reader.h
                src/vectors.c
                tools/proof_fragment_to_txt.c)
 
@@ -128,6 +130,7 @@ add_executable(check_rup_proof
                src/utils/palrup_utils.c
                src/drup_top_check.c
                src/file_reader.c
+               #src/dummy_file_reader.h
                src/drup_check.c
                src/siphash.c
                src/hash.c

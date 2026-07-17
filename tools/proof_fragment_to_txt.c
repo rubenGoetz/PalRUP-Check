@@ -4,7 +4,8 @@
 #include "../src/utils/palrup_utils.h"
 #include "../src/clause_flat.h"
 #include "../src/siphash.h"
-#include "../src/file_reader.h"
+//#include "../src/file_reader.h"
+#include "../src/dummy_file_reader.h"
 
 // Instantiate int_vec
 #define TYPE int
@@ -59,7 +60,8 @@ int main(int argc, char *argv[]) {
 
     while (true) {
         char c = file_reader_read_vbl_char(reader);
-        if (file_reader_eof_reached(reader)) {
+        //if (file_reader_eof_reached(reader)) {
+        if (c == EOF) {
             u8* sig = siphash_digest();
             
             printf("* Meta information on %s:\n", PATH_IN);

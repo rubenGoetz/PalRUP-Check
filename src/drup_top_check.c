@@ -9,10 +9,6 @@
 // state is considered invalid if mishaps > 0
 u64 mishaps;
 
-// signature of checked proof
-// TODO: might not be needed
-signature proof_sig;
-
 void drup_top_check_init(int nb_vars) {
     drup_check_init(nb_vars);
 }

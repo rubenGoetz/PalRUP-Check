@@ -5,7 +5,8 @@
 #include <sys/stat.h>
 
 #include "local_checker.h"
-#include "file_reader.h"
+//#include "file_reader.h"
+#include "dummy_file_reader.h"
 #include "utils/palrup_utils.h"
 #include "utils/checker_utils.h"
 #include "lrat_check.h"
@@ -169,7 +170,8 @@ static inline void parse_lits() {
 static void parse_lrup() {
     while (true) {
         char c = file_reader_read_vbl_char(proof);
-        if (file_reader_eof_reached(proof)) {
+        //if (file_reader_eof_reached(proof)) {
+        if (c == EOF) {
             finish_parse();
             break;
 
@@ -242,7 +244,8 @@ static void parse_lrup() {
             lc_stats.nb_deleted += buf_hints->size;
 
         } else {
-            LOG_ERR("Invalid directive! c: %d filesize:%lu", c, proof->total_bytes);
+            //LOG_ERR("Invalid directive! c: %d filesize:%lu", c, proof->total_bytes);
+            LOG_ERR("Invalid directive! c: %d", c);
             exit(1);
         }
 
@@ -256,7 +259,8 @@ static void parse_lrup() {
 static void parse_drup() {
     while (true) {
         char c = file_reader_read_vbl_char(proof);
-        if (file_reader_eof_reached(proof)) {
+        //if (file_reader_eof_reached(proof)) {
+        if (c == EOF) {
             finish_parse();
             break;
 
@@ -294,7 +298,8 @@ static void parse_drup() {
             lc_stats.nb_deleted++;
 
         } else {
-            LOG_ERR("Invalid directive! c: %d filesize:%lu", c, proof->total_bytes);
+            //LOG_ERR("Invalid directive! c: %d filesize:%lu", c, proof->total_bytes);
+            LOG_ERR("Invalid directive! c: %d", c);
             exit(1);
         }
 

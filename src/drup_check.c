@@ -32,8 +32,6 @@
 #undef TYPED
 #undef TYPE
 
-// TODO: DO NOT KEEP ASSIGNMENT OF UNITS :(
-
 // Clasue DB
 struct clause_db {
     unsigned* lits;
