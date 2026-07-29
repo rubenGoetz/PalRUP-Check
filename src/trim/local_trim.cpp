@@ -62,6 +62,21 @@ ProofTrimmer::~ProofTrimmer() {
     palrup_utils_log(string(stats).c_str());
 }
 
+// data has to be big enough, i.e. at least 10 byte for 64-bit int
+static int encode_vbl(void* data, u64 x) {
+    char* write_ptr = (char*)data;
+    unsigned long tmp = x < 0 ? -x : x;
+    tmp = (2 * tmp) + (x < 0);
+    while (tmp & (~127UL)) {    // while more than 7 bits remain
+        //fputc((char)(tmp & 127UL) | 128, tracer->proof_fragment);
+        *(write_ptr++) = (char)(tmp & 127UL) | 128;
+        tmp >>= 7;
+    }
+    //fputc((char)tmp, tracer->proof_fragment);
+    *(write_ptr++) = (char)tmp;
+    return (int)(write_ptr - (char*)data);
+}
+
 void ProofTrimmer::trim() {
     // Handle incoming messages
     auto on_message = [&](auto envelope){
@@ -179,7 +194,6 @@ void ProofTrimmer::trim() {
                 back_file_reader_vbl_sl(proof_fragment);   // skip 0
                 delete_line.resize(1);  // first byte should always be 0
                 while (true) {
-                    u64 tmp_idx = proof_fragment->read_idx;
                     u64 hint = back_file_reader_vbl_sl(proof_fragment);
                     if (hint == 0)
                         break;
@@ -188,8 +202,14 @@ void ProofTrimmer::trim() {
                     auto value = insert_res.first.value();
                     if (insert_res.second) {
                         // ID was last used here and can thus be deleted
-                        while (tmp_idx > proof_fragment->read_idx)
-                            delete_line.push_back(proof_fragment->buffer->data[tmp_idx--]);
+
+                        // reencode hint
+                        char encoding[10];
+                        int len = encode_vbl(&encoding, hint);
+
+                        // push hint to deletion line
+                        for (int i = len - 1; i >= 0; i--)
+                            delete_line.push_back(encoding[i]);
                     } else {
                         insert_res.first.value() = MARK;
                     }

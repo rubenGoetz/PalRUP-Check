@@ -19,7 +19,7 @@ inline int ImportExtractor::get_file_id(u64 id) {
     return (id % num_solvers) % msg_group_size;
 }
 
-inline void ImportExtractor::log_id(u64 id) {
+void ImportExtractor::log_id(u64 id) {
     int file_id = get_file_id(id);
     auto Q = Qs[file_id];
 
