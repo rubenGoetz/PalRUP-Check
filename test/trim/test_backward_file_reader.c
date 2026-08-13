@@ -152,6 +152,8 @@ static void test_back_file_reader_get_start_line_idx() {
     back_file_reader_free(bfr);
 }
 
+// TODO: add test for huge lines
+
 static void test_back_file_reader_skip_bytes() {
     printf("   * open proof file\n");
     // contains 57 byte
