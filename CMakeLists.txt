@@ -4,10 +4,19 @@ project(palrup-checker)
 
 add_definitions("-std=gnu99 -Wall -Wextra -Werror -pedantic-errors -flto -lm") 
 
+if(DRUP_TO_LRUP_CONVERSION EQUAL 1)
+add_compile_definitions(DRUP_TO_LRUP_CONVERSION)
+endif()
+
 # Module Libraries
 
-add_library(import_handler
+add_library(utils
             src/utils/palrup_utils.c
+            src/utils/checker_utils.c
+            src/utils/file_utils.c
+            )
+
+add_library(import_handler
             src/import_handler.c
             src/secret.c
             src/comm_sig.c
@@ -17,11 +26,9 @@ add_library(import_handler
             src/clause_flat.c
             src/options.c
             src/write_buffer.c)
-target_link_libraries(import_handler m)
+target_link_libraries(import_handler m utils)
 
 add_library(local_checker
-            src/utils/palrup_utils.c
-            src/utils/checker_utils.c
             src/local_checker.c
             #src/file_reader.c
             src/dummy_file_reader.h
@@ -36,36 +43,31 @@ add_library(local_checker
             src/confirm.c
             src/vectors.c
             src/hash.c)
-target_link_libraries(local_checker m import_handler)
+target_link_libraries(local_checker m import_handler utils)
 
 add_library(import_merger
-            src/utils/palrup_utils.c
-            src/utils/checker_utils.c
             src/import_merger.c
             src/file_reader.c
             src/vectors.c
             src/comm_sig.c)
+target_link_libraries(import_merger utils)
 
 add_library(redist_handler
-            src/utils/palrup_utils.c
-            src/utils/checker_utils.c
             src/redist_handler.c
             src/comm_sig.c
             src/secret.c
             src/siphash_cls.c
             src/vectors.c
             src/write_buffer.c)
-target_link_libraries(redist_handler m import_merger)
+target_link_libraries(redist_handler m import_merger utils)
 
 add_library(clause_finder
-            src/utils/palrup_utils.c
-            src/utils/checker_utils.c
             src/clause_finder.c
             src/file_reader.c
             src/secret.c
             src/siphash_cls.c
             src/vectors.c)
-target_link_libraries(clause_finder m import_merger)
+target_link_libraries(clause_finder m import_merger utils)
 
 add_library(palrup_tracer STATIC
             src/utils/palrup_utils.c
@@ -128,6 +130,7 @@ add_executable(proof_fragment_to_txt
 
 add_executable(check_rup_proof
                src/utils/palrup_utils.c
+               src/utils/file_utils.c
                src/drup_top_check.c
                src/file_reader.c
                #src/dummy_file_reader.h
@@ -214,6 +217,7 @@ add_test(NAME Test_Full_Run
          COMMAND test_full_run)
 
 add_executable(test_drup_check
+               src/utils/file_utils.c
                test/test_drup_check.c
                src/drup_check.c
                src/hash.c

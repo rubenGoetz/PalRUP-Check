@@ -13,6 +13,9 @@ struct watcher {
         unsigned ptr;
         unsigned lit;
     } c;
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    u64 id;
+    #endif
 };
 typedef struct watcher watcher;
 

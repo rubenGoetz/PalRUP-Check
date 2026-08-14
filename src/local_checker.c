@@ -32,6 +32,11 @@
 #undef TYPED
 #undef TYPE
 
+#ifdef DRUP_TO_LRUP_CONVERSION
+#include "utils/file_utils.h"
+extern FILE* lrup_out;
+#endif
+
 struct local_checker_stats {
     u64 nb_produced;
     u64 nb_imported;
@@ -168,6 +173,7 @@ static inline void parse_lits() {
 }
 
 static void parse_lrup() {
+    u64 id;
     while (true) {
         char c = file_reader_read_vbl_char(proof);
         //if (file_reader_eof_reached(proof)) {
@@ -178,7 +184,7 @@ static void parse_lrup() {
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
             u64_vec_resize(buf_hints, 0);
             
-            u64 id = (u64)file_reader_read_vbl_sl(proof);
+            /*u64*/ id = (u64)file_reader_read_vbl_sl(proof);
             siphash_cls_update(clause_hash, (u8*)&id, sizeof(u64));
 
             check_id(id, true);
@@ -212,7 +218,7 @@ static void parse_lrup() {
             lc_stats.nb_produced++;
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
-            u64 id = (u64)file_reader_read_vbl_sl(proof);
+            /*u64*/ id = (u64)file_reader_read_vbl_sl(proof);
             check_id(id, false);
             parse_lits();
 
@@ -271,14 +277,36 @@ static void parse_drup() {
             parse_lits();
             siphash_cls_update(clause_hash, (u8*)buf_lits->data, buf_lits->size * sizeof(int));
 
+            #ifdef DRUP_TO_LRUP_CONVERSION
+            // print out clause if it wasn't checked
+            file_utils_write_vbl_char('a', lrup_out);
+            file_utils_write_vbl_sl(id, lrup_out);
+            for (u64 i = 0; i < buf_lits->size; i++)
+                file_utils_write_vbl_int(buf_lits->data[i], lrup_out);
+            file_utils_write_vbl_char(0, lrup_out);
+            #endif
+
             // forward to checker
             drup_top_check_add(id, buf_lits->data, buf_lits->size);
             lc_stats.nb_produced++;
+
+            #ifdef DRUP_TO_LRUP_CONVERSION
+            //file_utils_write_vbl_char(0, lrup_out);
+            #endif
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
             u64 id = (u64)file_reader_read_vbl_sl(proof);
             check_id(id, false);
             parse_lits();
+
+            #ifdef DRUP_TO_LRUP_CONVERSION
+            // print out clause if it wasn't checked
+            file_utils_write_vbl_char('i', lrup_out);
+            file_utils_write_vbl_sl(id, lrup_out);
+            for (u64 i = 0; i < buf_lits->size; i++)
+                file_utils_write_vbl_int(buf_lits->data[i], lrup_out);
+            file_utils_write_vbl_char(0, lrup_out);
+            #endif
 
             // forward to checker
             drup_check_add_axiomatic_clause(id, buf_lits->data, buf_lits->size, false);
@@ -325,6 +353,13 @@ void local_checker_init(struct options* options) {
     buf_lits = int_vec_init(1);
     buf_hints = u64_vec_init(1);
     import_table = hash_table_init(16);
+
+    #ifdef DRUP_TO_LRUP_CONVERSION
+        char lrup_out_path[750];
+        snprintf(lrup_out_path, 750, "%s.extended", fragment_path);
+        LOG("print extended proof fragment to %s", lrup_out_path);
+        lrup_out = fopen(lrup_out_path, "wb");
+    #endif
 
     FILE* proof_fragment = fopen(fragment_path, "rb");
     if (!proof_fragment) {

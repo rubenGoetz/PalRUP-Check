@@ -28,6 +28,10 @@ size_t nb_produced = 0, nb_imported = 0, nb_deleted = 0;
 
 clock_t start_formula, end_formula, start_proof, end_proof;
 
+#ifdef DRUP_TO_LRUP_CONVERSION
+extern FILE* lrup_out;
+#endif
+
 #define ABS(X) (X < 0 ? -X : X)
 
 bool is_digit(char c) {
@@ -197,6 +201,14 @@ int main(int argc, char *argv[]) {
 
     FORMULA_PATH = argv[1];
     PROOF_PATH = argv[2];
+
+    // TODO: integrate conversion
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    char lrup_out_path[750];
+    snprintf(lrup_out_path, 750, "%s.extended", PROOF_PATH);
+    LOG("print extended proof fragment to %s", lrup_out_path);
+    lrup_out = fopen(lrup_out_path, "wb");
+    #endif
 
     start_formula = clock();
     if (!parse_formula()) {

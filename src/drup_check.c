@@ -32,6 +32,43 @@
 #undef TYPED
 #undef TYPE
 
+// ----- Definitions for DRUP to LRUP conversion -----
+#define EMPTY_HINTS
+#define PUSH_HINT(H)
+#define PUSH_UNIT_HINT
+
+// TODO: add documantation for Compiler Flag
+#ifdef DRUP_TO_LRUP_CONVERSION
+
+#include "utils/file_utils.h"
+
+#define TYPE u64
+#define TYPED(THING) u64_##THING
+#include "vec.h"
+#undef TYPED
+#undef TYPE
+
+FILE* lrup_out;     // TODO: make file handling reasonable
+struct u64_vec* hints;
+struct u64_vec* unit_ids;
+
+#undef EMPTY_HINTS
+#define EMPTY_HINTS u64_vec_resize(hints, 0)
+
+#undef PUSH_HINT
+#define PUSH_HINT(H) (u64_vec_push(hints, H))
+
+#undef PUSH_UNIT_HINT
+#define PUSH_UNIT_HINT PUSH_HINT(unit_ids->data[units_propagated])
+
+#endif
+// ---------------------------------------------------
+
+#define ON_STACK 2
+#define POS_VAL 1
+#define NEG_VAL -1
+#define NEUTRAL_VAL 0
+
 // Clasue DB
 struct clause_db {
     unsigned* lits;
@@ -65,6 +102,8 @@ struct unsigned_vec* trail;
 
 // stack of variables to be propagated
 struct unsigned_vec* prop_stack;
+u64 prop_stack_propagated;
+u64 units_propagated;
 
 // stack of permanent unit clauses and their literals
 struct unsigned_vec* units;
@@ -154,15 +193,21 @@ static inline void delete_clasue_from_db(const unsigned offset, unsigned nb_lits
 static void drup_check_reset_assignment() {
     // reset assignments
     for (u64 i = 0; i < trail->size; i++) {
-        assignment[trail->data[i]] = (char)0;
-        assignment[NEG(trail->data[i])] = (char)0;
+        assignment[trail->data[i]] = NEUTRAL_VAL;
+        assignment[NEG(trail->data[i])] = NEUTRAL_VAL;
     }
     // clear trail
     unsigned_vec_resize(trail, 0);
-    #ifndef NDEBUG
-        // assert no assignments persist
-        for (int i = 0; i < nb_known_vars * 2; i++)
-            assert(assignment[i] == 0);
+    #ifdef DRUP_TO_LRUP_CONVERSION
+        // mark units as already on stack
+        for (u64 i = 0; i < units->size; i++)
+            assignment[units->data[i]] = ON_STACK;
+    #else
+        #ifndef NDEBUG
+            // assert no assignments persist
+            for (int i = 0; i < nb_known_vars * 2; i++)
+                assert(assignment[i] == 0);
+        #endif
     #endif
 }
 static bool compare_lits(const unsigned* lits1, const unsigned* lits2, int nb_lits) {
@@ -184,23 +229,35 @@ static bool compare_lits(const unsigned* lits1, const unsigned* lits2, int nb_li
 }
 
 int drup_check_propagate() {
-    while (prop_stack->size > 0) {
-        unsigned lit = prop_stack->data[--(prop_stack->size)];
+    EMPTY_HINTS;
+    //while (prop_stack->size > 0) {
+    while (prop_stack_propagated < prop_stack->size || units_propagated < units->size) {
+        unsigned lit;
+        if (prop_stack_propagated < prop_stack->size)
+            lit = prop_stack->data[prop_stack_propagated++];
+        else {
+            PUSH_UNIT_HINT;
+            lit = units->data[units_propagated++];
+        }
+        int elit = get_elit(lit); (void)elit; //TODO:remove
         assert(ABS(get_elit(lit)) <= nb_known_vars);
         char a_sign = assignment[lit];
 
+        // TODO: argue why this does not occur anymore
         switch (a_sign) {
-            case -1: return 1;  // conflict found
+            case -1: 
+                printf(">> earliest conflict case\n");
+                return 1;  // conflict found
             case 1 : continue;  // already assigned to same value and propagated
             default: break;
         }
 
         // assign value
-        assert(a_sign == 0);
-        assignment[lit] = 1;
-        assignment[NEG(lit)] = -1;
+        assert(a_sign != POS_VAL && a_sign != NEG_VAL);
+        assignment[lit] = POS_VAL;
+        assignment[NEG(lit)] = NEG_VAL;
         unsigned_vec_push(trail, lit);
-        assert(assignment[lit] == 1 && assignment[NEG(lit)] == -1);
+        assert(assignment[lit] == POS_VAL && assignment[NEG(lit)] == NEG_VAL);
 
         // fix occurences and propagate
         unsigned first_watch = NEG(lit);
@@ -210,10 +267,13 @@ int drup_check_propagate() {
         while (w != end) {
             __builtin_prefetch(db.lits + (w + 2)->c.ptr);
             int nb_lits = w->nb_lits;
-            if (nb_lits == 1) return 1;   // conflict found
+            if (nb_lits == 1) {
+                PUSH_HINT(w->id);
+                return 1;   // conflict found
+            }
             assert(nb_lits > 1);
 
-            if (assignment[w->blocking_lit] == 1) {
+            if (assignment[w->blocking_lit] == POS_VAL) {
                 w++;
                 continue;   // clause is satisfied
             }
@@ -226,7 +286,7 @@ int drup_check_propagate() {
                 second_watch = lits[0] == first_watch ? lits[1] : lits[0];
             assert(first_watch == NEG(lit));
             assert(first_watch != second_watch);
-            assert(assignment[first_watch] == -1);
+            assert(assignment[first_watch] == NEG_VAL);
 
             // check second_watch
             switch (assignment[second_watch]) {
@@ -236,18 +296,19 @@ int drup_check_propagate() {
                     #ifndef NDEBUG
                         // assert that all lits in clause are negatively assigned
                         for (int j = 2; j < nb_lits; j++)
-                            assert(assignment[lits[j]] == -1);
+                            assert(assignment[lits[j]] == NEG_VAL);
                     #endif
+                    PUSH_HINT(w->id);
                     return 1;   // conflict found
                 default: break;
             }
-            assert(assignment[second_watch] == 0);
+            assert(assignment[second_watch] != POS_VAL && assignment[second_watch] != NEG_VAL);
 
             // find first unassigned lit in c
             for (unsigned* c_lit = lits + 2; c_lit != lits + nb_lits; c_lit++) {
                 assert(*c_lit != first_watch);
                 assert(*c_lit != second_watch);
-                if (assignment[*c_lit] == -1)
+                if (assignment[*c_lit] == NEG_VAL)
                     continue;
 
                 // found unassigned or satisfied lit besides second_watch
@@ -264,9 +325,19 @@ int drup_check_propagate() {
                 goto no_recurse;
             }
         
+            #ifdef DRUP_TO_LRUP_CONVERSION
+            // int e_second_watch = get_elit(second_watch); (void)e_second_watch;//TODO:remove
+            if (assignment[second_watch] == NEUTRAL_VAL) {
+                u64_vec_push(hints, w->id);
+                assignment[second_watch] = ON_STACK;
+                unsigned_vec_push(trail, second_watch);
+            #endif
             unsigned_vec_push(prop_stack, second_watch);
+            #ifdef DRUP_TO_LRUP_CONVERSION
+            }
+            #endif
             w++;
-            
+
             no_recurse:;
         
         }   // for all occurences
@@ -302,6 +373,12 @@ void drup_check_init(int nb_vars) {
     trail = unsigned_vec_init(16);
     prop_stack = unsigned_vec_init(16);
     units = unsigned_vec_init(16);
+    units_propagated = 0;
+    prop_stack_propagated = 0;
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    hints = u64_vec_init(16);
+    unit_ids = u64_vec_init(16);
+    #endif
 }
 void drup_check_end() {
     formula_loaded = true;
@@ -323,6 +400,12 @@ void drup_check_end() {
     formula_loaded = false;
     original_ids = 0;
     memset(&db, 0, sizeof(struct clause_db));
+    units_propagated = 0;
+    prop_stack_propagated = 0;
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    u64_vec_free(hints);
+    u64_vec_free(unit_ids);
+    #endif
 }
 
 int drup_check_load(int lit) {
@@ -358,7 +441,7 @@ u64 drup_check_get_nb_loaded_clauses() {
 int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool internal_lits) {
     assert(nb_lits >= 0);
     (void)id;
-    
+
     // mark unsat as found
     if (nb_lits == 0) {
         unsat_found = true;
@@ -376,14 +459,30 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
     if (nb_lits == 1) {
         unsigned lit = ilits[0];
         unsigned_vec_push(units, lit);
-        watcher w = { .nb_lits = 1, .blocking_lit = lit, .c.ptr = -1 };
+        #ifdef DRUP_TO_LRUP_CONVERSION
+            u64_vec_push(unit_ids, id);
+            assignment[lit] = ON_STACK;
+        #endif
+        watcher w = { .nb_lits = 1,
+                      .blocking_lit = lit,
+                      .c.ptr = -1
+                      #ifdef DRUP_TO_LRUP_CONVERSION
+                      , .id = id
+                      #endif
+                    };
         watcher_vec_push(&(occurences[lit]), w);
         return 0;
     }
 
     // handle binary as special case
     if (nb_lits == 2) {
-        watcher w = { .nb_lits = 2, .blocking_lit = ilits[0], .c.lit = ilits[1] };
+        watcher w = { .nb_lits = 2,
+                      .blocking_lit = ilits[0],
+                      .c.lit = ilits[1]
+                      #ifdef DRUP_TO_LRUP_CONVERSION
+                      , .id = id
+                      #endif
+                    };
         watcher_vec_push(&(occurences[ilits[0]]), w);
         watcher_vec_push(&(occurences[ilits[1]]), w);
         return 0;
@@ -391,7 +490,13 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
 
     // add clause to occurence list of first two lits
     assert(nb_lits > 2);
-    watcher w = { .nb_lits = nb_lits, .blocking_lit = ilits[nb_lits - 1], .c.ptr = db.lits_size };
+    watcher w = { .nb_lits = nb_lits,
+                  .blocking_lit = ilits[nb_lits - 1],
+                  .c.ptr = db.lits_size
+                  #ifdef DRUP_TO_LRUP_CONVERSION
+                  , .id = id
+                  #endif
+                };
     watcher_vec_push(&(occurences[ilits[0]]), w);
     watcher_vec_push(&(occurences[ilits[1]]), w);
     add_clause_to_db(ilits, nb_lits);
@@ -408,11 +513,28 @@ int drup_check_add_clause(u64 id, const int* lits, int nb_lits) {
     DEFINE_ILITS;
 
     int res = 1;
-    unsigned_vec_resize(prop_stack, units->size);
-    memcpy(prop_stack->data, units->data, units->size * sizeof(int));
-    for (int i = 0; i < nb_lits; i++)
-        unsigned_vec_push(prop_stack, NEG(ilits[i]));
+    //unsigned_vec_resize(prop_stack, units->size);
+    //memcpy(prop_stack->data, units->data, units->size * sizeof(int));
+    units_propagated = 0;
+    prop_stack_propagated = 0;
+    unsigned_vec_resize(prop_stack, 0);
+    for (int i = 0; i < nb_lits; i++) {
+        #ifdef DRUP_TO_LRUP_CONVERSION
+            unsigned neg_ilit = NEG(ilits[i]);
+            unsigned_vec_push(prop_stack, neg_ilit);
+            unsigned_vec_push(trail, neg_ilit);
+            assignment[neg_ilit] = ON_STACK;
+        #else
+            unsigned_vec_push(prop_stack, NEG(ilits[i]));
+        #endif
+    }
     if (drup_check_propagate()) {   // conflict found
+        #ifdef DRUP_TO_LRUP_CONVERSION
+        for (long i = 0; i < MAX((long)(prop_stack_propagated + units_propagated - nb_lits), 0); i++)
+            file_utils_write_vbl_sl(hints->data[i], lrup_out);
+        file_utils_write_vbl_sl(hints->data[hints->size - 1], lrup_out);
+        file_utils_write_vbl_char(0, lrup_out);
+        #endif
         drup_check_reset_assignment();
         res = drup_check_add_axiomatic_clause(id, (int*)ilits, nb_lits, true);
     } else drup_check_reset_assignment();
