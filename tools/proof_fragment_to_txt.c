@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
             fprintf(output, "\n");
 
         } else {
-            printf("* [ERROR] Invalid directive %d", c);
+            printf("* [ERROR] Invalid directive %d\n", c);
             break;
         }
     }
