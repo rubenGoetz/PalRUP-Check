@@ -234,7 +234,6 @@ int drup_check_propagate() {
             PUSH_UNIT_HINT;
             lit = units->data[units_propagated++];
         }
-        int elit = get_elit(lit); (void)elit; //TODO:remove
         assert(ABS(get_elit(lit)) <= nb_known_vars);
         char a_sign = assignment[lit];
 
@@ -321,7 +320,6 @@ int drup_check_propagate() {
             }
         
             #ifdef DRUP_TO_LRUP_CONVERSION
-            // int e_second_watch = get_elit(second_watch); (void)e_second_watch;//TODO:remove
             if (assignment[second_watch] == NEUTRAL_VAL) {
                 u64_vec_push(hints, w->id);
                 assignment[second_watch] = ON_STACK;

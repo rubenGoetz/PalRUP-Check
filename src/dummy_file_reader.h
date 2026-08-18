@@ -50,7 +50,6 @@ u64 file_reader_read_vbl_sl(struct file_reader* reader) {
 int file_reader_read_vbl_int(struct file_reader* reader) {
     u64 coefficient = 1;
     unsigned int tmp = 0;
-    int file_pos = ftell(reader->file);(void)file_pos;//TODO: remove
     char c = UNLOCKED_IO(fgetc)(reader->file);
 
     while (c & 128) {
