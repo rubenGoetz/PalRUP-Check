@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <time.h>
+#include <string.h>
 
 #include "../src/drup_top_check.h"
 #include "../src/file_reader.h"
@@ -28,8 +29,39 @@ size_t nb_produced = 0, nb_imported = 0, nb_deleted = 0;
 
 clock_t start_formula, end_formula, start_proof, end_proof;
 
+#define WRITE_SL(X)
+#define WRITE_INT(X)
+#define WRITE_CHAR(X)
+#define WRITE_HINTS
+
 #ifdef DRUP_TO_LRUP_CONVERSION
-extern FILE* lrup_out;
+#include "../src/file_writer.h"
+
+#define TYPE u64
+#define TYPED(THING) u64_##THING
+#include "../src/vec.h"
+#undef TYPED
+#undef TYPE
+
+#undef WRITE_SL
+#define WRITE_SL(X) file_writer_vbl_sl(lrup_out, X)
+
+#undef WRITE_INT
+#define WRITE_INT(X) file_writer_vbl_int(lrup_out, X)
+
+#undef WRITE_CHAR
+#define WRITE_CHAR(X) file_writer_vbl_char(lrup_out, X)
+
+#undef WRITE_HINTS
+#define WRITE_HINTS do {    \
+        for (u64 i = 0; i < hints->size; i++)   \
+            WRITE_SL(hints->data[i]);   \
+        WRITE_CHAR(0);  \
+    } while (0)
+
+file_writer* lrup_out;
+extern struct u64_vec* hints;
+bool convert = false;
 #endif
 
 #define ABS(X) (X < 0 ? -X : X)
@@ -142,11 +174,21 @@ bool check_proof() {
                 int_vec_push(lits_buffer, lit);
             }
 
+            #ifdef DRUP_TO_LRUP_CONVERSION
+            // print out clause if it wasn't checked
+            WRITE_CHAR('a');
+            WRITE_SL(id);
+            for (u64 i = 0; i < lits_buffer->size; i++)
+                WRITE_INT(lits_buffer->data[i]);
+            WRITE_CHAR(0);
+            #endif
+
             if (!drup_top_check_add(id, lits_buffer->data, lits_buffer->size)) {
                 printf("* [ERROR] while adding clause %lu\n", id);
                 break;
             }
             
+            WRITE_HINTS;
             nb_produced++;
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
@@ -161,6 +203,15 @@ bool check_proof() {
                 int_vec_push(lits_buffer, lit);
             }
 
+                        #ifdef DRUP_TO_LRUP_CONVERSION
+            // print out clause if it wasn't checked
+            WRITE_CHAR('i');
+            WRITE_SL(id);
+            for (u64 i = 0; i < lits_buffer->size; i++)
+                WRITE_INT(lits_buffer->data[i]);
+            WRITE_CHAR(0);
+            #endif
+
             if (!drup_top_check_import(id, lits_buffer->data, lits_buffer->size)) {
                 printf("* [ERROR] while importing clause %lu\n", id);
                 break;
@@ -169,6 +220,7 @@ bool check_proof() {
             nb_imported++;
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
+            // TODO: add deletion to LRUP
             int_vec_resize(lits_buffer, 0);
             
             // parse lits
@@ -194,20 +246,36 @@ bool check_proof() {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        printf("* [ERROR] Need argument <formula_path> <proof_path>. ABORT.\n");
+    if (argc < 3) {
+        printf("* [ERROR] Need argument <formula_path> <proof_path> [OPTIONS]. ABORT.\n");
         abort();
     }
 
+    for (int i = 3; i < argc; i++) {
+        if (false);
+        #ifdef DRUP_TO_LRUP_CONVERSION
+        else if (!strcmp(argv[i], "-convert"))
+            convert = true;
+        #endif
+        else {
+            printf("* [ERROR] Unknown option %s. ABORT.\n", argv[i]);
+            abort();
+        }
+    }
+    
     FORMULA_PATH = argv[1];
     PROOF_PATH = argv[2];
 
-    // TODO: integrate conversion
     #ifdef DRUP_TO_LRUP_CONVERSION
-    char lrup_out_path[750];
-    snprintf(lrup_out_path, 750, "%s.extended", PROOF_PATH);
-    LOG("print extended proof fragment to %s", lrup_out_path);
-    lrup_out = fopen(lrup_out_path, "wb");
+    FILE* lrup_file;
+    if (convert) {
+        char lrup_file_path[750];
+        snprintf(lrup_file_path, 750, "%s.extended", PROOF_PATH);
+        LOG("print extended proof fragment to %s", lrup_file_path);
+        lrup_file = fopen(lrup_file_path, "wb");
+    } else
+        lrup_file = NULL;
+    lrup_out = file_writer_init(lrup_file, 1024);
     #endif
 
     start_formula = clock();
@@ -244,7 +312,9 @@ int main(int argc, char *argv[]) {
     drup_top_check_end();
     file_reader_end(reader);
     int_vec_free(lits_buffer);
-    //fclose(f);
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    file_writer_free(lrup_out);
+    #endif
 
     printf("* Meta information on %s:\n", PROOF_PATH);
     printf("   - %lu clauses produced\n", nb_produced);

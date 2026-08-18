@@ -141,6 +141,7 @@ add_executable(check_rup_proof
                src/secret.c
                src/drup_clause.c
                src/vectors.c
+               src/file_writer.c
                tools/check_rup_proof.c)
 
 # Tests
