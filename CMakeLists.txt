@@ -30,8 +30,8 @@ target_link_libraries(import_handler m utils)
 
 add_library(local_checker
             src/local_checker.c
-            #src/file_reader.c
-            src/dummy_file_reader.h
+            src/file_reader.c
+            #src/dummy_file_reader.h
             src/secret.c
             src/siphash_cls.c
             src/lrat_top_check.c

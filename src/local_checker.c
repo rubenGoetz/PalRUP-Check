@@ -5,12 +5,11 @@
 #include <sys/stat.h>
 
 #include "local_checker.h"
-//#include "file_reader.h"
-#include "dummy_file_reader.h"
+#include "file_reader.h"
+//#include "dummy_file_reader.h"
 #include "utils/palrup_utils.h"
 #include "utils/checker_utils.h"
 #include "lrat_check.h"
-#include "drup_check.h"
 #include "import_handler.h"
 #include "siphash_cls.h"
 #include "lrat_top_check.h"
@@ -55,7 +54,11 @@ extern struct u64_vec* hints;   // Feels a bit hacky but effectively cleans up i
 #define WRITE_CHAR(X) file_writer_vbl_char(lrup_out, X)
 
 #undef WRITE_HINTS
-#define WRITE_HINTS 
+#define WRITE_HINTS do {    \
+        for (u64 i = 0; i < hints->size; i++)   \
+            WRITE_SL(hints->data[i]);   \
+        WRITE_CHAR(0);  \
+    } while (0)
 
 #endif
 // ---------------------------------------------------
@@ -313,11 +316,7 @@ static void parse_drup() {
             drup_top_check_add(id, buf_lits->data, buf_lits->size);
             lc_stats.nb_produced++;
 
-            #ifdef DRUP_TO_LRUP_CONVERSION
-            for (u64 i = 0; i < hints->size; i++)
-                WRITE_SL(hints->data[i]);
-            WRITE_CHAR(0);
-            #endif
+            WRITE_HINTS;
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
             u64 id = (u64)file_reader_read_vbl_sl(proof);
@@ -334,13 +333,15 @@ static void parse_drup() {
             #endif
 
             // forward to checker
-            drup_check_add_axiomatic_clause(id, buf_lits->data, buf_lits->size, false);
+            drup_top_check_import(id, buf_lits->data, buf_lits->size);
             lc_stats.nb_imported++;
 
             clause_ptr c = create_flat_clause(id, buf_lits->size, buf_lits->data);
             import_handler_log(c);
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
+            // TODO: integrate deletions into LRUP proof
+            
             parse_lits();
             //u64 id = drup_check_get_clause_id(buf_lits->data, buf_lits->size);
 
