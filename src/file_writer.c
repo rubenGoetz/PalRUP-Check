@@ -49,7 +49,7 @@ void file_writer_vbl_int(file_writer* fw, int i) {
     // assure enough space
     if (fw->buffer_size + 5 > fw->buffer_capacity)
         file_writer_flush(fw);
-    assert(fw->buffer_size + 10 <= fw->buffer_capacity);
+    assert(fw->buffer_size + 5 <= fw->buffer_capacity);
 
     unsigned int tmp = i < 0 ? -i : i;
     tmp = (2 * tmp) + (i < 0);
