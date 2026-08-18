@@ -19,6 +19,9 @@ int main(int argc, char *argv[]) {
         options_try_match_float(argv[i], "-q-alpha=", &(options->q_alpha));
         options_try_match_bool(argv[i], "-palrup-binary=", &(options->palrup_binary));
         options_try_match_bool(argv[i], "-drup=", &(options->drup));
+        #ifdef DRUP_TO_LRUP_CONVERSION
+        options_try_match_bool(argv[i], "-convert-to-lrup=", &(options->convert_to_lrup));
+        #endif
     }
 
     options_buffer_sizes_to_bytes(options);

@@ -13,6 +13,9 @@ struct options {
     u64 read_buffer_size;   // defaults to 4096 KiB
     u64 redist_strat;       // defaults to 3
     bool drup;              // defaults to false
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    bool convert_to_lrup;
+    #endif
 
     // partially needed
     char* formula_path;

@@ -42,7 +42,8 @@ add_library(local_checker
             src/siphash.c
             src/confirm.c
             src/vectors.c
-            src/hash.c)
+            src/hash.c
+            src/file_writer.c)
 target_link_libraries(local_checker m import_handler utils)
 
 add_library(import_merger

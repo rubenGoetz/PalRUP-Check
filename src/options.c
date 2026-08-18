@@ -120,6 +120,12 @@ void options_print(struct options* options) {
         add_str(op_list, &str_cap, " -drup=");
         add_u64(op_list, &str_cap, options->drup);
     }
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    if (options->convert_to_lrup) {
+        add_str(op_list, &str_cap, " -convert-to-lrup=");
+        add_u64(op_list, &str_cap, options->convert_to_lrup);
+    }
+    #endif
 
     if (options->formula_path) {
         add_str(op_list, &str_cap, " -formula-path=");

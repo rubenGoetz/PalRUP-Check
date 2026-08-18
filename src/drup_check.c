@@ -1,6 +1,4 @@
 
-//#define NDEBUG  //TODO: remove
-
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,10 +35,7 @@
 #define PUSH_HINT(H)
 #define PUSH_UNIT_HINT
 
-// TODO: add documantation for Compiler Flag
 #ifdef DRUP_TO_LRUP_CONVERSION
-
-#include "utils/file_utils.h"
 
 #define TYPE u64
 #define TYPED(THING) u64_##THING
@@ -48,7 +43,6 @@
 #undef TYPED
 #undef TYPE
 
-FILE* lrup_out;     // TODO: make file handling reasonable
 struct u64_vec* hints;
 struct u64_vec* unit_ids;
 
@@ -530,10 +524,10 @@ int drup_check_add_clause(u64 id, const int* lits, int nb_lits) {
     }
     if (drup_check_propagate()) {   // conflict found
         #ifdef DRUP_TO_LRUP_CONVERSION
-        for (long i = 0; i < MAX((long)(prop_stack_propagated + units_propagated - nb_lits), 0); i++)
-            file_utils_write_vbl_sl(hints->data[i], lrup_out);
-        file_utils_write_vbl_sl(hints->data[hints->size - 1], lrup_out);
-        file_utils_write_vbl_char(0, lrup_out);
+        // Fix tail of hint sequence
+        long last_hint = MAX((long)(prop_stack_propagated + units_propagated - nb_lits), 0);
+        hints->data[last_hint] = hints->data[hints->size - 1];
+        hints->size = last_hint + 1;
         #endif
         drup_check_reset_assignment();
         res = drup_check_add_axiomatic_clause(id, (int*)ilits, nb_lits, true);

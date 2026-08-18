@@ -32,10 +32,33 @@
 #undef TYPED
 #undef TYPE
 
+// ----- Definitions for DRUP to LRUP conversion -----
+#define WRITE_SL(X)
+#define WRITE_INT(X)
+#define WRITE_CHAR(X)
+#define WRITE_HINTS
+
+// TODO: add documantation for Compiler Flag
 #ifdef DRUP_TO_LRUP_CONVERSION
-#include "utils/file_utils.h"
-extern FILE* lrup_out;
+
+#include "file_writer.h"
+file_writer* lrup_out;
+extern struct u64_vec* hints;   // Feels a bit hacky but effectively cleans up interfaces
+
+#undef WRITE_SL
+#define WRITE_SL(X) file_writer_vbl_sl(lrup_out, X)
+
+#undef WRITE_INT
+#define WRITE_INT(X) file_writer_vbl_int(lrup_out, X)
+
+#undef WRITE_CHAR
+#define WRITE_CHAR(X) file_writer_vbl_char(lrup_out, X)
+
+#undef WRITE_HINTS
+#define WRITE_HINTS 
+
 #endif
+// ---------------------------------------------------
 
 struct local_checker_stats {
     u64 nb_produced;
@@ -279,11 +302,11 @@ static void parse_drup() {
 
             #ifdef DRUP_TO_LRUP_CONVERSION
             // print out clause if it wasn't checked
-            file_utils_write_vbl_char('a', lrup_out);
-            file_utils_write_vbl_sl(id, lrup_out);
+            WRITE_CHAR('a');
+            WRITE_SL(id);
             for (u64 i = 0; i < buf_lits->size; i++)
-                file_utils_write_vbl_int(buf_lits->data[i], lrup_out);
-            file_utils_write_vbl_char(0, lrup_out);
+                WRITE_INT(buf_lits->data[i]);
+            WRITE_CHAR(0);
             #endif
 
             // forward to checker
@@ -291,7 +314,9 @@ static void parse_drup() {
             lc_stats.nb_produced++;
 
             #ifdef DRUP_TO_LRUP_CONVERSION
-            //file_utils_write_vbl_char(0, lrup_out);
+            for (u64 i = 0; i < hints->size; i++)
+                WRITE_SL(hints->data[i]);
+            WRITE_CHAR(0);
             #endif
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
@@ -301,11 +326,11 @@ static void parse_drup() {
 
             #ifdef DRUP_TO_LRUP_CONVERSION
             // print out clause if it wasn't checked
-            file_utils_write_vbl_char('i', lrup_out);
-            file_utils_write_vbl_sl(id, lrup_out);
+            WRITE_CHAR('i');
+            WRITE_SL(id);
             for (u64 i = 0; i < buf_lits->size; i++)
-                file_utils_write_vbl_int(buf_lits->data[i], lrup_out);
-            file_utils_write_vbl_char(0, lrup_out);
+                WRITE_INT(buf_lits->data[i]);
+            WRITE_CHAR(0);
             #endif
 
             // forward to checker
@@ -355,10 +380,15 @@ void local_checker_init(struct options* options) {
     import_table = hash_table_init(16);
 
     #ifdef DRUP_TO_LRUP_CONVERSION
-        char lrup_out_path[750];
-        snprintf(lrup_out_path, 750, "%s.extended", fragment_path);
-        LOG("print extended proof fragment to %s", lrup_out_path);
-        lrup_out = fopen(lrup_out_path, "wb");
+    FILE* lrup_file;
+    if (options->convert_to_lrup && options->drup) {
+        char lrup_file_path[750];
+        snprintf(lrup_file_path, 750, "%s.extended", fragment_path);
+        LOG("print extended proof fragment to %s", lrup_file_path);
+        lrup_file = fopen(lrup_file_path, "wb");
+    } else
+        lrup_file = NULL;
+    lrup_out = file_writer_init(lrup_file, options->write_buffer_size);
     #endif
 
     FILE* proof_fragment = fopen(fragment_path, "rb");
@@ -400,6 +430,9 @@ int local_checker_run() {
 
 void local_checker_end() {
     import_handler_end();
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    file_writer_free(lrup_out);
+    #endif
     int_vec_free(buf_lits);
     u64_vec_free(buf_hints);
     file_reader_end(proof);
