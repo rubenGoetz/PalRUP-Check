@@ -29,13 +29,19 @@ size_t nb_produced = 0, nb_imported = 0, nb_deleted = 0;
 
 clock_t start_formula, end_formula, start_proof, end_proof;
 
-#define WRITE_SL(X)
-#define WRITE_INT(X)
-#define WRITE_CHAR(X)
+// ----- Definitions for DRUP to LRUP conversion -----
+#define WRITE_ADDITION
 #define WRITE_HINTS
+#define WRITE_IMPORT
+#define WRITE_DELETIONS
 
 #ifdef DRUP_TO_LRUP_CONVERSION
+
 #include "../src/file_writer.h"
+file_writer* lrup_out;
+extern struct u64_vec* hints;
+extern struct u64_vec* deletions;
+bool convert = false;
 
 #define TYPE u64
 #define TYPED(THING) u64_##THING
@@ -43,14 +49,22 @@ clock_t start_formula, end_formula, start_proof, end_proof;
 #undef TYPED
 #undef TYPE
 
-#undef WRITE_SL
 #define WRITE_SL(X) file_writer_vbl_sl(lrup_out, X)
-
-#undef WRITE_INT
 #define WRITE_INT(X) file_writer_vbl_int(lrup_out, X)
-
-#undef WRITE_CHAR
 #define WRITE_CHAR(X) file_writer_vbl_char(lrup_out, X)
+
+#define WRITE_LIT_BUFFER do {   \
+        WRITE_SL(id);   \
+        for (u64 i = 0; i < lits_buffer->size; i++)    \
+            WRITE_INT(lits_buffer->data[i]);   \
+        WRITE_CHAR(0);  \
+    } while (0)
+
+#undef WRITE_ADDITION
+#define WRITE_ADDITION do { \
+        WRITE_CHAR('a');    \
+        WRITE_LIT_BUFFER;   \
+    } while (0)
 
 #undef WRITE_HINTS
 #define WRITE_HINTS do {    \
@@ -59,9 +73,22 @@ clock_t start_formula, end_formula, start_proof, end_proof;
         WRITE_CHAR(0);  \
     } while (0)
 
-file_writer* lrup_out;
-extern struct u64_vec* hints;
-bool convert = false;
+#undef WRITE_IMPORT
+#define WRITE_IMPORT do { \
+        WRITE_CHAR('i');    \
+        WRITE_LIT_BUFFER;   \
+    } while (0)
+
+#undef WRITE_DELETIONS
+#define WRITE_DELETIONS do {    \
+        if (!deletions->size) break;    \
+        WRITE_CHAR('d');    \
+        for (u64 i = 0; i < deletions->size; i++)   \
+            WRITE_SL(deletions->data[i]);   \
+        WRITE_CHAR(0);  \
+        deletions->size = 0;    \
+    } while (0)
+
 #endif
 
 #define ABS(X) (X < 0 ? -X : X)
@@ -174,14 +201,8 @@ bool check_proof() {
                 int_vec_push(lits_buffer, lit);
             }
 
-            #ifdef DRUP_TO_LRUP_CONVERSION
-            // print out clause if it wasn't checked
-            WRITE_CHAR('a');
-            WRITE_SL(id);
-            for (u64 i = 0; i < lits_buffer->size; i++)
-                WRITE_INT(lits_buffer->data[i]);
-            WRITE_CHAR(0);
-            #endif
+            WRITE_DELETIONS;
+            WRITE_ADDITION;
 
             if (!drup_top_check_add(id, lits_buffer->data, lits_buffer->size)) {
                 printf("* [ERROR] while adding clause %lu\n", id);
@@ -203,14 +224,7 @@ bool check_proof() {
                 int_vec_push(lits_buffer, lit);
             }
 
-                        #ifdef DRUP_TO_LRUP_CONVERSION
-            // print out clause if it wasn't checked
-            WRITE_CHAR('i');
-            WRITE_SL(id);
-            for (u64 i = 0; i < lits_buffer->size; i++)
-                WRITE_INT(lits_buffer->data[i]);
-            WRITE_CHAR(0);
-            #endif
+            WRITE_IMPORT;
 
             if (!drup_top_check_import(id, lits_buffer->data, lits_buffer->size)) {
                 printf("* [ERROR] while importing clause %lu\n", id);
@@ -220,7 +234,6 @@ bool check_proof() {
             nb_imported++;
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
-            // TODO: add deletion to LRUP
             int_vec_resize(lits_buffer, 0);
             
             // parse lits

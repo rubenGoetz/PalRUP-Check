@@ -44,6 +44,7 @@
 #undef TYPE
 
 struct u64_vec* hints;
+struct u64_vec* deletions;
 struct u64_vec* unit_ids;
 
 #undef EMPTY_HINTS
@@ -371,6 +372,7 @@ void drup_check_init(int nb_vars) {
     prop_stack_propagated = 0;
     #ifdef DRUP_TO_LRUP_CONVERSION
     hints = u64_vec_init(16);
+    deletions = u64_vec_init(16);
     unit_ids = u64_vec_init(16);
     #endif
 }
@@ -398,6 +400,7 @@ void drup_check_end() {
     prop_stack_propagated = 0;
     #ifdef DRUP_TO_LRUP_CONVERSION
     u64_vec_free(hints);
+    u64_vec_free(deletions);
     u64_vec_free(unit_ids);
     #endif
 }
@@ -555,6 +558,9 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
                 continue;
             // lits are stored inside watch if nb_lits < 3
             if (nb_lits > 2 ? compare_lits(ilits, db.lits + w.c.ptr, nb_lits) : compare_lits(ilits, &(w.blocking_lit), nb_lits)) {
+                #ifdef DRUP_TO_LRUP_CONVERSION
+                u64_vec_push(deletions, w.id);
+                #endif
                 // remove clause from occurence lists and delete
                 v->data[j] = v->data[--(v->size)];
                 if (nb_lits == 1)

@@ -32,32 +32,59 @@
 #undef TYPE
 
 // ----- Definitions for DRUP to LRUP conversion -----
-#define WRITE_SL(X)
-#define WRITE_INT(X)
-#define WRITE_CHAR(X)
+#define WRITE_ADDITION
 #define WRITE_HINTS
+#define WRITE_IMPORT
+#define WRITE_DELETIONS
 
 // TODO: add documantation for Compiler Flag
 #ifdef DRUP_TO_LRUP_CONVERSION
 
 #include "file_writer.h"
 file_writer* lrup_out;
-extern struct u64_vec* hints;   // Feels a bit hacky but effectively cleans up interfaces
 
-#undef WRITE_SL
+// Feels a bit hacky but effectively cleans up interfaces
+extern struct u64_vec* hints;
+extern struct u64_vec* deletions;
+
 #define WRITE_SL(X) file_writer_vbl_sl(lrup_out, X)
-
-#undef WRITE_INT
 #define WRITE_INT(X) file_writer_vbl_int(lrup_out, X)
-
-#undef WRITE_CHAR
 #define WRITE_CHAR(X) file_writer_vbl_char(lrup_out, X)
+
+#define WRITE_LIT_BUFFER do {   \
+        WRITE_SL(id);   \
+        for (u64 i = 0; i < buf_lits->size; i++)    \
+            WRITE_INT(buf_lits->data[i]);   \
+        WRITE_CHAR(0);  \
+    } while (0)
+
+#undef WRITE_ADDITION
+#define WRITE_ADDITION do { \
+        WRITE_CHAR('a');    \
+        WRITE_LIT_BUFFER;   \
+    } while (0)
 
 #undef WRITE_HINTS
 #define WRITE_HINTS do {    \
         for (u64 i = 0; i < hints->size; i++)   \
             WRITE_SL(hints->data[i]);   \
         WRITE_CHAR(0);  \
+    } while (0)
+
+#undef WRITE_IMPORT
+#define WRITE_IMPORT do { \
+        WRITE_CHAR('i');    \
+        WRITE_LIT_BUFFER;   \
+    } while (0)
+
+#undef WRITE_DELETIONS
+#define WRITE_DELETIONS do {    \
+        if (!deletions->size) break;    \
+        WRITE_CHAR('d');    \
+        for (u64 i = 0; i < deletions->size; i++)   \
+            WRITE_SL(deletions->data[i]);   \
+        WRITE_CHAR(0);  \
+        deletions->size = 0;    \
     } while (0)
 
 #endif
@@ -202,15 +229,15 @@ static void parse_lrup() {
     u64 id;
     while (true) {
         char c = file_reader_read_vbl_char(proof);
-        //if (file_reader_eof_reached(proof)) {
-        if (c == EOF) {
+        if (file_reader_eof_reached(proof)) {
+        //if (c == EOF) {
             finish_parse();
             break;
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
             u64_vec_resize(buf_hints, 0);
             
-            /*u64*/ id = (u64)file_reader_read_vbl_sl(proof);
+            id = (u64)file_reader_read_vbl_sl(proof);
             siphash_cls_update(clause_hash, (u8*)&id, sizeof(u64));
 
             check_id(id, true);
@@ -244,7 +271,7 @@ static void parse_lrup() {
             lc_stats.nb_produced++;
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
-            /*u64*/ id = (u64)file_reader_read_vbl_sl(proof);
+            id = (u64)file_reader_read_vbl_sl(proof);
             check_id(id, false);
             parse_lits();
 
@@ -276,7 +303,6 @@ static void parse_lrup() {
             lc_stats.nb_deleted += buf_hints->size;
 
         } else {
-            //LOG_ERR("Invalid directive! c: %d filesize:%lu", c, proof->total_bytes);
             LOG_ERR("Invalid directive! c: %d", c);
             exit(1);
         }
@@ -289,28 +315,23 @@ static void parse_lrup() {
 }
 
 static void parse_drup() {
+    u64 id;
     while (true) {
         char c = file_reader_read_vbl_char(proof);
-        //if (file_reader_eof_reached(proof)) {
-        if (c == EOF) {
+        if (file_reader_eof_reached(proof)) {
+        //if (c == EOF) {
             finish_parse();
             break;
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
-            u64 id = (u64)file_reader_read_vbl_sl(proof);
+            id = (u64)file_reader_read_vbl_sl(proof);
             siphash_cls_update(clause_hash, (u8*)&id, sizeof(u64));
             check_id(id, true);
             parse_lits();
             siphash_cls_update(clause_hash, (u8*)buf_lits->data, buf_lits->size * sizeof(int));
 
-            #ifdef DRUP_TO_LRUP_CONVERSION
-            // print out clause if it wasn't checked
-            WRITE_CHAR('a');
-            WRITE_SL(id);
-            for (u64 i = 0; i < buf_lits->size; i++)
-                WRITE_INT(buf_lits->data[i]);
-            WRITE_CHAR(0);
-            #endif
+            WRITE_DELETIONS;
+            WRITE_ADDITION;
 
             // forward to checker
             drup_top_check_add(id, buf_lits->data, buf_lits->size);
@@ -319,18 +340,11 @@ static void parse_drup() {
             WRITE_HINTS;
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
-            u64 id = (u64)file_reader_read_vbl_sl(proof);
+            id = (u64)file_reader_read_vbl_sl(proof);
             check_id(id, false);
             parse_lits();
 
-            #ifdef DRUP_TO_LRUP_CONVERSION
-            // print out clause if it wasn't checked
-            WRITE_CHAR('i');
-            WRITE_SL(id);
-            for (u64 i = 0; i < buf_lits->size; i++)
-                WRITE_INT(buf_lits->data[i]);
-            WRITE_CHAR(0);
-            #endif
+            WRITE_IMPORT;
 
             // forward to checker
             drup_top_check_import(id, buf_lits->data, buf_lits->size);
@@ -340,19 +354,11 @@ static void parse_drup() {
             import_handler_log(c);
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
-            // TODO: integrate deletions into LRUP proof
-            
             parse_lits();
-            //u64 id = drup_check_get_clause_id(buf_lits->data, buf_lits->size);
-
-            // imported clause was not used
-            // TODO: store ids somewhere?
-            //hash_table_delete(import_table, id);
             drup_top_check_delete(buf_lits->data, buf_lits->size);
             lc_stats.nb_deleted++;
 
         } else {
-            //LOG_ERR("Invalid directive! c: %d filesize:%lu", c, proof->total_bytes);
             LOG_ERR("Invalid directive! c: %d", c);
             exit(1);
         }
