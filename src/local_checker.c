@@ -142,7 +142,7 @@ static inline int parse_header(FILE* formula) {
         return false;
     }
 
-    LOG("Start reading the formula file: cnf %i %li:", nb_vars, nb_clauses);
+    LOG("Start reading the formula file: cnf %i %li", nb_vars, nb_clauses);
     return nb_vars;
 }
 
@@ -380,7 +380,9 @@ void local_checker_init(struct options* options) {
     lc_stats = local_checker_stats_init;
     clause_hash = siphash_cls_init(SECRET_KEY);
     unsigned int dir_hierarchy = options->pal_id / palrup_utils_calc_root_ceil(lc_num_solvers);
-    snprintf(fragment_path, 512, "%s/%u/%lu/out.palrup", options->palrup_path, dir_hierarchy, options->pal_id);
+    snprintf(fragment_path, 512, "%s/%u/%lu/%s",
+             options->palrup_path, dir_hierarchy, options->pal_id,
+             lc_drup ? DRUP_FRAGMENT_NAME : LRUP_FRAGMENT_NAME);
     snprintf(working_path, 512, "%s", options->working_path);
     lc_stats = local_checker_stats_init;
 
@@ -392,7 +394,8 @@ void local_checker_init(struct options* options) {
     FILE* lrup_file;
     if (options->convert_to_lrup && options->drup) {
         lrup_file_path = palrup_utils_malloc(750);
-        snprintf(lrup_file_path, 750, "%s.extended~", fragment_path);
+        snprintf(lrup_file_path, 750, "%s/%u/%lu/%s~",
+                 options->palrup_path, dir_hierarchy, options->pal_id, LRUP_FRAGMENT_NAME);
         LOG("print extended proof fragment to %s", lrup_file_path);
         lrup_file = fopen(lrup_file_path, "wb");
     } else {

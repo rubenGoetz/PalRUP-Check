@@ -64,8 +64,8 @@ static void init_strat3() {
     init_msg_group_out();
 
     out_file_names[0] = palrup_utils_calloc(1024, sizeof(char));
-    snprintf(out_file_names[0], 512, "%s/%lu/%lu/out.palrup_import~",
-             working_path, rh_pal_id / palrup_utils_calc_root_ceil(rh_num_solvers), rh_pal_id);
+    snprintf(out_file_names[0], 512, "%s/%lu/%lu/%s~",
+             working_path, rh_pal_id / palrup_utils_calc_root_ceil(rh_num_solvers), rh_pal_id, IMPORT_FILE_NAME);
     out_files[0] = fopen(out_file_names[0], "wb");
     if (!out_files[0]) {
         snprintf(palrup_utils_msgstr, MSG_LEN, "Can not open out file at %s", out_file_names[0]);
@@ -80,7 +80,7 @@ static void init_strat3() {
         comm_sig_compute[i] = comm_sig_init(SECRET_KEY_2);
 
         in_file_paths[i] = palrup_utils_calloc(512, sizeof(char));
-        snprintf(in_file_paths[i], 512, "%s/%u/%lu/out.palrup_proxy", working_path, dir_hierarchy, offset + i);
+        snprintf(in_file_paths[i], 512, "%s/%u/%lu/%s", working_path, dir_hierarchy, offset + i, PROXY_FILE_NAME);
     }
 }
 

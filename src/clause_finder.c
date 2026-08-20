@@ -189,8 +189,8 @@ static void init_strat3(struct options* options) {
     for (size_t i = 0; i < cf_msg_group_size; i++) {
         file_paths[i] = palrup_utils_malloc(512);
         int src_rank = (i * cf_msg_group_size) + column;
-        snprintf(file_paths[i], 512, "%s/%lu/%i/out.palrup_import",
-                 options->working_path, src_rank / cf_msg_group_size, src_rank);
+        snprintf(file_paths[i], 512, "%s/%lu/%i/%s",
+                 options->working_path, src_rank / cf_msg_group_size, src_rank, IMPORT_FILE_NAME);
         import_check_hash[i] = siphash_cls_init(SECRET_KEY);
     }
 
@@ -211,8 +211,9 @@ void clause_finder_init(struct options* options) {
     
     // init proof fragment
     char frag_path[512];
-    snprintf(frag_path, 512, "%s/%u/%lu/out.palrup",
-             options->palrup_path, dir_hierarchy, cf_pal_id);
+    snprintf(frag_path, 512, "%s/%u/%lu/%s",
+             options->palrup_path, dir_hierarchy, cf_pal_id,
+             cf_drup ? DRUP_FRAGMENT_NAME : LRUP_FRAGMENT_NAME);
     FILE* proof_frag = fopen(frag_path, "rb");
     if (!proof_frag) {
         snprintf(palrup_utils_msgstr, MSG_LEN, "Could not open proof fragment at %s\n", frag_path);
@@ -222,8 +223,9 @@ void clause_finder_init(struct options* options) {
     
     // read proof signature
     char sig_path[512];
-    snprintf(sig_path, 512, "%s/%u/%lu/out.palrup.hash",
-             options->palrup_path, dir_hierarchy, cf_pal_id);
+    snprintf(sig_path, 512, "%s/%u/%lu/%s.hash",
+             options->palrup_path, dir_hierarchy, cf_pal_id,
+             cf_drup ? DRUP_FRAGMENT_NAME : LRUP_FRAGMENT_NAME);
     FILE* frag_sig = fopen(sig_path, "rb");
     if (!frag_sig) {
         snprintf(palrup_utils_msgstr, MSG_LEN, "Could not open proof fragment's signature at %s\n", sig_path);

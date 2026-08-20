@@ -163,7 +163,7 @@ static void init_strat_3(struct options* options) {
     init_msg_group();
     int dir_hierarchy = ih_pal_id / palrup_utils_calc_root_ceil(ih_num_solvers);
     file_names[0] = palrup_utils_malloc(1024 * sizeof(char));
-    snprintf(file_names[0], 1024, "%s/%u/%lu/out.palrup_proxy~", options->working_path, dir_hierarchy, ih_pal_id);
+    snprintf(file_names[0], 1024, "%s/%u/%lu/%s~", options->working_path, dir_hierarchy, ih_pal_id, PROXY_FILE_NAME);
 
     signatures[0] = comm_sig_init(SECRET_KEY_2);
     clause_heaps[0] = heap_init(options->q_size);
