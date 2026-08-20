@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/stat.h>
 
 #include "local_checker.h"
@@ -42,6 +43,7 @@
 
 #include "file_writer.h"
 file_writer* lrup_out;
+char* lrup_file_path;
 
 // Feels a bit hacky but effectively cleans up interfaces
 extern struct u64_vec* hints;
@@ -389,12 +391,14 @@ void local_checker_init(struct options* options) {
     #ifdef DRUP_TO_LRUP_CONVERSION
     FILE* lrup_file;
     if (options->convert_to_lrup && options->drup) {
-        char lrup_file_path[750];
-        snprintf(lrup_file_path, 750, "%s.extended", fragment_path);
+        lrup_file_path = palrup_utils_malloc(750);
+        snprintf(lrup_file_path, 750, "%s.extended~", fragment_path);
         LOG("print extended proof fragment to %s", lrup_file_path);
         lrup_file = fopen(lrup_file_path, "wb");
-    } else
+    } else {
+        lrup_file_path = NULL;
         lrup_file = NULL;
+    }
     lrup_out = file_writer_init(lrup_file, options->write_buffer_size);
     #endif
 
@@ -439,6 +443,15 @@ void local_checker_end() {
     import_handler_end();
     #ifdef DRUP_TO_LRUP_CONVERSION
     file_writer_free(lrup_out);
+    if (lrup_file_path) {
+        // mark lrup file as finished
+        int new_str_len = strlen(lrup_file_path)-1;
+        char new_filename[new_str_len];
+        memcpy(new_filename, lrup_file_path, new_str_len);
+        new_filename[new_str_len] = '\0';
+        rename(lrup_file_path, new_filename);
+        free(lrup_file_path);
+    }
     #endif
     int_vec_free(buf_lits);
     u64_vec_free(buf_hints);
