@@ -435,7 +435,9 @@ u64 drup_check_get_nb_loaded_clauses() {
 
 int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool internal_lits) {
     assert(nb_lits >= 0);
-    (void)id;
+    #ifndef DRUP_TO_LRUP_CONVERSION
+    (void)id;   // only need ids for hint generation
+    #endif
 
     // mark unsat as found
     if (nb_lits == 0) {
@@ -564,19 +566,27 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
                 if (nb_lits == 1)
                     return 0;   // only occurence was deleted
 
-                if (nb_lits == 2)
-                    break;  // second watch will be found and deleted by second iteration
-
                 // Skip some iterations of outer loop since we know the second occurence list.
-                unsigned* c = db.lits + w.c.ptr;
-                unsigned second_watch = c[0] == lit ? c[1] : c[0];
+                unsigned second_watch;
+                if (nb_lits == 2)
+                    second_watch = ilits[1];
+                else {
+                    unsigned* c = db.lits + w.c.ptr;
+                    second_watch = c[0] == lit ? c[1] : c[0];
+                }
                 struct watcher_vec * const v2 = &(occurences[second_watch]);
                 for (size_t k = 0; k < v2->size; k++) {
                     watcher w2 = v2->data[k];
-                    if (w2.nb_lits != w.nb_lits || w2.c.ptr != w.c.ptr) continue;
+                    #ifdef DRUP_TO_LRUP_CONVERSION
+                    if (w.id != w2.id) continue;
+                    #else
+                    if (w2.nb_lits != w.nb_lits) continue;
+                    if (nb_lits == 2 && !compare_lits(ilits, &(w2.blocking_lit), nb_lits)) continue;
+                    if (nb_lits > 2 && w2.c.ptr != w.c.ptr) continue;
+                    #endif
                     // watch points to same clause => delete watch
                     v2->data[k] = v2->data[--(v2->size)];
-                    delete_clasue_from_db(w.c.ptr, w.nb_lits);
+                    if (nb_lits > 2) delete_clasue_from_db(w.c.ptr, w.nb_lits);
                     return 0;
                 }
                 
