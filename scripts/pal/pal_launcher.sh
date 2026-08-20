@@ -205,19 +205,20 @@ echo "all Pals' directories cleaned up" &>> "$log"
 if [[ $global_id == 0 ]]; then
     echo "clean up hierarchies"
     # wait for all pal dirs to be cleaned up
-    empty=""
-    until [[ $empty ]]; do
-        empty="true"
-        for i in $(seq 0 $(($root_floor-1))); do
-            if [[ $cleanup -gt 0 && $(ls $proof_working/$i) ]]; then empty=""; fi
-        done
+    empty="true"
+    for i in $(seq 0 $(($root_floor-1))); do
+        if [[ $cleanup -gt 0 && $(ls $proof_working/$i) ]]; then empty=""; fi
     done
 
-    # clean up dir hierarchy and .unsat_found
-    if [[ $cleanup -gt 0 ]]; then rm -r $proof_working; fi
+    if [[ $empty || $cleanup -gt 1 ]]; then
+        # clean up dir hierarchy and .unsat_found
+        if [[ $cleanup -gt 0 ]]; then rm -r $proof_working; fi
 
-    # clean up proof hierarchy
-    if [[ $cleanup -gt 1 ]]; then rm -r $proof_palrup; fi
+        # clean up proof hierarchy
+        if [[ $cleanup -gt 1 ]]; then rm -r $proof_palrup; fi
+    else
+        echo "Working dir not empty. Abandon cleanup." &>> "$log"
+    fi
 fi
 
 end=$(date +%s.%N)
