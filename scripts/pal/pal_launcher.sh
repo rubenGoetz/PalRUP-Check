@@ -20,6 +20,13 @@ proof_working=$PROOF_WORKING
 log_dir=$LOG_DIR
 timeout=$TIMEOUT
 
+# degree of cleanup after checking
+#  0: no cleanup
+#  1: remove working dir
+#  2: remove proof & working dir
+cleanup=0
+if [[ $CLEANUP -gt 0 ]]; then cleanup=$CLEANUP; fi
+
 glob_start=$(date +%s.%N)
 check_timeout() {
     curr_time=$(date +%s.%N)
@@ -113,6 +120,7 @@ echo "proof_working: $proof_working" &>> "$log"
 echo "log_dir: $log_dir" &>> "$log"
 echo "timeout: $timeout" &>> "$log"
 echo "use_local_disks: $use_local_disks" &>> "$log"
+echo "cleanup: $cleanup" &>> "$log"
 
 echo "prepare working and log directories" &>> "$log"
 for pal_id in ${pal_id_set[@]}; do
@@ -166,7 +174,7 @@ else
 fi
 
 echo "FINISHED" &>> "$log"
-
+if [[ $cleanup -eq 0 ]]; then exit 0; fi
 
 # Wait for cleanup
 echo "wait for cleanup" &>> "$log"
@@ -184,8 +192,12 @@ echo "cleanup Pals' directories.." &>> "$log"
 start=$(date +%s.%N)
 for pal in ${pal_id_set[@]}; do
     dir_hierarchy=$(($pal/$root_floor))
-    rm -r "$proof_working/$dir_hierarchy/$pal" 2>/dev/null &
-    rm -r "$proof_palrup/$dir_hierarchy/$pal" 2>/dev/null &
+    if [[ $cleanup -gt 0 ]]; then
+        rm -r "$proof_working/$dir_hierarchy/$pal" 2>/dev/null &
+    fi
+    if [[ $cleanup -gt 1 ]]; then
+        rm -r "$proof_palrup/$dir_hierarchy/$pal" 2>/dev/null &
+    fi
 done
 wait
 echo "all Pals' directories cleaned up" &>> "$log"
@@ -193,19 +205,20 @@ echo "all Pals' directories cleaned up" &>> "$log"
 if [[ $global_id == 0 ]]; then
     echo "clean up hierarchies"
     # wait for all pal dirs to be cleaned up
-    empty=""
-    until [[ $empty ]]; do
-        empty="true"
-        for i in $(seq 0 $(($root_floor-1))); do
-            if [[ $(ls $proof_working/$i) ]]; then empty=""; fi
-        done
+    empty="true"
+    for i in $(seq 0 $(($root_floor-1))); do
+        if [[ $cleanup -gt 0 && $(ls $proof_working/$i) ]]; then empty=""; fi
     done
 
-    # clean up dir hierarchy and .unsat_found
-    rm -r $proof_working
+    if [[ $empty || $cleanup -gt 1 ]]; then
+        # clean up dir hierarchy and .unsat_found
+        if [[ $cleanup -gt 0 ]]; then rm -r $proof_working; fi
 
-    # clean up proof hierarchy
-    rm -r $proof_palrup
+        # clean up proof hierarchy
+        if [[ $cleanup -gt 1 ]]; then rm -r $proof_palrup; fi
+    else
+        echo "Working dir not empty. Abandon cleanup." &>> "$log"
+    fi
 fi
 
 end=$(date +%s.%N)
