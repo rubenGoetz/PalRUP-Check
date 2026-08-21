@@ -33,6 +33,7 @@ merge_buffer_size=8192  #   8 MiB
 q_size=409600           # 400 MiB
 q_alpha=0.5
 use_drup=0
+convert=0
 
 if [[ $PALRUP_BINARY ]]; then palrup_binary=$PALRUP_BINARY; fi
 if [[ $READ_BUFFER_SIZE -gt 0 ]]; then read_buffer_size=$READ_BUFFER_SIZE; fi
@@ -42,6 +43,7 @@ if [[ $MERGE_BUFFER_SIZE -gt 0 ]]; then merge_buffer_size=$MERGE_BUFFER_SIZE; fi
 if [[ $Q_SIZE -gt 0 ]]; then q_size=$Q_SIZE; fi
 if [[ $(echo "$Q_ALPHA > 0" | bc) -gt 0 ]]; then q_alpha=$Q_ALPHA; fi
 if [[ $USE_DRUP -gt 0 ]]; then use_drup=$USE_DRUP; fi
+if [[ $CONVERT -gt 0 ]]; then convert=$CONVERT; fi
 
 glob_start=$(date +%s.%N)
 check_timeout() {
@@ -81,9 +83,12 @@ dir_hierarchy=$(($id/$root_ceil))
 if [[ $id -ge $comm_size ]]; then exit; fi
 
 log="$log_dir/pals/$dir_hierarchy/$id.out"
+fragment_file_name="out.palrup"
+if [[ $use_drup -eq 1 ]]; then fragment_file_name="out.padrup"; fi
 
 echo "Initiated pal $id/$comm_size. Original solver count was $num_solvers" &>> "$log"
 echo "Calculated root=$root, roof_floor=$root_floor, root_ceil=$root_ceil, comm_size=$comm_size, expected_proxy=$expected_proxy" &>> "$log"
+echo "Decided of fragment_file_name: $fragment_file_name"
 echo "prepared log dir at $log" &>> "$log"
 echo "read env variables:" &>> "$log"
 echo "num_solvers: $num_solvers" &>> "$log"
@@ -92,6 +97,8 @@ echo "working_path: $working_path" &>> "$log"
 echo "formula_path: $formula_path" &>> "$log"
 echo "log_dir: $log_dir" &>> "$log"
 echo "timeout: $timeout" &>> "$log"
+echo "drup: $use_drup" &>> "$log"
+echo "convert-to-lrup: $convert" &>> "$log"
 
 #############
 ## run pal ##
@@ -104,14 +111,14 @@ if (( $id < $num_solvers )); then
 
     echo "wait until proof is finished.." &>> "$log"
     start=$(date +%s.%N)
-    until [[ $(find -O3 $palrup_path/$dir_hierarchy/$id -name out.palrup 2>/dev/null) ]]; do
+    until [[ $(find -O3 $palrup_path/$dir_hierarchy/$id -name $fragment_file_name 2>/dev/null) ]]; do
         check_timeout "wait until proof is finished.."
         sleep 0.1;
     done
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
     echo "FP_WC_WAIT_TIME=$elapsed" &>> "$log"
-    echo "READ_PALRUP_SIZE=$(wc -c $palrup_path/$dir_hierarchy/$id/out.palrup)" &>> "$log"
+    echo "READ_PALRUP_SIZE=$(wc -c $palrup_path/$dir_hierarchy/$id/$fragment_file_name)" &>> "$log"
 
     # run local check
     cmd="./build/palrup_local_check \
@@ -121,7 +128,7 @@ if (( $id < $num_solvers )); then
     -redist-strat=$redist_strat -write-buffer-KB=$write_buffer_size \
     -merge-buffer-KB=$merge_buffer_size -q-size-KB=$q_size \
     -q-alpha=$q_alpha -palrup-binary=$palrup_binary \
-    -drup=$use_drup"
+    -drup=$use_drup -convert-to-lrup=$convert"
 
     echo "run $cmd" &>> "$log" &>> "$log"
     start=$(date +%s.%N)
@@ -129,6 +136,9 @@ if (( $id < $num_solvers )); then
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
     echo "WRITTEN_PROXY_SIZE=$(wc -c $working_path/$dir_hierarchy/$id/out.palrup_proxy)" &>> "$log"
+    if [[ $convert -eq 1 ]]; then
+        echo "WRITTEN_PALRUP_SIZE=$(wc -c $working_path/$dir_hierarchy/$id/out.palrup)" &>> "$log"
+    fi
     echo "FP_WC_TIME=$elapsed" &>> "$log"
     echo "Finished first pass" &>> "$log"
 
@@ -206,7 +216,7 @@ if (( $id < $num_solvers )); then
 
     # clean up proof
     echo "clean up hash of local proof fragment in $palrup_path/$dir_hierarchy/$id" &>> "$log"
-    rm $palrup_path/$dir_hierarchy/$id/out.palrup.hash
+    rm $palrup_path/$dir_hierarchy/$id/$fragment_file_name.hash
 
 else
     echo "Skip last pass" &>> "$log"

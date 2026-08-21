@@ -6,7 +6,7 @@ mkdir -p build
 cd build
 
 # build all targets
-cmake ..
+cmake .. -DCMAKE_BUILD_TYPE=DEBUG -DDRUP_TO_LRUP_CONVERSION=1
 make -j
 
 cd ..

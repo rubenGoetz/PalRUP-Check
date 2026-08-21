@@ -26,6 +26,8 @@ timeout=$TIMEOUT
 #  2: remove proof & working dir
 cleanup=0
 if [[ $CLEANUP -gt 0 ]]; then cleanup=$CLEANUP; fi
+use_drup=0
+if [[ $USE_DRUP -gt 0 ]]; then use_drup=$USE_DRUP; fi
 
 glob_start=$(date +%s.%N)
 check_timeout() {
@@ -121,6 +123,7 @@ echo "log_dir: $log_dir" &>> "$log"
 echo "timeout: $timeout" &>> "$log"
 echo "use_local_disks: $use_local_disks" &>> "$log"
 echo "cleanup: $cleanup" &>> "$log"
+echo "use_drup: $use_drup" &>> "$log"
 
 echo "prepare working and log directories" &>> "$log"
 for pal_id in ${pal_id_set[@]}; do
@@ -155,7 +158,9 @@ if [[ $global_id == 0 ]]; then
     # check for global validity
     echo "check for validity" &>> "$log"
     if [[ -d "$proof_working/.unsat_found" && -d "$proof_working/0/0/.valid" ]]; then
-        echo "PROOF VALIDATED" > "$log_dir/success.palrup"
+        success_file_name="success.palrup"
+        if [[ $use_drup -eq 1 ]]; then success_file_name="success.padrup"; fi
+        echo "PROOF VALIDATED" > "$log_dir/$success_file_name"
         echo "PROOF_VALIDATED" &>> "$log"
     fi
 
