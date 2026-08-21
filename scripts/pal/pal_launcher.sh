@@ -104,6 +104,7 @@ pal_id_set=(${frag_pals[@]} ${comm_pals[@]})
 # create log
 mkdir -p "$log_dir/$global_id"
 log="$log_dir/$global_id/palrup.out"
+if [[ $use_drup -eq 1 ]]; then log="$log_dir/$global_id/padrup.out"; fi
 
 # Make mapping between mpi-rank and global_id possible
 echo "Created pal_launcher with global_id:$global_id, local_id:$local_id"
@@ -131,7 +132,11 @@ for pal_id in ${pal_id_set[@]}; do
     dir_hierarchy=$(($pal_id/$root_floor))
     dir_hierarchy=${dir_hierarchy%.*}
     mkdir -p "$proof_working/$dir_hierarchy/$pal_id"
-    mkdir -p "$log_dir/pals/$dir_hierarchy/"
+    if [[ $use_drup -eq 1 ]]; then
+        mkdir -p "$log_dir/padrup_pals/$dir_hierarchy/"
+    else
+        mkdir -p "$log_dir/palrup_pals/$dir_hierarchy/"
+    fi
 done
 
 ################

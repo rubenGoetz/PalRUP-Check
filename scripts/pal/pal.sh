@@ -82,13 +82,14 @@ dir_hierarchy=$(($id/$root_ceil))
 # Avoid edgecases in pal_launcher
 if [[ $id -ge $comm_size ]]; then exit; fi
 
-log="$log_dir/pals/$dir_hierarchy/$id.out"
+log="$log_dir/palrup_pals/$dir_hierarchy/$id.out"
+if [[ $use_drup -eq 1 ]]; then log="$log_dir/padrup_pals/$dir_hierarchy/$id.out"; fi
 fragment_file_name="out.palrup"
 if [[ $use_drup -eq 1 ]]; then fragment_file_name="out.padrup"; fi
 
 echo "Initiated pal $id/$comm_size. Original solver count was $num_solvers" &>> "$log"
 echo "Calculated root=$root, roof_floor=$root_floor, root_ceil=$root_ceil, comm_size=$comm_size, expected_proxy=$expected_proxy" &>> "$log"
-echo "Decided of fragment_file_name: $fragment_file_name"
+echo "Decided on fragment_file_name: $fragment_file_name" &>> "$log"
 echo "prepared log dir at $log" &>> "$log"
 echo "read env variables:" &>> "$log"
 echo "num_solvers: $num_solvers" &>> "$log"
