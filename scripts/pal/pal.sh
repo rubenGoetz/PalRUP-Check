@@ -138,7 +138,7 @@ if (( $id < $num_solvers )); then
     elapsed=$( echo "$end - $start" | bc )
     echo "WRITTEN_PROXY_SIZE=$(wc -c $working_path/$dir_hierarchy/$id/out.palrup_proxy)" &>> "$log"
     if [[ $convert -eq 1 ]]; then
-        echo "WRITTEN_PALRUP_SIZE=$(wc -c $working_path/$dir_hierarchy/$id/out.palrup)" &>> "$log"
+        echo "WRITTEN_PALRUP_SIZE=$(wc -c $palrup_path/$dir_hierarchy/$id/out.palrup)" &>> "$log"
     fi
     echo "FP_WC_TIME=$elapsed" &>> "$log"
     echo "Finished first pass" &>> "$log"
