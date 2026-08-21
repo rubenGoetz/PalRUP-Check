@@ -41,7 +41,6 @@ clock_t start_formula, end_formula, start_proof, end_proof;
 file_writer* lrup_out;
 extern struct u64_vec* hints;
 extern struct u64_vec* deletions;
-bool convert = false;
 
 #define TYPE u64
 #define TYPED(THING) u64_##THING
@@ -259,21 +258,9 @@ bool check_proof() {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 3) {
+    if (argc != 3) {
         printf("* [ERROR] Need argument <formula_path> <proof_path> [OPTIONS]. ABORT.\n");
         abort();
-    }
-
-    for (int i = 3; i < argc; i++) {
-        if (false);
-        #ifdef DRUP_TO_LRUP_CONVERSION
-        else if (!strcmp(argv[i], "-convert"))
-            convert = true;
-        #endif
-        else {
-            printf("* [ERROR] Unknown option %s. ABORT.\n", argv[i]);
-            abort();
-        }
     }
     
     FORMULA_PATH = argv[1];
@@ -281,13 +268,10 @@ int main(int argc, char *argv[]) {
 
     #ifdef DRUP_TO_LRUP_CONVERSION
     FILE* lrup_file;
-    if (convert) {
-        char lrup_file_path[750];
-        snprintf(lrup_file_path, 750, "%s.extended", PROOF_PATH);
-        LOG("print extended proof fragment to %s", lrup_file_path);
-        lrup_file = fopen(lrup_file_path, "wb");
-    } else
-        lrup_file = NULL;
+    char lrup_file_path[750];
+    snprintf(lrup_file_path, 750, "%s.extended", PROOF_PATH);
+    LOG("print extended proof fragment to %s", lrup_file_path);
+    lrup_file = fopen(lrup_file_path, "wb");
     lrup_out = file_writer_init(lrup_file, 1024);
     #endif
 

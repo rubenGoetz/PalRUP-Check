@@ -4,10 +4,6 @@ project(palrup-checker)
 
 add_definitions("-std=gnu99 -Wall -Wextra -Werror -pedantic-errors -flto -lm") 
 
-if(DRUP_TO_LRUP_CONVERSION EQUAL 1)
-add_compile_definitions(DRUP_TO_LRUP_CONVERSION)
-endif()
-
 # Module Libraries
 
 add_library(utils
@@ -45,6 +41,25 @@ add_library(local_checker
             src/hash.c
             src/file_writer.c)
 target_link_libraries(local_checker m import_handler utils)
+target_compile_definitions(local_checker PRIVATE DRUP_TO_LRUP_CONVERSION)
+
+add_library(local_checker_fast_rup
+            src/local_checker.c
+            src/file_reader.c
+            #src/dummy_file_reader.h
+            src/secret.c
+            src/siphash_cls.c
+            src/lrat_top_check.c
+            src/lrat_check.c
+            src/drup_top_check.c
+            src/drup_check.c
+            src/drup_clause.c
+            src/siphash.c
+            src/confirm.c
+            src/vectors.c
+            src/hash.c
+            src/file_writer.c)
+target_link_libraries(local_checker_fast_rup m import_handler utils)
 
 add_library(import_merger
             src/import_merger.c
@@ -90,6 +105,10 @@ set_target_properties(palrup_tracer_hpp PROPERTIES LINKER_LANGUAGE CXX)
 
 add_executable(palrup_local_check src/main_local_check.c src/options.c)
 target_link_libraries(palrup_local_check local_checker)
+target_compile_definitions(palrup_local_check PRIVATE DRUP_TO_LRUP_CONVERSION)
+
+add_executable(palrup_local_check_fast_rup src/main_local_check.c src/options.c)
+target_link_libraries(palrup_local_check_fast_rup local_checker_fast_rup)
 
 add_executable(palrup_redistribute src/main_redistribute.c src/options.c)
 target_link_libraries(palrup_redistribute redist_handler)
@@ -143,6 +162,22 @@ add_executable(check_rup_proof
                src/vectors.c
                src/file_writer.c
                tools/check_rup_proof.c)
+
+add_executable(check_rup_proof_convert
+               src/utils/palrup_utils.c
+               src/utils/file_utils.c
+               src/drup_top_check.c
+               src/file_reader.c
+               #src/dummy_file_reader.h
+               src/drup_check.c
+               src/siphash.c
+               src/hash.c
+               src/secret.c
+               src/drup_clause.c
+               src/vectors.c
+               src/file_writer.c
+               tools/check_rup_proof.c)
+target_compile_definitions(check_rup_proof_convert PRIVATE DRUP_TO_LRUP_CONVERSION)
 
 # Tests
 include(CTest)

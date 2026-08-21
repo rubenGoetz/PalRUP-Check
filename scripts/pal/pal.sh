@@ -122,7 +122,9 @@ if (( $id < $num_solvers )); then
     echo "READ_PALRUP_SIZE=$(wc -c $palrup_path/$dir_hierarchy/$id/$fragment_file_name)" &>> "$log"
 
     # run local check
-    cmd="./build/palrup_local_check \
+    local_check="palrup_local_check_fast_rup"
+    if [[ $convert -eq 1 ]]; then local_check="palrup_local_check"; fi
+    cmd="./build/$local_check \
     -formula-path=$formula_path -palrup-path=$palrup_path \
     -working-path=$working_path -num-solvers=$num_solvers \
     -pal-id=$id -read-buffer-KB=$read_buffer_size \
