@@ -104,7 +104,7 @@ pal_id_set=(${frag_pals[@]} ${comm_pals[@]})
 # create log
 mkdir -p "$log_dir/$global_id"
 log="$log_dir/$global_id/palrup.out"
-if [[ $use_drup -eq 1 ]]; then log="$log_dir/$global_id/padrup.out"; fi
+if [[ $use_drup -eq 1 ]]; then log="$log_dir/$global_id/palrup.out"; fi
 
 # Make mapping between mpi-rank and global_id possible
 echo "Created pal_launcher with global_id:$global_id, local_id:$local_id"
@@ -132,11 +132,7 @@ for pal_id in ${pal_id_set[@]}; do
     dir_hierarchy=$(($pal_id/$root_floor))
     dir_hierarchy=${dir_hierarchy%.*}
     mkdir -p "$proof_working/$dir_hierarchy/$pal_id"
-    if [[ $use_drup -eq 1 ]]; then
-        mkdir -p "$log_dir/padrup_pals/$dir_hierarchy/"
-    else
-        mkdir -p "$log_dir/palrup_pals/$dir_hierarchy/"
-    fi
+    mkdir -p "$log_dir/pals/$dir_hierarchy/"
 done
 
 ################
@@ -164,7 +160,7 @@ if [[ $global_id == 0 ]]; then
     echo "check for validity" &>> "$log"
     if [[ -d "$proof_working/.unsat_found" && -d "$proof_working/0/0/.valid" ]]; then
         success_file_name="success.palrup"
-        if [[ $use_drup -eq 1 ]]; then success_file_name="success.padrup"; fi
+        if [[ $use_drup -eq 1 ]]; then success_file_name="success.palrup"; fi
         echo "PROOF VALIDATED" > "$log_dir/$success_file_name"
         echo "PROOF_VALIDATED" &>> "$log"
     fi

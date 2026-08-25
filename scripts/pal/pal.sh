@@ -33,7 +33,9 @@ merge_buffer_size=8192  #   8 MiB
 q_size=409600           # 400 MiB
 q_alpha=0.5
 use_drup=0
+full_check=1
 convert=0
+best_effort=0
 
 if [[ $PALRUP_BINARY ]]; then palrup_binary=$PALRUP_BINARY; fi
 if [[ $READ_BUFFER_SIZE -gt 0 ]]; then read_buffer_size=$READ_BUFFER_SIZE; fi
@@ -44,6 +46,8 @@ if [[ $Q_SIZE -gt 0 ]]; then q_size=$Q_SIZE; fi
 if [[ $(echo "$Q_ALPHA > 0" | bc) -gt 0 ]]; then q_alpha=$Q_ALPHA; fi
 if [[ $USE_DRUP -gt 0 ]]; then use_drup=$USE_DRUP; fi
 if [[ $CONVERT -gt 0 ]]; then convert=$CONVERT; fi
+if [[ $FULL_CHECK ]]; then full_check=$FULL_CHECK; fi
+if [[ $BEST_EFFORT -gt 0 ]]; then best_effort=$BEST_EFFORT; fi
 
 glob_start=$(date +%s.%N)
 check_timeout() {
@@ -62,7 +66,11 @@ finish() {
     elapsed=$( echo "$glob_end - $glob_start" | bc )
     echo "GLOB_WC_TIME=$elapsed" &>> "$log"
 
-    echo "Finished execution of pal $id/$comm_size"
+    if [[ $full_check -eq 0 ]]; then
+        echo "Finished execution of pal $id/$comm_size after local check"
+    else
+        echo "Finished execution of pal $id/$comm_size"
+    fi
     exit 0
 }
 
@@ -82,8 +90,14 @@ dir_hierarchy=$(($id/$root_ceil))
 # Avoid edgecases in pal_launcher
 if [[ $id -ge $comm_size ]]; then exit; fi
 
-log="$log_dir/palrup_pals/$dir_hierarchy/$id.out"
-if [[ $use_drup -eq 1 ]]; then log="$log_dir/padrup_pals/$dir_hierarchy/$id.out"; fi
+if [[ $best_effort -eq 1 && -f "$palrup_path/$dir_hierarchy/$id/out.palrup" ]]; then
+    use_drup=0
+elif [[ $best_effort -eq 1 ]]; then
+    use_drup=1
+fi
+
+log="$log_dir/pals/$dir_hierarchy/$id.out"
+if [[ $use_drup -eq 1 ]]; then log="$log_dir/pals/$dir_hierarchy/$id.out"; fi
 fragment_file_name="out.palrup"
 if [[ $use_drup -eq 1 ]]; then fragment_file_name="out.padrup"; fi
 
@@ -99,7 +113,9 @@ echo "formula_path: $formula_path" &>> "$log"
 echo "log_dir: $log_dir" &>> "$log"
 echo "timeout: $timeout" &>> "$log"
 echo "drup: $use_drup" &>> "$log"
-echo "convert-to-lrup: $convert" &>> "$log"
+echo "convert_to_lrup: $convert" &>> "$log"
+echo "full_check: $full_check" &>> "$log"
+echo "best_effort: $best_effort" &>> "$log"
 
 #############
 ## run pal ##
@@ -147,6 +163,12 @@ if (( $id < $num_solvers )); then
 
 else
     echo "Skip first pass" &>> "$log"
+fi
+
+if [[ $full_check -eq 0 ]]; then
+    echo "clean up hash of local proof fragment in $palrup_path/$dir_hierarchy/$id" &>> "$log"
+    rm $palrup_path/$dir_hierarchy/$id/$fragment_file_name.hash
+    finish
 fi
 
 # count expected inputs
