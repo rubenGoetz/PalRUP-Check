@@ -259,7 +259,8 @@ int drup_check_propagate() {
         watcher* w = v->data;
         watcher* end = v->data + v->size;
         while (w != end) {
-            __builtin_prefetch(db.lits + (w + 2)->c.ptr);
+            // can cause segmentation faults :(
+            //__builtin_prefetch(db.lits + (w + 2)->c.ptr);
             int nb_lits = w->nb_lits;
             if (nb_lits == 1) {
                 PUSH_HINT(w->id);
