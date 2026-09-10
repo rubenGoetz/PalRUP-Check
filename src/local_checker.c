@@ -212,7 +212,7 @@ static inline void check_id(u64 id, bool all) {
 
     // Monotonicity of assigned IDs
     if (id < lc_max_derived_id) {
-        LOG_ERR("Learned clause has lower ID that previously learned clause. newID:%lu, prevID:%lu", id, lc_max_derived_id);
+        LOG_ERR("Learned clause has ID lower than previously learned clause. newID:%lu, prevID:%lu", id, lc_max_derived_id);
         exit(1);
     }
 

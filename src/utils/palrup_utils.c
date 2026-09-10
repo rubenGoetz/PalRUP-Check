@@ -20,11 +20,11 @@ void palrup_utils_log_warn(const char* msg) {
 
 void palrup_utils_exit_eof() {
     palrup_utils_log("end-of-file - terminating");
-    exit(0);
+    abort();
 }
 void exit_oom() {
     palrup_utils_log("allocation failed - terminating");
-    exit(0);
+    abort();
 }
 
 void* palrup_utils_malloc(u64 size) {
