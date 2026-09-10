@@ -161,7 +161,7 @@ static void compress_db() {
     db.earliest_delete = db.lits_capacity;
     db.delete_count = 0;
 }
-static inline void add_clause_to_db(const unsigned* lits, int nb_lits) {
+static inline unsigned add_clause_to_db(const unsigned* lits, int nb_lits) {
     assert(db.lits_size + nb_lits > db.lits_size);    // check for uint overflow
     if (db.lits_size + nb_lits >= db.lits_capacity)   // compress DB if necessary
         compress_db();
@@ -172,10 +172,12 @@ static inline void add_clause_to_db(const unsigned* lits, int nb_lits) {
         db.lits_capacity = new_cap;
     }
 
+    unsigned offset = db.lits_size;
     memcpy(db.lits + db.lits_size, lits, nb_lits * sizeof(unsigned));
     db.lits_size += nb_lits;
     db.lits[db.lits_size++] = -1U;    // clasue separator
     assert(db.lits_size <= db.lits_capacity);
+    return offset;
 }
 static inline void delete_clasue_from_db(const unsigned offset, unsigned nb_lits) {
     assert(db.lits_size >= offset + nb_lits);
@@ -282,6 +284,7 @@ int drup_check_propagate() {
             assert(first_watch == NEG(lit));
             assert(first_watch != second_watch);
             assert(assignment[first_watch] == NEG_VAL);
+            assert(ABS(get_elit(second_watch)) <= nb_known_vars);
 
             // check second_watch
             switch (assignment[second_watch]) {
@@ -465,6 +468,7 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
                       .blocking_lit = lit,
                       .c.ptr = -1
                       #ifdef DRUP_TO_LRUP_CONVERSION
+                      , .padding = 0
                       , .id = id
                       #endif
                     };
@@ -478,6 +482,7 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
                       .blocking_lit = ilits[0],
                       .c.lit = ilits[1]
                       #ifdef DRUP_TO_LRUP_CONVERSION
+                      , .padding = 0
                       , .id = id
                       #endif
                     };
@@ -488,16 +493,17 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
 
     // add clause to occurence list of first two lits
     assert(nb_lits > 2);
+    unsigned db_offset = add_clause_to_db(ilits, nb_lits);
     watcher w = { .nb_lits = nb_lits,
                   .blocking_lit = ilits[nb_lits - 1],
-                  .c.ptr = db.lits_size
+                  .c.ptr = db_offset
                   #ifdef DRUP_TO_LRUP_CONVERSION
+                  , .padding = 0
                   , .id = id
                   #endif
                 };
     watcher_vec_push(&(occurences[ilits[0]]), w);
     watcher_vec_push(&(occurences[ilits[1]]), w);
-    add_clause_to_db(ilits, nb_lits);
 
     return 0;
 }
@@ -578,13 +584,7 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
                 struct watcher_vec * const v2 = &(occurences[second_watch]);
                 for (size_t k = 0; k < v2->size; k++) {
                     watcher w2 = v2->data[k];
-                    #ifdef DRUP_TO_LRUP_CONVERSION
-                    if (w.id != w2.id) continue;
-                    #else
-                    if (w2.nb_lits != w.nb_lits) continue;
-                    if (nb_lits == 2 && !compare_lits(ilits, &(w2.blocking_lit), nb_lits)) continue;
-                    if (nb_lits > 2 && w2.c.ptr != w.c.ptr) continue;
-                    #endif
+                    if (memcmp(&w, &w2, sizeof(watcher))) continue;
                     // watch points to same clause => delete watch
                     v2->data[k] = v2->data[--(v2->size)];
                     if (nb_lits > 2) delete_clasue_from_db(w.c.ptr, w.nb_lits);

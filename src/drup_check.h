@@ -14,6 +14,7 @@ struct watcher {
         unsigned lit;
     } c;
     #ifdef DRUP_TO_LRUP_CONVERSION
+    unsigned padding; // enables memcmp
     u64 id;
     #endif
 };
