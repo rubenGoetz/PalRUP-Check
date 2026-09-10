@@ -105,6 +105,7 @@ def plot_tight_square(dfs,
                       title='',
                       figsize=[5.5, 2.75],
                       legend_spacing=0,
+                      axis_limit=300,
                       show=False,
                       filename=None):
     if len(dfs) != len(labels):
@@ -142,7 +143,7 @@ def plot_tight_square(dfs,
                   max(check_time), _max)
     
     #ax.axis([_min, _max] * 2)
-    ax.axis([_min, 300] * 2)
+    ax.axis([_min, axis_limit] * 2)
     plt.xscale('log')
     plt.yscale('log')
     ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')
