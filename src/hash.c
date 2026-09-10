@@ -173,8 +173,18 @@ void hash_table_free(struct hash_table* ht) {
     free(ht);
 }
 
-// doeas not free contained elements
+// does not free contained elements
 void hash_table_light_free(struct hash_table* ht) {
+    free(ht->data);
+    free(ht);
+}
+
+void hash_table_lrat_free(struct hash_table* ht) {
+    for (u64 i = 0; i < ht->capacity; i++) {
+        if (!cell_empty(&ht->data[i])) {
+            free((int*)(ht->data[i].val) - 1);
+        }
+    }
     free(ht->data);
     free(ht);
 }

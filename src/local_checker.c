@@ -150,7 +150,7 @@ static void load_formula_lrat(FILE* formula) {
     int nb_vars = parse_header(formula);
     int tmp = 0;
 
-    lrat_top_check_init(nb_vars, false, false);
+    lrat_top_check_init(nb_vars, false, true);
     while (true) {
         int lit;
         tmp = fscanf(formula, " %i ", &lit);

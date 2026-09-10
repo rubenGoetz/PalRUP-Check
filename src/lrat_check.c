@@ -19,6 +19,8 @@
 #undef TYPED
 #undef TYPE
 
+#define CLAUSE_COUNT -1
+
 // The hash table where we keep all clauses and which uses most of our RAM.
 // We still use a power-of-two growth policy since this makes lookups faster.
 struct hash_table* clause_table;
@@ -45,9 +47,10 @@ u64 lrat_check_get_nb_loaded_clauses(){
 }
 
 int* clause_init(const int* data, int nb_lits) {
-    int* cls = palrup_utils_calloc(nb_lits+1, sizeof(int));
+    int* cls = (int*)palrup_utils_calloc(nb_lits+2, sizeof(int)) + 1;
     for (int i = 0; i < nb_lits; i++) cls[i] = data[i];
     cls[nb_lits] = 0;
+    cls[CLAUSE_COUNT] = 1;
     return cls;
 }
 
@@ -76,7 +79,7 @@ bool check_clause(u64 base_id, const int* lits, int nb_lits, const u64* hints, i
         int* cls = (int*) hash_table_find(clause_table, hint_id);
         if (UNLIKELY(!cls)) {
             // ERROR - hint not found
-            snprintf(palrup_utils_msgstr, 512, "Derivation %lu: hint %lu not found", base_id, hint_id);
+            LOG_ERR("Derivation %lu: hint %lu not found", base_id, hint_id);
             break;
         }
 
@@ -90,7 +93,7 @@ bool check_clause(u64 base_id, const int* lits, int nb_lits, const u64* hints, i
                 // Literal is unassigned
                 if (UNLIKELY(new_unit != 0)) {
                     // ERROR - multiple unassigned literals in hint clause!
-                    snprintf(palrup_utils_msgstr, 512, "Derivation %lu: multiple literals unassigned", base_id);
+                    LOG_ERR("Derivation %lu: multiple literals unassigned", base_id);
                     ok = false; break;
                 }
                 new_unit = lit;
@@ -100,7 +103,7 @@ bool check_clause(u64 base_id, const int* lits, int nb_lits, const u64* hints, i
             const bool sign = var_values->data[var]>0;
             if (UNLIKELY(sign == (lit>0))) {
                 // ERROR - clause is satisfied, so it is not a correct hint
-                snprintf(palrup_utils_msgstr, 512, "Derivation %lu: dependency %lu is satisfied", base_id, hint_id);
+                LOG_ERR("Derivation %lu: dependency %lu is satisfied", base_id, hint_id);
                 ok = false; break;
             }
             // All OK - literal is false, thus (virtually) removed from the clause
@@ -113,7 +116,7 @@ bool check_clause(u64 base_id, const int* lits, int nb_lits, const u64* hints, i
             // -> Empty clause derived.
             if (UNLIKELY(i+1 < nb_hints)) {
                 // ERROR - not at the final hint yet!
-                snprintf(palrup_utils_msgstr, 512, "Derivation %lu: empty clause produced at non-final hint %lu", base_id, hint_id);
+                LOG_ERR("Derivation %lu: empty clause produced at non-final hint %lu", base_id, hint_id);
                 break;
             }
             // Final hint produced empty clause - everything OK!
@@ -126,9 +129,7 @@ bool check_clause(u64 base_id, const int* lits, int nb_lits, const u64* hints, i
         int_vec_push(assigned_units, var); // remember to reset later
     }
 
-    // ERROR - something went wrong
-    if (palrup_utils_msgstr[0] == '\0')
-        snprintf(palrup_utils_msgstr, 512, "Derivation %lu: no empty clause was produced", base_id);
+    COND_ERR(palrup_utils_msgstr[0] == '\0', "Derivation %lu: no empty clause was produced", base_id);
     reset_assignments();
     return false;
 }
@@ -163,10 +164,11 @@ bool lrat_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits) {
             // are syntactically equivalent (except for literal ordering).
             int* old_cls = (int*) hash_table_find(clause_table, id);
             if (old_cls && clauses_equivalent(old_cls, cls)) {
+                old_cls[CLAUSE_COUNT]++;
                 ok = true;
             }
         }
-        if (!ok) snprintf(palrup_utils_msgstr, 512, "Insertion of clause %lu unsuccessful - already present?", id);
+        COND_ERR(!ok, "Insertion of clause %lu unsuccessful - already present?", id);
     }
     else if (nb_lits == 0) unsat_proven = true; // added top-level empty clause!
     return ok;
@@ -182,7 +184,7 @@ void lrat_check_init(int nb_vars, bool opt_check_model, bool opt_lenient) {
 }
 
 void lrat_check_end() {
-    hash_table_free(clause_table);
+    hash_table_lrat_free(clause_table);
     int_vec_free(clause_to_add);
     i8_vec_free(var_values);
     int_vec_free(assigned_units);
@@ -205,7 +207,7 @@ bool lrat_check_load(int lit) {
 
 bool lrat_check_end_load(u8** out_sig) {
     if (clause_to_add->size > 0) {
-        snprintf(palrup_utils_msgstr, 512, "literals left in unterminated clause");
+        LOG_ERR("literals left in unterminated clause");
         return false;
     }
     siphash_pad(2); // two-byte padding for formula signature input
@@ -228,16 +230,17 @@ bool lrat_check_delete_clause(const u64* ids, int nb_ids) {
         u64 id = ids[i];
         int* cls = hash_table_find(clause_table, id);
         if (!cls) {
-            snprintf(palrup_utils_msgstr, 512, "Clause deletion: ID %lu not found", id);
+            LOG_ERR("Clause deletion: ID %lu not found", id);
             return false;
         }
         if (check_model && id <= nb_loaded_clauses) {
             // Do not delete original problem clauses to enable checking of a model
             continue;
         }
-        free(cls);
+        if (--cls[CLAUSE_COUNT] > 0) continue;
+        free(cls - 1);
         if (!hash_table_delete_last_found(clause_table)) {
-            snprintf(palrup_utils_msgstr, 512, "Clause deletion: Hash table error for ID %lu", id);
+            LOG_ERR("Clause deletion: Hash table error for ID %lu", id);
             return false;
         }
     }
@@ -246,11 +249,11 @@ bool lrat_check_delete_clause(const u64* ids, int nb_ids) {
 
 bool lrat_check_validate_unsat() {
     if (!done_loading) {
-        snprintf(palrup_utils_msgstr, 512, "UNSAT validation illegal - loading formula was not concluded");
+        LOG_ERR("UNSAT validation illegal - loading formula was not concluded");
         return false;
     }
     if (!unsat_proven) {
-        snprintf(palrup_utils_msgstr, 512, "UNSAT validation unsuccessful - did not derive or import empty clause");
+        LOG("UNSAT validation unsuccessful - did not derive or import empty clause");
         return false;
     }
     return true;
@@ -260,12 +263,12 @@ bool lrat_check_validate_sat(int* model, u64 size) {
 
     // Still loading the formula?
     if (!done_loading) {
-        snprintf(palrup_utils_msgstr, 512, "SAT validation illegal - loading formula was not concluded");
+        LOG_ERR("SAT validation illegal - loading formula was not concluded");
         return false;
     }
     // Not executed with checking of models enabled?
     if (!check_model) {
-        snprintf(palrup_utils_msgstr, 512, "SAT validation illegal - not executed to explicitly support this");
+        LOG_ERR("SAT validation illegal - not executed to explicitly support this");
         return false;
     }
     // Check each original problem clause
@@ -273,7 +276,7 @@ bool lrat_check_validate_sat(int* model, u64 size) {
         const int* cls = (int*) hash_table_find(clause_table, id);
         if (UNLIKELY(!cls)) {
             // ERROR - clause not found
-            snprintf(palrup_utils_msgstr, 512, "SAT validation: original ID %lu not found", id);
+            LOG_ERR("SAT validation: original ID %lu not found", id);
             return false;
         }
         // Iterate over the literals of the clause
@@ -283,14 +286,14 @@ bool lrat_check_validate_sat(int* model, u64 size) {
             const int var = lit>0 ? lit : -lit;
             if (UNLIKELY((u64) (var-1) >= size)) {
                 // ERROR - model does not cover this variable
-                snprintf(palrup_utils_msgstr, 512, "SAT validation: model does not cover variable %i", var);
+                LOG_ERR("SAT validation: model does not cover variable %i", var);
                 return false;
             }
             // Is the literal satisfied in the model?
             int modelLit = model[var-1];
             if (UNLIKELY(modelLit != var && modelLit != -var && modelLit != 0)) {
                 // ERROR - clause not found
-                snprintf(palrup_utils_msgstr, 512, "SAT validation: unexpected literal %i in assignment of variable %i", modelLit, var);
+                LOG_ERR("SAT validation: unexpected literal %i in assignment of variable %i", modelLit, var);
                 return false;
             }
             if (modelLit == 0) {
@@ -308,7 +311,7 @@ bool lrat_check_validate_sat(int* model, u64 size) {
         // Clause NOT satisfied?
         if (UNLIKELY(!satisfied)) {
             // ERROR - unsatisfied clause(s) remain(s)
-            snprintf(palrup_utils_msgstr, 512, "SAT validation: original clause %lu not satisfied", id);
+            LOG_ERR("SAT validation: original clause %lu not satisfied", id);
             return false;
         }
     }
