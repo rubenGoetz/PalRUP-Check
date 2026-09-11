@@ -54,7 +54,7 @@ struct u64_vec* unit_ids;
 #define PUSH_HINT(H) (u64_vec_push(hints, H))
 
 #undef PUSH_UNIT_HINT
-#define PUSH_UNIT_HINT PUSH_HINT(unit_ids->data[units_propagated])
+#define PUSH_UNIT_HINT if (assignment[lit] != POS_VAL) { PUSH_HINT(unit_ids->data[units_propagated]); }
 
 #endif
 // ---------------------------------------------------
@@ -227,14 +227,14 @@ static bool compare_lits(const unsigned* lits1, const unsigned* lits2, int nb_li
 
 int drup_check_propagate() {
     EMPTY_HINTS;
-    //while (prop_stack->size > 0) {
     while (prop_stack_propagated < prop_stack->size || units_propagated < units->size) {
         unsigned lit;
         if (prop_stack_propagated < prop_stack->size)
             lit = prop_stack->data[prop_stack_propagated++];
         else {
+            lit = units->data[units_propagated];
             PUSH_UNIT_HINT;
-            lit = units->data[units_propagated++];
+            units_propagated++;
         }
         assert(ABS(get_elit(lit)) <= nb_known_vars);
         char a_sign = assignment[lit];
@@ -536,8 +536,10 @@ int drup_check_add_clause(u64 id, const int* lits, int nb_lits) {
         #ifdef DRUP_TO_LRUP_CONVERSION
         // Fix tail of hint sequence
         long last_hint = MAX((long)(prop_stack_propagated + units_propagated - nb_lits), 0);
-        hints->data[last_hint] = hints->data[hints->size - 1];
-        hints->size = last_hint + 1;
+        if (last_hint < (long)hints->size) {
+            hints->data[last_hint] = hints->data[hints->size - 1];
+            hints->size = last_hint + 1;
+        }
         #endif
         drup_check_reset_assignment();
         res = drup_check_add_axiomatic_clause(id, (int*)ilits, nb_lits, true);
