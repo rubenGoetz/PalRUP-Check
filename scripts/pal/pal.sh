@@ -57,6 +57,17 @@ check_timeout() {
         echo "TIMEOUT" &>> "$log"
         exit 1
     fi
+    if [[ -d "$working_path/.error" ]]; then
+        echo "ERROR detected" &>> "$log"
+        exit 1
+    fi
+}
+
+check_res() {
+    if [[ $res -ne 0 ]]; then
+        echo "Abort after error" &>> "$log"
+        exit $res
+    fi
 }
 
 finish() {
@@ -152,8 +163,10 @@ if (( $id < $num_solvers )); then
     echo "run $cmd" &>> "$log" &>> "$log"
     start=$(date +%s.%N)
     $cmd &>> "$log"
+    res=$?
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
+    check_res
     echo "WRITTEN_PROXY_SIZE=$(wc -c $working_path/$dir_hierarchy/$id/out.palrup_proxy)" &>> "$log"
     if [[ $convert -eq 1 ]]; then
         echo "WRITTEN_PALRUP_SIZE=$(wc -c $palrup_path/$dir_hierarchy/$id/out.palrup)" &>> "$log"
@@ -200,8 +213,10 @@ else
     echo "run $cmd" &>> "$log"
     start=$(date +%s.%N)
     $cmd &>> "$log"
+    res=$?
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
+    check_res
     echo "WRITTEN_IMPORT_SIZE=$(wc -c $working_path/$dir_hierarchy/$id/out.palrup_import)" &>> "$log"
     echo "RR_WC_TIME=$elapsed" &>> "$log"
     echo "Finished reroute" &>> "$log"
@@ -234,8 +249,10 @@ if (( $id < $num_solvers )); then
     echo "run $cmd" &>> "$log" &>> "$log"
     start=$(date +%s.%N)
     $cmd &>> "$log"
+    res=$?
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
+    check_res
     echo "LP_WC_TIME=$elapsed" &>> "$log"
     echo "Finished last pass" &>> "$log"
 
