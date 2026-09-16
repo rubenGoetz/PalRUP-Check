@@ -91,11 +91,11 @@ static void test_checker_utils_compare_lits() {
     int* c = generate_shuffled_copy_array(elem_count, a);
 
     printf("   * check comparison between arrays\n");
-    do_assert(checker_utils_compare_lits(a, b, elem_count, elem_count));
-    do_assert(!checker_utils_compare_lits(a, b, elem_count, elem_count - 1));
+    do_assert(checker_utils_compare_sorted_lits(a, b, elem_count, elem_count));
+    do_assert(!checker_utils_compare_sorted_lits(a, b, elem_count, elem_count - 1));
     b[(size_t)drand48()*elem_count] = elem_count;   // alter b
-    do_assert(!checker_utils_compare_lits(a, b, elem_count, elem_count));
-    do_assert(!checker_utils_compare_lits(a, c, elem_count, elem_count));
+    do_assert(!checker_utils_compare_sorted_lits(a, b, elem_count, elem_count));
+    do_assert(!checker_utils_compare_sorted_lits(a, c, elem_count, elem_count));
 
     printf("   * free arrays\n");
     free(a);
@@ -118,6 +118,8 @@ static void test_checker_utils_compare_semi_sorted_lits() {
     free(a);
     free(b);
 }
+
+// TODO: test checker_utils_compare_lits
 
 // ----- INIT -----
 
@@ -142,7 +144,7 @@ int main(int argc, char const *argv[])
     printf("** test checker_utils_equal_signatures\n");
     test_checker_utils_equal_signatures();
 
-    printf("** test checker_utils_compare_lits\n");
+    printf("** test checker_utils_compare_sorted_lits\n");
     test_checker_utils_compare_lits();
 
     printf("** test bin_search\n");

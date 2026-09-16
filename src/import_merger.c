@@ -143,10 +143,8 @@ void import_merger_next() {
         } else if (temp_id == current_id && current_id != EMPTY_ID) { // check and skip duplicates
             candidate_lits = *im_all_lits[index_to_load];
             const struct int_vec* temp_lits = im_all_lits[i];
-            if (UNLIKELY(!checker_utils_compare_lits(candidate_lits.data, temp_lits->data, candidate_lits.size, temp_lits->size))) {
-                char err_str[512];
-                snprintf(err_str, 512, "literals do not match ID:%lu index_to_load:%lu i:%lu", current_id, index_to_load, i);
-                palrup_utils_log_err(err_str);
+            if (UNLIKELY(!checker_utils_compare_sorted_lits(candidate_lits.data, temp_lits->data, candidate_lits.size, temp_lits->size))) {
+                LOG_ERR("literals do not match ID:%lu index_to_load:%lu i:%lu", current_id, index_to_load, i);
                 exit(1);
             }
             stats.nb_duplicates++;

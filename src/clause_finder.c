@@ -94,7 +94,7 @@ static void parse_lrat() {
 
             // check if the clause is the same
             if (id == current_ID) {
-                if (checker_utils_compare_semi_sorted_lits(current_literals_data, proof_lits->data, current_literals_size, proof_lits->size))
+                if (checker_utils_compare_lits(current_literals_data, proof_lits->data, current_literals_size, proof_lits->size))
                     break;
                 else {
                     LOG_ERR("Literals do not match in proof. pal_id:%lu clause_ID:%lu", cf_pal_id, current_ID);
@@ -146,7 +146,7 @@ static void parse_drup() {
 
             // check if the clause is the same
             if (id == current_ID) {
-                if (checker_utils_compare_semi_sorted_lits(current_literals_data, proof_lits->data, current_literals_size, proof_lits->size))
+                if (checker_utils_compare_lits(current_literals_data, proof_lits->data, current_literals_size, proof_lits->size))
                     break;
                 else {
                     LOG_ERR("Literals do not match in proof. pal_id:%lu clause_ID:%lu", cf_pal_id, current_ID);

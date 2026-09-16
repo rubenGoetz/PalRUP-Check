@@ -9,9 +9,10 @@
 bool checker_utils_check_hints(unsigned long id, const unsigned long* hints, int nb_hints);
 bool checker_utils_equal_signatures(const u8* left, const u8* right);
 
-bool checker_utils_compare_lits(int* lits1, int* lits2, int nb_lits1, int nb_lits2);
-bool checker_utils_compare_semi_sorted_lits(int* sorted_lits, int* unsorted_lits, int nb_sorted, int nb_unsorted);
+bool checker_utils_compare_sorted_lits(const int* lits1, const int* lits2, int nb_lits1, int nb_lits2);
+bool checker_utils_compare_semi_sorted_lits(const int* sorted_lits, const int* unsorted_lits, int nb_sorted, int nb_unsorted);
+bool checker_utils_compare_lits(const int* lits1, const int* lits2, int nb_lits1, int nb_lits2);
 
 #ifdef UNIT_TEST
-bool bin_search(int* a, int elem, int start, int end);
+bool bin_search(const int* a, int elem, int start, int end);
 #endif

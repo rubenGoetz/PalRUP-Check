@@ -43,11 +43,12 @@ if [[ $REDIST_STRAT -gt 0 ]]; then redist_strat=$REDIST_STRAT; fi
 if [[ $WRITE_BUFFER_SIZE -gt 0 ]]; then write_buffer_size=$WRITE_BUFFER_SIZE; fi
 if [[ $MERGE_BUFFER_SIZE -gt 0 ]]; then merge_buffer_size=$MERGE_BUFFER_SIZE; fi
 if [[ $Q_SIZE -gt 0 ]]; then q_size=$Q_SIZE; fi
-if [[ $(echo "$Q_ALPHA > 0" | bc) -gt 0 ]]; then q_alpha=$Q_ALPHA; fi
+if [[ $Q_ALPHA && $(echo "$Q_ALPHA > 0" | bc) -gt 0 ]]; then q_alpha=$Q_ALPHA; fi
 if [[ $USE_DRUP -gt 0 ]]; then use_drup=$USE_DRUP; fi
 if [[ $CONVERT -gt 0 ]]; then convert=$CONVERT; fi
 if [[ $FULL_CHECK ]]; then full_check=$FULL_CHECK; fi
 if [[ $BEST_EFFORT -gt 0 ]]; then best_effort=$BEST_EFFORT; fi
+if [[ $DECOMP_EXE ]]; then decomp_exe=$DECOMP_EXE; fi
 
 glob_start=$(date +%s.%N)
 check_timeout() {
@@ -101,7 +102,7 @@ dir_hierarchy=$(($id/$root_ceil))
 # Avoid edgecases in pal_launcher
 if [[ $id -ge $comm_size ]]; then exit; fi
 
-if [[ $best_effort -eq 1 && -f "$palrup_path/$dir_hierarchy/$id/out.palrup" ]]; then
+if [[ $best_effort -eq 1 && $(find $palrup_path/$dir_hierarchy/$id -name out.palrup*) ]]; then
     use_drup=0
 elif [[ $best_effort -eq 1 ]]; then
     use_drup=1
@@ -127,6 +128,7 @@ echo "drup: $use_drup" &>> "$log"
 echo "convert_to_lrup: $convert" &>> "$log"
 echo "full_check: $full_check" &>> "$log"
 echo "best_effort: $best_effort" &>> "$log"
+echo "decomp_exe: $decomp_exe" &>> "$log"
 
 #############
 ## run pal ##
@@ -139,14 +141,51 @@ if (( $id < $num_solvers )); then
 
     echo "wait until proof is finished.." &>> "$log"
     start=$(date +%s.%N)
-    until [[ $(find -O3 $palrup_path/$dir_hierarchy/$id -name $fragment_file_name 2>/dev/null) ]]; do
+    until [[ $(find -O3 $palrup_path/$dir_hierarchy/$id -name $fragment_file_name -o -name $fragment_file_name.xz -o -name $fragment_file_name.vg 2>/dev/null) ]]; do
         check_timeout "wait until proof is finished.."
         sleep 0.1;
     done
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
     echo "FP_WC_WAIT_TIME=$elapsed" &>> "$log"
-    echo "READ_PALRUP_SIZE=$(wc -c $palrup_path/$dir_hierarchy/$id/$fragment_file_name)" &>> "$log"
+
+    fragment_path="$palrup_path/$dir_hierarchy/$id/$fragment_file_name"
+
+    ## check which decompression has to be used, if any
+    if   [[ -f "$fragment_path" ]] then :;
+    elif [[ -f "$fragment_path.xz" ]] then
+        ## decompress xz
+        echo "Found .xz fragment" &>> "$log"
+        cmd="xz -dk $fragment_path.xz"
+        echo "run $cmd" &>> "$log"
+        start=$(date +%s.%N)
+        $cmd &>> "$log"
+        res=$?
+        end=$(date +%s.%N)
+        elapsed=$( echo "$end - $start" | bc )
+        check_res
+        echo "DECOMP_WC_TIME=$elapsed" &>> "$log"
+        echo "READ_PALRUP_SIZE_COMPRESSED=$(wc -c $fragment_path.xz)" &>> "$log"
+    elif [[ -f "$fragment_path.vg" && -f $decomp_exe ]] then
+        ## TODO: decompress vg
+        echo "found .vg fragment" &>> "$log"
+        cmd="$decomp_exe decode $fragment_path.vg $fragment_path"
+        echo "run $cmd" &>> "$log"
+        start=$(date +%s.%N)
+        $cmd &>> "$log"
+        res=$?
+        end=$(date +%s.%N)
+        elapsed=$( echo "$end - $start" | bc )
+        check_res
+        echo "DECOMP_WC_TIME=$elapsed" &>> "$log"
+        echo "READ_PALRUP_SIZE_COMPRESSED=$(wc -c $fragment_path.vg)" &>> "$log"
+    else
+        echo "Error while coosing decompression. Has a valid decompression executable been given?" &>> "$log"
+        res=1
+        check_res
+    fi
+
+    echo "READ_PALRUP_SIZE=$(wc -c $fragment_path)" &>> "$log"
 
     # run local check
     local_check="palrup_local_check_fast_rup"
@@ -160,7 +199,7 @@ if (( $id < $num_solvers )); then
     -q-alpha=$q_alpha -palrup-binary=$palrup_binary \
     -drup=$use_drup -convert-to-lrup=$convert"
 
-    echo "run $cmd" &>> "$log" &>> "$log"
+    echo "run $cmd" &>> "$log"
     start=$(date +%s.%N)
     $cmd &>> "$log"
     res=$?

@@ -74,6 +74,8 @@ for arg in "$@"; do
             cleanup="${arg#*=}" ;;
         -best-effort=*)
             best_effort="${arg#*=}" ;;
+        -decomp-exe=*)
+            decomp_exe="${arg#*=}" ;;
         *)
             echo "Unknown arg $arg"
             exit 1
@@ -102,7 +104,8 @@ USE_DRUP=$use_drup \
 CONVERT=$convert \
 FULL_CHECK=$full_check \
 CLEANUP=$cleanup \
-BEST_EFFORT=$best_effort"
+BEST_EFFORT=$best_effort \
+DECOMP_EXE=$decomp_exe"
 
 if [[ $working_dir ]]; then cd $(pwd)/$working_dir; fi
 

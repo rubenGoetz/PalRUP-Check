@@ -29,7 +29,7 @@ bool checker_utils_equal_signatures(const u8* left, const u8* right) {
     return true;
 }
 
-unit_static bool bin_search(int* a, int elem, int start, int end) {
+unit_static bool bin_search(const int* a, int elem, int start, int end) {
     // integer division rounds towards zero
     // => a[end] can never be reached
     // => use nb_elements as end
@@ -50,18 +50,36 @@ unit_static bool bin_search(int* a, int elem, int start, int end) {
 
     return false;   // silence compiler warnings
 }
-bool checker_utils_compare_lits(int* lits1, int* lits2, int nb_lits1, int nb_lits2) {
+bool checker_utils_compare_sorted_lits(const int* lits1, const int* lits2, int nb_lits1, int nb_lits2) {
     if (UNLIKELY(nb_lits1 != nb_lits2)) return false;
     for (int i = 0; i < nb_lits1; i++) {
         if (UNLIKELY(lits1[i] != lits2[i])) return false;
     }
     return true;
 }
-bool checker_utils_compare_semi_sorted_lits(int* sorted_lits, int* unsorted_lits, int nb_sorted, int nb_unsorted) {
+bool checker_utils_compare_semi_sorted_lits(const int* sorted_lits, const int* unsorted_lits, int nb_sorted, int nb_unsorted) {
     if (UNLIKELY(nb_sorted != nb_unsorted)) return false;
     for (int i = 0; i < nb_unsorted; i++)
         if (!bin_search(sorted_lits, unsorted_lits[i], 0, nb_sorted))
             return false;
 
     return true;
+}
+bool checker_utils_compare_lits(const int* lits1, const int* lits2, int nb_lits1, int nb_lits2) {
+    // lits are unsorted => quadratic
+    if (UNLIKELY(nb_lits1 != nb_lits2)) return false;
+    for (int i = 0; i < nb_lits1; i++) {
+        int lit = lits1[i];
+        bool found = false;
+        for (int j = 0; j < nb_lits1; j++) {
+            if (lits2[j] == lit) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            return false;
+    }
+    
+    return true;    // all lits found
 }
