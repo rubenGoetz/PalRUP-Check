@@ -152,40 +152,34 @@ if (( $id < $num_solvers )); then
     fragment_path="$palrup_path/$dir_hierarchy/$id/$fragment_file_name"
 
     ## check which decompression has to be used, if any
-    if   [[ -f "$fragment_path" ]] then :;
+    if   [[ -f "$fragment_path" ]] then
+        echo "READ_PALRUP_SIZE=$(wc -c $fragment_path)" &>> "$log"
     elif [[ -f "$fragment_path.xz" ]] then
         ## decompress xz
         echo "Found .xz fragment" &>> "$log"
-        cmd="xz -dk $fragment_path.xz"
-        echo "run $cmd" &>> "$log"
-        start=$(date +%s.%N)
-        $cmd &>> "$log"
-        res=$?
-        end=$(date +%s.%N)
-        elapsed=$( echo "$end - $start" | bc )
-        check_res
-        echo "DECOMP_WC_TIME=$elapsed" &>> "$log"
-        echo "READ_PALRUP_SIZE_COMPRESSED=$(wc -c $fragment_path.xz)" &>> "$log"
+        echo "READ_PALRUP_SIZE=$(wc -c $fragment_path.xz)" &>> "$log"
+        echo "create pipe at $fragment_path" &>> "$log"
+        mkfifo "$fragment_path"
+        cmd="xz -d -k -c -T 1 $fragment_path.xz"
+        echo "run $cmd > $fragment_path &" &>> "$log"
+        $cmd > $fragment_path &
+        echo "started decompression" &>> "$log"
     elif [[ -f "$fragment_path.vg" && -f $decomp_exe ]] then
-        ## TODO: decompress vg
-        echo "found .vg fragment" &>> "$log"
+        ## decompress vg
+        echo "Found .vg fragment" &>> "$log"
+        echo "READ_PALRUP_SIZE=$(wc -c $fragment_path.vg)" &>> "$log"
+        echo "create pipe at $fragment_path" &>> "$log"
+        mkfifo "$fragment_path"
+        ## vg command
         cmd="$decomp_exe decode $fragment_path.vg $fragment_path"
-        echo "run $cmd" &>> "$log"
-        start=$(date +%s.%N)
-        $cmd &>> "$log"
-        res=$?
-        end=$(date +%s.%N)
-        elapsed=$( echo "$end - $start" | bc )
-        check_res
-        echo "DECOMP_WC_TIME=$elapsed" &>> "$log"
-        echo "READ_PALRUP_SIZE_COMPRESSED=$(wc -c $fragment_path.vg)" &>> "$log"
+        echo "run $cmd &" &>> "$log"
+        $cmd &
+        echo "started decompression" &>> "$log"
     else
         echo "Error while coosing decompression. Has a valid decompression executable been given?" &>> "$log"
         res=1
         check_res
     fi
-
-    echo "READ_PALRUP_SIZE=$(wc -c $fragment_path)" &>> "$log"
 
     # run local check
     local_check="palrup_local_check_fast_rup"
@@ -205,6 +199,7 @@ if (( $id < $num_solvers )); then
     res=$?
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
+    if [[ -p "$fragment_path" ]]; then rm $fragment_path; fi
     check_res
     echo "WRITTEN_PROXY_SIZE=$(wc -c $working_path/$dir_hierarchy/$id/out.palrup_proxy)" &>> "$log"
     if [[ $convert -eq 1 ]]; then
@@ -278,6 +273,32 @@ if (( $id < $num_solvers )); then
     elapsed=$( echo "$end - $start" | bc )
     echo "LP_WC_WAIT_TIME=$elapsed" &>> "$log"
 
+    if   [[ -f "$fragment_path" ]] then :;
+    elif [[ -f "$fragment_path.xz" ]] then
+        ## decompress xz
+        echo "Found .xz fragment" &>> "$log"
+        echo "create pipe at $fragment_path" &>> "$log"
+        mkfifo "$fragment_path"
+        cmd="xz -d -k -c -T 1 $fragment_path.xz"
+        echo "run $cmd > $fragment_path &" &>> "$log"
+        $cmd > $fragment_path &
+        echo "started decompression" &>> "$log"
+    elif [[ -f "$fragment_path.vg" && -f $decomp_exe ]] then
+        ## decompress vg
+        echo "Found .vg fragment" &>> "$log"
+        echo "create pipe at $fragment_path" &>> "$log"
+        mkfifo "$fragment_path"
+        ## vg command
+        cmd="$decomp_exe decode $fragment_path.vg $fragment_path"
+        echo "run $cmd &" &>> "$log"
+        $cmd &
+        echo "started decompression" &>> "$log"
+    else
+        echo "Error while coosing decompression. Has a valid decompression executable been given?" &>> "$log"
+        res=1
+        check_res
+    fi
+
     # run confirm
     cmd="./build/palrup_confirm \
     -palrup-path=$palrup_path -working-path=$working_path \
@@ -291,6 +312,7 @@ if (( $id < $num_solvers )); then
     res=$?
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
+    if [[ -p "$fragment_path" ]]; then rm $fragment_path; fi
     check_res
     echo "LP_WC_TIME=$elapsed" &>> "$log"
     echo "Finished last pass" &>> "$log"
