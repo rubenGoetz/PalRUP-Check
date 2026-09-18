@@ -6,7 +6,7 @@
 #include "import_merger.h"
 #include "utils/palrup_utils.h"
 #include "utils/checker_utils.h"
-#include "file_reader.h"
+#include "legacy_file_reader.h"
 
 #define TYPE int
 #define TYPED(THING) int_##THING
@@ -24,7 +24,7 @@ size_t _im_n_files;
 bool* im_clauses_left;
 u64* im_clause_ids;
 struct int_vec** im_all_lits;
-struct file_reader** im_import_files;
+struct legacy_file_reader** im_import_files;
 struct siphash** im_check_hash;
 struct comm_sig** im_check_comm_sig;
 int last_index_to_load = 0;
@@ -37,19 +37,19 @@ u64* im_current_literals_size;
 void read_literals_index(int index, int nb_lits) {
     struct int_vec* buf_lits = im_all_lits[index];
     int_vec_resize(buf_lits, nb_lits);
-    file_reader_read_ints(buf_lits->data, nb_lits, im_import_files[index]);
+    legacy_file_reader_read_ints(buf_lits->data, nb_lits, im_import_files[index]);
 }
 
 void load_clause_if_available(int index) {
     if (LIKELY(im_clauses_left[index])) {
-        struct file_reader* file = im_import_files[index];
-        im_clause_ids[index] = file_reader_read_ul(file);
+        struct legacy_file_reader* file = im_import_files[index];
+        im_clause_ids[index] = legacy_file_reader_read_ul(file);
         // no clauses left
         if (im_clause_ids[index] == 0) {
             im_clause_ids[index] = -1;
             return;
         }
-        int nb_lits = file_reader_read_int(file);
+        int nb_lits = legacy_file_reader_read_int(file);
         read_literals_index(index, nb_lits);
         if (im_check_hash != NULL) {
             siphash_cls_update(im_check_hash[index], (const u8*)&im_clause_ids[index], sizeof(u64));
@@ -79,11 +79,11 @@ void import_merger_init(int count_input_files, char** file_paths, u64* current_i
     im_clause_ids = palrup_utils_malloc(sizeof(u64) * _im_n_files);
     im_all_lits = palrup_utils_malloc(sizeof(struct int_vec*) * _im_n_files);
     im_clauses_left = palrup_utils_malloc(sizeof(bool) * _im_n_files);
-    im_import_files = palrup_utils_calloc(_im_n_files, sizeof(struct file_reader*));
+    im_import_files = palrup_utils_calloc(_im_n_files, sizeof(struct legacy_file_reader*));
     stats = merger_stats_init;
     for (size_t i = 0; i < _im_n_files; i++) {
         if (access(file_paths[i], F_OK) == 0) {   
-            im_import_files[i] = file_reader_init(read_buffer_size, fopen(file_paths[i], "rb"), -1);
+            im_import_files[i] = legacy_file_reader_init(read_buffer_size, fopen(file_paths[i], "rb"), -1);
             if (!(im_import_files[i]))
                 palrup_utils_exit_eof();
             im_all_lits[i] = int_vec_init(1);
@@ -111,7 +111,7 @@ static void print_stats() {
 void import_merger_end() {
     for (size_t i = 0; i < _im_n_files; i++) {
         if (im_import_files[i]) {
-            file_reader_end(im_import_files[i]);
+            legacy_file_reader_end(im_import_files[i]);
             int_vec_free(im_all_lits[i]);
         }
     }
@@ -164,7 +164,7 @@ void import_merger_next() {
 
 void import_merger_read_sig(int* sig_res_reported, int index) {
     if (im_import_files[index])
-        file_reader_read_ints(sig_res_reported, 4, im_import_files[index]);
+        legacy_file_reader_read_ints(sig_res_reported, 4, im_import_files[index]);
     else {
         struct comm_sig* dummy_sig = comm_sig_init(SECRET_KEY_2);
         u8* sig = comm_sig_digest(dummy_sig);

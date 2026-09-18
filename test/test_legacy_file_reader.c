@@ -4,9 +4,9 @@
 #include <time.h>
 
 #include "test_utils.h"
-#include "../src/file_reader.h"
+#include "../src/legacy_file_reader.h"
 
-#define TEST_DIR "plrat_file_reader_test_dir"
+#define TEST_DIR "plrat_legacy_file_reader_test_dir"
 
 // ----- UTIL -----
 
@@ -69,18 +69,18 @@ static void test_vbl_int() {
     FILE* file = create_file("vbl_int", 14, data);
     
     printf("   * init plrat reader\n");
-    struct file_reader* reader = file_reader_init(4, file, 0);
+    struct legacy_file_reader* reader = legacy_file_reader_init(4, file, 0);
 
     printf("   * read data from file\n");
     int read_ints[6];
     for (size_t i = 0; i < 6; i++)
-        read_ints[i] = file_reader_read_vbl_int(reader);
+        read_ints[i] = legacy_file_reader_read_vbl_int(reader);
     
     printf("   * check read data\n");
     for (size_t i = 0; i < 6; i++)
         do_assert(ints[i] == read_ints[i]);
 
-    file_reader_end(reader);
+    legacy_file_reader_end(reader);
 }
 
 static void test_vbl_ul() {
@@ -104,18 +104,18 @@ static void test_vbl_ul() {
     FILE* file = create_file("vbl_ul", 12, data);
     
     printf("   * init plrat reader\n");
-    struct file_reader* reader = file_reader_init(2, file, 1);
+    struct legacy_file_reader* reader = legacy_file_reader_init(2, file, 1);
 
     printf("   * read data from file\n");
     u64 read_uls[5];
     for (size_t i = 0; i < 3; i++)
-        read_uls[i] = file_reader_read_vbl_ul(reader);
+        read_uls[i] = legacy_file_reader_read_vbl_ul(reader);
     
     printf("   * check read data\n");
     for (size_t i = 0; i < 3; i++)
         do_assert(uls[i] == read_uls[i]);
 
-    file_reader_end(reader);
+    legacy_file_reader_end(reader);
 }
 
 static void test_vbl_ints() {
@@ -142,20 +142,20 @@ static void test_vbl_ints() {
     FILE* file = create_file("vbl_ints", 15, data);
     
     printf("   * init plrat reader\n");
-    struct file_reader* reader = file_reader_init(4, file, 2);
+    struct legacy_file_reader* reader = legacy_file_reader_init(4, file, 2);
 
     printf("   * read data from file\n");
     int read_ints[7];
-    file_reader_read_vbl_ints(&(read_ints[0]), 1, reader);
-    file_reader_read_vbl_ints(&(read_ints[1]), 2, reader);
-    file_reader_read_vbl_ints(&(read_ints[3]), 3, reader);
-    file_reader_read_vbl_ints(&(read_ints[6]), 1, reader);
+    legacy_file_reader_read_vbl_ints(&(read_ints[0]), 1, reader);
+    legacy_file_reader_read_vbl_ints(&(read_ints[1]), 2, reader);
+    legacy_file_reader_read_vbl_ints(&(read_ints[3]), 3, reader);
+    legacy_file_reader_read_vbl_ints(&(read_ints[6]), 1, reader);
     
     printf("   * check read data\n");
     for (size_t i = 0; i < 7; i++)
         do_assert(ints[i] == read_ints[i]);
 
-    file_reader_end(reader);
+    legacy_file_reader_end(reader);
 }
 
 // ----- INIT -----
@@ -175,13 +175,13 @@ int main(int argc, char *argv[]) {
     printf("** init tests\n");
     init_tests();
 
-    printf("** test file_reader_read_vbl_int\n");
+    printf("** test legacy_file_reader_read_vbl_int\n");
     test_vbl_int();
 
-    printf("** test file_reader_read_vbl_ul\n");
+    printf("** test legacy_file_reader_read_vbl_ul\n");
     test_vbl_ul();
 
-    printf("** test file_reader_read_vbl_ints\n");
+    printf("** test legacy_file_reader_read_vbl_ints\n");
     test_vbl_ints();
 
     printf("** DONE\n");

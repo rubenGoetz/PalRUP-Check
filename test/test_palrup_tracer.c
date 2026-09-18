@@ -208,15 +208,15 @@ static void test_log_clause_deletion() {
     struct file_reader* reader = file_reader_init(1024, fopen(FRAGMENT_PATH, "rb"), 0);
 
     // first delete line
-    do_assert(file_reader_read_char(reader) == TRUSTED_CHK_CLS_DELETE);
+    do_assert(file_reader_read_vbl_char(reader) == TRUSTED_CHK_CLS_DELETE);
     for (long i = NUM_DELETIONS; i > 0; i--)
-        do_assert(file_reader_read_vbl_sl(reader) == i);
+        do_assert(file_reader_read_vbl_sl(reader) == (u64)i);
     do_assert(file_reader_read_vbl_sl(reader) == 0);
     
     // addition lines
     for (long i = 0; i < NUM_DELETIONS; i++) {
         do_assert(file_reader_read_vbl_char(reader) == TRUSTED_CHK_CLS_PRODUCE);
-        do_assert(file_reader_read_vbl_sl(reader) != i);    // mapped id
+        do_assert(file_reader_read_vbl_sl(reader) != (u64)i);    // mapped id
         do_assert(file_reader_read_vbl_int(reader) == 0);
         do_assert(file_reader_read_vbl_int(reader) == 0);
     }
@@ -224,7 +224,7 @@ static void test_log_clause_deletion() {
     // second delete line
     do_assert(file_reader_read_vbl_char(reader) == TRUSTED_CHK_CLS_DELETE);
     for (long i = 0; i < NUM_DELETIONS; i++)
-        do_assert(file_reader_read_vbl_sl(reader) != i+1);  // mapped ids
+        do_assert(file_reader_read_vbl_sl(reader) != (u64)i+1);  // mapped ids
     do_assert(file_reader_read_vbl_sl(reader) == 0);
     
     // import line
@@ -233,6 +233,7 @@ static void test_log_clause_deletion() {
     do_assert(file_reader_read_vbl_int(reader) == 0);
 
     // EOF
+    do_assert(file_reader_read_vbl_char(reader) == EOF);
     do_assert(file_reader_eof_reached(reader));
 
     file_reader_end(reader);

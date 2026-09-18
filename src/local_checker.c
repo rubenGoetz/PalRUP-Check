@@ -7,7 +7,6 @@
 
 #include "local_checker.h"
 #include "file_reader.h"
-//#include "dummy_file_reader.h"
 #include "utils/palrup_utils.h"
 #include "utils/checker_utils.h"
 #include "lrat_check.h"
@@ -232,7 +231,6 @@ static void parse_lrup() {
     while (true) {
         char c = file_reader_read_vbl_char(proof);
         if (file_reader_eof_reached(proof)) {
-        //if (c == EOF) {
             finish_parse();
             break;
 
@@ -321,7 +319,6 @@ static void parse_drup() {
     while (true) {
         char c = file_reader_read_vbl_char(proof);
         if (file_reader_eof_reached(proof)) {
-        //if (c == EOF) {
             finish_parse();
             break;
 

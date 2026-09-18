@@ -27,7 +27,6 @@ target_link_libraries(import_handler m utils)
 add_library(local_checker
             src/local_checker.c
             src/file_reader.c
-            #src/dummy_file_reader.h
             src/secret.c
             src/siphash_cls.c
             src/lrat_top_check.c
@@ -46,7 +45,6 @@ target_compile_definitions(local_checker PRIVATE DRUP_TO_LRUP_CONVERSION)
 add_library(local_checker_fast_rup
             src/local_checker.c
             src/file_reader.c
-            #src/dummy_file_reader.h
             src/secret.c
             src/siphash_cls.c
             src/lrat_top_check.c
@@ -63,7 +61,7 @@ target_link_libraries(local_checker_fast_rup m import_handler utils)
 
 add_library(import_merger
             src/import_merger.c
-            src/file_reader.c
+            src/legacy_file_reader.c
             src/vectors.c
             src/comm_sig.c)
 target_link_libraries(import_merger utils)
@@ -143,8 +141,7 @@ add_executable(proof_fragment_to_txt
                src/clause_flat.c
                src/siphash.c
                src/secret.c
-               #src/file_reader.c
-               src/dummy_file_reader.h
+               src/file_reader.c
                src/vectors.c
                tools/proof_fragment_to_txt.c)
 
@@ -153,7 +150,6 @@ add_executable(check_rup_proof
                src/utils/file_utils.c
                src/drup_top_check.c
                src/file_reader.c
-               #src/dummy_file_reader.h
                src/drup_check.c
                src/siphash.c
                src/hash.c
@@ -168,7 +164,6 @@ add_executable(check_rup_proof_convert
                src/utils/file_utils.c
                src/drup_top_check.c
                src/file_reader.c
-               #src/dummy_file_reader.h
                src/drup_check.c
                src/siphash.c
                src/hash.c
@@ -202,12 +197,12 @@ target_link_libraries(test_clause_flat test_utils)
 add_test(NAME Test_Clause_Flat
          COMMAND test_clause_flat)
 
-add_executable(test_file_reader
-               src/file_reader.c
-               test/test_file_reader.c)
-target_link_libraries(test_file_reader test_utils)
-add_test(NAME Test_File_Reader
-         COMMAND test_file_reader)
+add_executable(test_legacy_file_reader
+               src/legacy_file_reader.c
+               test/test_legacy_file_reader.c)
+target_link_libraries(test_legacy_file_reader test_utils)
+add_test(NAME Test_Legacy_File_Reader
+         COMMAND test_legacy_file_reader)
 
 add_executable(test_hash
                src/hash.c
