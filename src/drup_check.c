@@ -60,6 +60,7 @@ struct u64_vec* unit_ids;
 // ---------------------------------------------------
 
 #define ON_STACK 2
+#define ON_UNITS 3
 #define POS_VAL 1
 #define NEG_VAL -1
 #define NEUTRAL_VAL 0
@@ -197,8 +198,10 @@ static void drup_check_reset_assignment() {
     unsigned_vec_resize(trail, 0);
     #ifdef DRUP_TO_LRUP_CONVERSION
         // mark units as already on stack
-        for (u64 i = 0; i < units->size; i++)
-            assignment[units->data[i]] = ON_STACK;
+        for (u64 i = 0; i < units->size; i++) {
+            assignment[units->data[i]] = ON_UNITS;
+            assignment[NEG(units->data[i])] = -ON_UNITS;
+        }
     #else
         #ifndef NDEBUG
             // assert no assignments persist
@@ -240,11 +243,12 @@ int drup_check_propagate() {
         char a_sign = assignment[lit];
 
         // TODO: argue why this does not occur anymore
+        // units will be found in whatchlist and other lits are propagated after the initial clause?
         switch (a_sign) {
-            case -1: 
+            case NEG_VAL:
                 printf(">> earliest conflict case\n");
                 return 1;  // conflict found
-            case 1 : continue;  // already assigned to same value and propagated
+            case POS_VAL: continue;  // already assigned to same value and propagated
             default: break;
         }
 
@@ -288,8 +292,8 @@ int drup_check_propagate() {
 
             // check second_watch
             switch (assignment[second_watch]) {
-                case 1: w++; continue;
-                case -1:
+                case POS_VAL: w++; continue;
+                case NEG_VAL:
                     // second watch should be last unassigned lit in any clause
                     #ifndef NDEBUG
                         // assert that all lits in clause are negatively assigned
@@ -325,12 +329,17 @@ int drup_check_propagate() {
         
             #ifdef DRUP_TO_LRUP_CONVERSION
             if (assignment[second_watch] == NEUTRAL_VAL) {
-                u64_vec_push(hints, w->id);
+                PUSH_HINT(w->id);
                 assignment[second_watch] = ON_STACK;
+                assignment[NEG(second_watch)] = -ON_STACK;
                 unsigned_vec_push(trail, second_watch);
             #endif
             unsigned_vec_push(prop_stack, second_watch);
             #ifdef DRUP_TO_LRUP_CONVERSION
+            } else if (assignment[second_watch] == -ON_STACK) {
+                // conflicting unit is already on stack, we need to stop the hints here
+                PUSH_HINT(w->id);
+                return 1;
             }
             #endif
             w++;
@@ -462,7 +471,8 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
         unsigned_vec_push(units, lit);
         #ifdef DRUP_TO_LRUP_CONVERSION
             u64_vec_push(unit_ids, id);
-            assignment[lit] = ON_STACK;
+            assignment[lit] = ON_UNITS;
+            assignment[NEG(lit)] = -ON_UNITS;
         #endif
         watcher w = { .nb_lits = 1,
                       .blocking_lit = lit,
@@ -528,19 +538,12 @@ int drup_check_add_clause(u64 id, const int* lits, int nb_lits) {
             unsigned_vec_push(prop_stack, neg_ilit);
             unsigned_vec_push(trail, neg_ilit);
             assignment[neg_ilit] = ON_STACK;
+            assignment[ilits[i]] = -ON_STACK;
         #else
             unsigned_vec_push(prop_stack, NEG(ilits[i]));
         #endif
     }
     if (drup_check_propagate()) {   // conflict found
-        #ifdef DRUP_TO_LRUP_CONVERSION
-        // Fix tail of hint sequence
-        long last_hint = MAX((long)(prop_stack_propagated + units_propagated - nb_lits), 0);
-        if (last_hint < (long)hints->size) {
-            hints->data[last_hint] = hints->data[hints->size - 1];
-            hints->size = last_hint + 1;
-        }
-        #endif
         drup_check_reset_assignment();
         res = drup_check_add_axiomatic_clause(id, (int*)ilits, nb_lits, true);
     } else drup_check_reset_assignment();

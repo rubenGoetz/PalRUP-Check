@@ -116,6 +116,7 @@ bool check_clause(u64 base_id, const int* lits, int nb_lits, const u64* hints, i
             // -> Empty clause derived.
             if (UNLIKELY(i+1 < nb_hints)) {
                 // ERROR - not at the final hint yet!
+                ok = false;
                 LOG_ERR("Derivation %lu: empty clause produced at non-final hint %lu", base_id, hint_id);
                 break;
             }
@@ -129,7 +130,7 @@ bool check_clause(u64 base_id, const int* lits, int nb_lits, const u64* hints, i
         int_vec_push(assigned_units, var); // remember to reset later
     }
 
-    COND_ERR(palrup_utils_msgstr[0] == '\0', "Derivation %lu: no empty clause was produced", base_id);
+    COND_ERR(ok, "Derivation %lu: no empty clause was produced", base_id);
     reset_assignments();
     return false;
 }
