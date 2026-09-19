@@ -152,9 +152,9 @@ if (( $id < $num_solvers )); then
     fragment_path="$palrup_path/$dir_hierarchy/$id/$fragment_file_name"
 
     ## check which decompression has to be used, if any
-    if   [[ -f "$fragment_path" ]] then
+    if   [[ -f "$fragment_path" ]]; then
         echo "READ_PALRUP_SIZE=$(wc -c $fragment_path)" &>> "$log"
-    elif [[ -f "$fragment_path.xz" ]] then
+    elif [[ -f "$fragment_path.xz" ]]; then
         ## decompress xz
         echo "Found .xz fragment" &>> "$log"
         echo "READ_PALRUP_SIZE=$(wc -c $fragment_path.xz)" &>> "$log"
@@ -164,7 +164,7 @@ if (( $id < $num_solvers )); then
         echo "run $cmd > $fragment_path &" &>> "$log"
         $cmd > $fragment_path &
         echo "started decompression" &>> "$log"
-    elif [[ -f "$fragment_path.vg" && -f $decomp_exe ]] then
+    elif [[ -f "$fragment_path.vg" && -f $decomp_exe ]]; then
         ## decompress vg
         echo "Found .vg fragment" &>> "$log"
         echo "READ_PALRUP_SIZE=$(wc -c $fragment_path.vg)" &>> "$log"
@@ -273,8 +273,8 @@ if (( $id < $num_solvers )); then
     elapsed=$( echo "$end - $start" | bc )
     echo "LP_WC_WAIT_TIME=$elapsed" &>> "$log"
 
-    if   [[ -f "$fragment_path" ]] then :;
-    elif [[ -f "$fragment_path.xz" ]] then
+    if   [[ -f "$fragment_path" ]]; then :;
+    elif [[ -f "$fragment_path.xz" ]]; then
         ## decompress xz
         echo "Found .xz fragment" &>> "$log"
         echo "create pipe at $fragment_path" &>> "$log"
@@ -283,7 +283,7 @@ if (( $id < $num_solvers )); then
         echo "run $cmd > $fragment_path &" &>> "$log"
         $cmd > $fragment_path &
         echo "started decompression" &>> "$log"
-    elif [[ -f "$fragment_path.vg" && -f $decomp_exe ]] then
+    elif [[ -f "$fragment_path.vg" && -f $decomp_exe ]]; then
         ## decompress vg
         echo "Found .vg fragment" &>> "$log"
         echo "create pipe at $fragment_path" &>> "$log"
