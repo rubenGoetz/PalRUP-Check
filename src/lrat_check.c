@@ -4,6 +4,7 @@
 #include "lrat_check.h"
 #include "hash.h"
 #include "siphash.h"
+#include "utils/checker_utils.h"
 
 // Instantiate int_vec
 #define TYPE int
@@ -193,6 +194,7 @@ void lrat_check_end() {
 
 bool lrat_check_load(int lit) {
     if (lit == 0) {
+        clause_to_add->size = checker_utils_remove_duplicates(clause_to_add->data, clause_to_add->size);
         if (!lrat_check_add_axiomatic_clause(id_to_add, clause_to_add->data, clause_to_add->size)) {
             return false;
         }

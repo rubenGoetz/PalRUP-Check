@@ -5,6 +5,7 @@
 
 #include "drup_check.h"
 #include "utils/palrup_utils.h"
+#include "utils/checker_utils.h"
 
 #define TYPE int
 #define TYPED(THING) int_##THING
@@ -33,7 +34,7 @@
 // ----- Definitions for DRUP to LRUP conversion -----
 #define EMPTY_HINTS
 #define PUSH_HINT(H)
-#define PUSH_UNIT_HINT
+#define PUSH_UNIT_HINT(LIT)
 
 #ifdef DRUP_TO_LRUP_CONVERSION
 
@@ -45,7 +46,7 @@
 
 struct u64_vec* hints;
 struct u64_vec* deletions;
-struct u64_vec* unit_ids;
+u64* unit_ids;
 
 #undef EMPTY_HINTS
 #define EMPTY_HINTS u64_vec_resize(hints, 0)
@@ -54,7 +55,7 @@ struct u64_vec* unit_ids;
 #define PUSH_HINT(H) (u64_vec_push(hints, H))
 
 #undef PUSH_UNIT_HINT
-#define PUSH_UNIT_HINT if (assignment[lit] != POS_VAL) { PUSH_HINT(unit_ids->data[units_propagated]); }
+#define PUSH_UNIT_HINT(LIT) if (assignment[lit] != POS_VAL) { assert(unit_ids[LIT]); PUSH_HINT(unit_ids[LIT]); }
 
 #endif
 // ---------------------------------------------------
@@ -180,7 +181,7 @@ static inline unsigned add_clause_to_db(const unsigned* lits, int nb_lits) {
     assert(db.lits_size <= db.lits_capacity);
     return offset;
 }
-static inline void delete_clasue_from_db(const unsigned offset, unsigned nb_lits) {
+static inline void delete_clause_from_db(const unsigned offset, unsigned nb_lits) {
     assert(db.lits_size >= offset + nb_lits);
     assert(offset < offset + nb_lits);
     memset(db.lits + offset, -1U, nb_lits * sizeof(unsigned));    // mark unused space with -1U
@@ -236,24 +237,18 @@ int drup_check_propagate() {
             lit = prop_stack->data[prop_stack_propagated++];
         else {
             lit = units->data[units_propagated];
-            PUSH_UNIT_HINT;
+            PUSH_UNIT_HINT(lit);
             units_propagated++;
         }
         assert(ABS(get_elit(lit)) <= nb_known_vars);
         char a_sign = assignment[lit];
 
-        // TODO: argue why this does not occur anymore
-        // units will be found in whatchlist and other lits are propagated after the initial clause?
+        // assign value
         switch (a_sign) {
-            case NEG_VAL:
-                printf(">> earliest conflict case\n");
-                return 1;  // conflict found
+            case NEG_VAL: return 1;  // conflict found, can only occur without hint generation
             case POS_VAL: continue;  // already assigned to same value and propagated
             default: break;
         }
-
-        // assign value
-        assert(a_sign != POS_VAL && a_sign != NEG_VAL);
         assignment[lit] = POS_VAL;
         assignment[NEG(lit)] = NEG_VAL;
         unsigned_vec_push(trail, lit);
@@ -294,9 +289,9 @@ int drup_check_propagate() {
             switch (assignment[second_watch]) {
                 case POS_VAL: w++; continue;
                 case NEG_VAL:
-                    // second watch should be last unassigned lit in any clause
                     #ifndef NDEBUG
-                        // assert that all lits in clause are negatively assigned
+                        // Second watch should be last unassigned lit in any clause.
+                        // Assert that all lits in clause are negatively assigned.
                         for (int j = 2; j < nb_lits; j++)
                             assert(assignment[lits[j]] == NEG_VAL);
                     #endif
@@ -320,25 +315,39 @@ int drup_check_propagate() {
                 *c_lit = first_watch;
 
                 watcher_vec_push(&(occurences[*lits]), *w);
-                //v->data[i] = v->data[--(v->size)];
                 *w = *(--end);
                 v->size--;
 
                 goto no_recurse;
             }
         
+            // Second_watch is the only unassigned lit in the clause.
+            // If we have to generate hints for the DRUP->LRUP conversion
+            // we need to do some lookahead here, to assure the last hint 
+            // simplifies to the one and only empty clause. Otherwise we can 
+            // do some more propagations to omit the necassary datastructures
+            // and their encompasing overhead.
             #ifdef DRUP_TO_LRUP_CONVERSION
             if (assignment[second_watch] == NEUTRAL_VAL) {
+                // Save hint and mark lit as "on the stack".
+                // Only add lit to the stack if it is not already on it in some way
                 PUSH_HINT(w->id);
                 assignment[second_watch] = ON_STACK;
                 assignment[NEG(second_watch)] = -ON_STACK;
                 unsigned_vec_push(trail, second_watch);
             #endif
+            // mark second_watch to be propagated
             unsigned_vec_push(prop_stack, second_watch);
             #ifdef DRUP_TO_LRUP_CONVERSION
             } else if (assignment[second_watch] == -ON_STACK) {
                 // conflicting unit is already on stack, we need to stop the hints here
                 PUSH_HINT(w->id);
+                return 1;
+            } else if (assignment[second_watch] == -ON_UNITS) {
+                // Conflicting unit is a non propagated unit clause.
+                // Add both the current clause and the conflicting unit clause to hints.
+                PUSH_HINT(w->id);
+                PUSH_UNIT_HINT(NEG(second_watch));
                 return 1;
             }
             #endif
@@ -384,7 +393,7 @@ void drup_check_init(int nb_vars) {
     #ifdef DRUP_TO_LRUP_CONVERSION
     hints = u64_vec_init(16);
     deletions = u64_vec_init(16);
-    unit_ids = u64_vec_init(16);
+    unit_ids = palrup_utils_calloc(nb_lits, sizeof(u64));
     #endif
 }
 void drup_check_end() {
@@ -412,7 +421,7 @@ void drup_check_end() {
     #ifdef DRUP_TO_LRUP_CONVERSION
     u64_vec_free(hints);
     u64_vec_free(deletions);
-    u64_vec_free(unit_ids);
+    free(unit_ids);
     #endif
 }
 
@@ -462,15 +471,17 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
     unsigned ilits[nb_lits];
     if (internal_lits)
         memcpy(ilits, lits, nb_lits * sizeof(unsigned));    // TODO: not copy?
-    else 
+    else {
         OVERWRITE_WITH_ILITS(ilits, lits, nb_lits);
+        nb_lits = checker_utils_remove_duplicates((int*)ilits, nb_lits);
+    }
 
     // handle unit as special case
     if (nb_lits == 1) {
         unsigned lit = ilits[0];
         unsigned_vec_push(units, lit);
         #ifdef DRUP_TO_LRUP_CONVERSION
-            u64_vec_push(unit_ids, id);
+            unit_ids[lit] = id;
             assignment[lit] = ON_UNITS;
             assignment[NEG(lit)] = -ON_UNITS;
         #endif
@@ -525,6 +536,7 @@ int drup_check_add_clause(u64 id, const int* lits, int nb_lits) {
     }
     
     DEFINE_ILITS;
+    nb_lits = checker_utils_remove_duplicates((int*)ilits, nb_lits);
 
     int res = 1;
     //unsigned_vec_resize(prop_stack, units->size);
@@ -558,6 +570,7 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
     }
 
     DEFINE_ILITS;
+    nb_lits = checker_utils_remove_duplicates((int*)ilits, nb_lits);
 
     // find first clause occurences and delete it 
     for (int i = 0; i < nb_lits; i++) {
@@ -592,7 +605,7 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
                     if (memcmp(&w, &w2, sizeof(watcher))) continue;
                     // watch points to same clause => delete watch
                     v2->data[k] = v2->data[--(v2->size)];
-                    if (nb_lits > 2) delete_clasue_from_db(w.c.ptr, w.nb_lits);
+                    if (nb_lits > 2) delete_clause_from_db(w.c.ptr, w.nb_lits);
                     return 0;
                 }
                 
@@ -601,7 +614,7 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
         }
     }
 
-    return 0;
+    return 1;
 }
 
 bool drup_check_unsat_found() {

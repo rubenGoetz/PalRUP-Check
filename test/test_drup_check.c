@@ -297,7 +297,7 @@ int main(int argc, char const *argv[]) {
     printf("** test drup_check_unsat_found\n");
     test_drup_check_unsat_found();
 
-    printf("** test drup_check_get_clause_id\n");
+    //printf("** test drup_check_get_clause_id\n");
     //test_drup_check_get_clause_id();
 
     printf("** wrap up tests\n");

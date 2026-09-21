@@ -121,6 +121,35 @@ static void test_checker_utils_compare_semi_sorted_lits() {
 
 // TODO: test checker_utils_compare_lits
 
+static void test_checker_utils_remove_duplicates() {
+    // TODO: make more soffisticated
+
+    printf("   * test unit array\n");
+    int a[] = {1};
+    int new_size = checker_utils_remove_duplicates(a, 1);
+    do_assert(new_size == 1);
+    do_assert(a[0] == 1);
+
+    printf("   * test array without duplicates\n");
+    int b[] = {4,3,2,1,0};
+    new_size = checker_utils_remove_duplicates(b, 5);
+    do_assert(new_size == 5);
+    for (int i = 0; i < 5; i++)
+        do_assert(b[i] == i);
+
+    printf("   * test array with duplicates\n");
+    int c[] = {1,1,2,2,5,0,5,4,4,3,3,0,0,0,0,0,0};
+    new_size = checker_utils_remove_duplicates(c, 17);
+    do_assert(new_size == 6);
+    for (int i = 0; i < 6; i++)
+        do_assert(c[i] == i);
+
+    printf("   * test empty array\n");
+    int* d = NULL;
+    new_size = checker_utils_remove_duplicates(d, 0);
+    do_assert(new_size == 0);
+}
+
 // ----- INIT -----
 
 static void init_tests() {
@@ -152,6 +181,9 @@ int main(int argc, char const *argv[])
     
     printf("** test checker_utils_compare_semi_sorted_lits\n");
     test_checker_utils_compare_semi_sorted_lits();
+
+    printf("** test checker_utils_remove_duplicates\n");
+    test_checker_utils_remove_duplicates();
 
     printf("** wrap tests up\n");
     wrap_up_tests();

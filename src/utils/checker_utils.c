@@ -1,5 +1,6 @@
 
 #include <assert.h>
+#include <stdlib.h>
 
 #include "checker_utils.h"
 #include "../lrat_check.h"
@@ -82,4 +83,21 @@ bool checker_utils_compare_lits(const int* lits1, const int* lits2, int nb_lits1
     }
     
     return true;    // all lits found
+}
+
+static int compare_ints(const void* a, const void* b) {
+    int arg1 = *(const int*)a;
+    int arg2 = *(const int*)b;
+    if (arg1 < arg2) return -1;
+    if (arg1 > arg2) return 1;
+    return 0;
+}
+int checker_utils_remove_duplicates(int* lits, int nb_lits) {
+    if (!nb_lits) return 0;
+    qsort(lits, nb_lits, sizeof(unsigned), compare_ints);
+    int *read_ptr = lits, *write_ptr = lits + 1, *end_ptr = lits + nb_lits;
+    while (++read_ptr < end_ptr)
+        if (*read_ptr != *(read_ptr - 1))
+            *write_ptr++ = *read_ptr;
+    return (write_ptr - lits);
 }

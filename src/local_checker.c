@@ -266,6 +266,7 @@ static void parse_lrup() {
             }
 
             // forward to checker
+            buf_lits->size = checker_utils_remove_duplicates(buf_lits->data, buf_lits->size);
             lrat_top_check_produce(id, buf_lits->data, buf_lits->size,
                                    buf_hints->data, buf_hints->size);
             lc_stats.nb_produced++;
@@ -276,6 +277,7 @@ static void parse_lrup() {
             parse_lits();
 
             // forward to checker
+            buf_lits->size = checker_utils_remove_duplicates(buf_lits->data, buf_lits->size);
             lrat_check_add_axiomatic_clause(id, buf_lits->data, buf_lits->size);
             lc_stats.nb_imported++;
 
@@ -354,7 +356,8 @@ static void parse_drup() {
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
             parse_lits();
-            drup_top_check_delete(buf_lits->data, buf_lits->size);
+            if (!drup_top_check_delete(buf_lits->data, buf_lits->size))
+                LOG_ERR("To be deteted clause was not found");
             lc_stats.nb_deleted++;
 
         } else {

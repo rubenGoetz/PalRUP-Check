@@ -148,6 +148,7 @@ add_executable(proof_fragment_to_txt
 add_executable(check_rup_proof
                src/utils/palrup_utils.c
                src/utils/file_utils.c
+               src/utils/checker_utils.c
                src/drup_top_check.c
                src/file_reader.c
                src/drup_check.c
@@ -162,6 +163,7 @@ add_executable(check_rup_proof
 add_executable(check_rup_proof_convert
                src/utils/palrup_utils.c
                src/utils/file_utils.c
+               src/utils/checker_utils.c
                src/drup_top_check.c
                src/file_reader.c
                src/drup_check.c
