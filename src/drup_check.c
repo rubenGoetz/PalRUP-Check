@@ -347,7 +347,7 @@ int drup_check_propagate() {
                 // Conflicting unit is a non propagated unit clause.
                 // Add both the current clause and the conflicting unit clause to hints.
                 PUSH_HINT(w->id);
-                PUSH_UNIT_HINT(NEG(second_watch));
+                PUSH_HINT(unit_ids[NEG(second_watch)]);
                 return 1;
             }
             #endif
