@@ -9,8 +9,15 @@
 
 start=$(date +%s.%N)
 
+print_glob_time() {
+    glob_end=$(date +%s.%N)
+    elapsed=$(echo "$glob_end - $glob_start" | bc -l)
+    echo "GLOB_WC_TIME=$elapsed" &>> "$log"
+}
+
 child_error() {
     ## TODO: handle cleanup
+    print_glob_time
     echo "Caught abort signal" &>> "$log"
     pkill -P $$     # kill children
     exit 1          # end process
@@ -113,11 +120,13 @@ glob_start=$(date +%s.%N)
 check_timeout() {
     curr_time=$(date +%s.%N)
     if (( $( echo "($curr_time - $glob_start) > $timeout" | bc ) )); then
+        print_glob_time
         echo "TIMEOUT in process of global_id=$global_id"
         echo "TIMEOUT" &>> "$log"
         exit 1
     fi
     if [[ -d "$proof_working/.error" ]]; then
+        print_glob_time
         echo "ERROR detected" &>> "$log"
         exit 1
     fi
@@ -266,9 +275,7 @@ if [[ $global_id == 0 ]]; then
     mkdir -p $proof_working/.DONE
 fi
 
-glob_end=$(date +%s.%N)
-elapsed=$(echo "$glob_end - $glob_start" | bc -l)
-echo "GLOB_WC_TIME=$elapsed" &>> "$log"
+print_glob_time
 
 echo "Release lock" &>> "$log"
 if [[ $use_local_disks -eq 1 ]]; then

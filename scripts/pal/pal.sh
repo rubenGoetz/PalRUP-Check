@@ -51,14 +51,22 @@ if [[ $BEST_EFFORT -gt 0 ]]; then best_effort=$BEST_EFFORT; fi
 if [[ $DECOMP_EXE ]]; then decomp_exe=$DECOMP_EXE; fi
 
 glob_start=$(date +%s.%N)
+print_glob_time() {
+    glob_end=$(date +%s.%N)
+    elapsed=$( echo "$glob_end - $glob_start" | bc )
+    echo "GLOB_WC_TIME=$elapsed" &>> "$log"
+}
+
 check_timeout() {
     curr_time=$(date +%s.%N)
     if (( $( echo "($curr_time - $glob_start) > $timeout" | bc ) )); then
+        print_glob_time
         echo "TIMEOUT in pal $id/$comm_size with message: \"$1\""
         echo "TIMEOUT" &>> "$log"
         exit 1
     fi
     if [[ -d "$working_path/.error" ]]; then
+        print_glob_time
         echo "ERROR detected" &>> "$log"
         exit 1
     fi
@@ -66,6 +74,7 @@ check_timeout() {
 
 check_res() {
     if [[ $res -ne 0 ]]; then
+        print_glob_time
         echo "Abort after error" &>> "$log"
         exit $res
     fi
@@ -74,9 +83,7 @@ check_res() {
 finish() {
     # leave marker, that execution is finished
     mkdir $working_path/$dir_hierarchy/$id/.done
-    glob_end=$(date +%s.%N)
-    elapsed=$( echo "$glob_end - $glob_start" | bc )
-    echo "GLOB_WC_TIME=$elapsed" &>> "$log"
+    print_glob_time
 
     if [[ $full_check -eq 0 ]]; then
         echo "Finished execution of pal $id/$comm_size after local check"
@@ -214,7 +221,7 @@ fi
 
 if [[ $full_check -eq 0 ]]; then
     echo "clean up hash of local proof fragment in $palrup_path/$dir_hierarchy/$id" &>> "$log"
-    rm $palrup_path/$dir_hierarchy/$id/$fragment_file_name.hash
+    rm $palrup_path/$dir_hierarchy/$id/$fragment_file_name.hash 2>/dev/null
     finish
 fi
 
@@ -353,6 +360,7 @@ else
     # validate self and children
     if [[ -d "$working_path/$dir_hierarchy/$id/.check_ok" && $(find -O3 ${child_paths[@]} -name .valid 2>/dev/null | wc -l) -eq ${#child_paths[@]} ]]; then
         mkdir "$working_path/$dir_hierarchy/$id/.valid"
+        echo "validated self & children" &>> "$log"
     fi
 fi
 val_end=$(date +%s.%N)
