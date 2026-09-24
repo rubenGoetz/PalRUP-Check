@@ -1,9 +1,20 @@
 
+#include <signal.h>
+#include <stdlib.h>
+
 #include "utils/palrup_utils.h"
 #include "options.h"
 #include "clause_finder.h"
 
+void handle_sigterm(int sig) {
+    // TODO: clean exit
+    (void)sig;
+    LOG_WARN("Caught SIGTERM - ABORT");
+    abort();
+}
+
 int main(int argc, char *argv[]) {
+    signal(SIGTERM, handle_sigterm);
     struct options* options = options_init();
     for (int i = 1; i < argc; i++) {
         options_try_match_arg(argv[i], "-palrup-path=", &(options->palrup_path));

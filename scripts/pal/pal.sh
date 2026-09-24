@@ -13,18 +13,17 @@
 ##
 ##################
 
+handle_sigterm() {
+    echo "caught SIGTERM - TERMINATE" &>> "$log"
+    exit 1
+}
+trap 'handle_sigterm' SIGTERM
+
 # unique pal id
 id=$1
+shift 1
 
-# necessary
-num_solvers=$NUM_SOLVERS
-palrup_path=$PROOF_PALRUP
-working_path=$PROOF_WORKING
-formula_path=$FORMULA_PATH
-log_dir=$LOG_DIR
-timeout=$TIMEOUT
-
-# optional
+# defaults for optional parameters
 palrup_binary=1
 read_buffer_size=16384  #  16 MiB
 redist_strat=3
@@ -36,19 +35,58 @@ use_drup=0
 full_check=1
 convert=0
 best_effort=0
+timeout=9999
 
-if [[ $PALRUP_BINARY ]]; then palrup_binary=$PALRUP_BINARY; fi
-if [[ $READ_BUFFER_SIZE -gt 0 ]]; then read_buffer_size=$READ_BUFFER_SIZE; fi
-if [[ $REDIST_STRAT -gt 0 ]]; then redist_strat=$REDIST_STRAT; fi
-if [[ $WRITE_BUFFER_SIZE -gt 0 ]]; then write_buffer_size=$WRITE_BUFFER_SIZE; fi
-if [[ $MERGE_BUFFER_SIZE -gt 0 ]]; then merge_buffer_size=$MERGE_BUFFER_SIZE; fi
-if [[ $Q_SIZE -gt 0 ]]; then q_size=$Q_SIZE; fi
-if [[ $Q_ALPHA && $(echo "$Q_ALPHA > 0" | bc) -gt 0 ]]; then q_alpha=$Q_ALPHA; fi
-if [[ $USE_DRUP -gt 0 ]]; then use_drup=$USE_DRUP; fi
-if [[ $CONVERT -gt 0 ]]; then convert=$CONVERT; fi
-if [[ $FULL_CHECK ]]; then full_check=$FULL_CHECK; fi
-if [[ $BEST_EFFORT -gt 0 ]]; then best_effort=$BEST_EFFORT; fi
-if [[ $DECOMP_EXE ]]; then decomp_exe=$DECOMP_EXE; fi
+## parse args
+for arg in "$@"; do
+    case $arg in
+        -num-solvers=*)
+            num_solvers="${arg#*=}" ;;
+        -palrup-path=*)
+            palrup_path="${arg#*=}" ;;
+        -working-path=*)
+            working_path="${arg#*=}" ;;
+        -formula-path=*)
+            formula_path="${arg#*=}" ;;
+        -log-dir=*)
+            log_dir="${arg#*=}" ;;
+        -timeout=*)
+            timeout="${arg#*=}"
+            TIMEOUT=$timeout       # save original timeout
+            ;;
+
+        # optional
+        -palrup-binary=*)
+            palrup_binary="${arg#*=}" ;;
+        -read-buffer-size=*)
+            read_buffer_size="${arg#*=}" ;;
+        -redist-strat=*)
+            redist_strat="${arg#*=}" ;;
+        -write-buffer-size=*)
+            write_buffer_size="${arg#*=}" ;;
+        -merge-buffer-size=*)
+            merge_buffer_size="${arg#*=}" ;;
+        -q-size=*)
+            q_size="${arg#*=}" ;;
+        -q-alpha=*)
+            q_alpha="${arg#*=}" ;;
+        -use-drup=*)
+            use_drup="${arg#*=}" ;;
+        -convert=*)
+            convert="${arg#*=}" ;;
+        -full-check=*)
+            full_check="${arg#*=}" ;;
+        -best-effort=*)
+            best_effort="${arg#*=}" ;;
+        -decomp-exe=*)
+            decomp_exe="${arg#*=}" ;;
+
+        *)
+            echo "Unknown arg $arg - ABORT"
+            exit 1
+            ;;
+    esac
+done
 
 glob_start=$(date +%s.%N)
 print_glob_time() {
@@ -148,12 +186,14 @@ if (( $id < $num_solvers )); then
 
     echo "wait until proof is finished.." &>> "$log"
     start=$(date +%s.%N)
+    timeout=3   # proof fragment should already exist, make timeout short to catch errors early
     until [[ $(find -O3 $palrup_path/$dir_hierarchy/$id -name $fragment_file_name -o -name $fragment_file_name.xz -o -name $fragment_file_name.vg 2>/dev/null) ]]; do
         check_timeout "wait until proof is finished.."
         sleep 0.1;
     done
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
+    timeout=$TIMEOUT
     echo "FP_WC_WAIT_TIME=$elapsed" &>> "$log"
 
     fragment_path="$palrup_path/$dir_hierarchy/$id/$fragment_file_name"
@@ -360,7 +400,7 @@ else
     # validate self and children
     if [[ -d "$working_path/$dir_hierarchy/$id/.check_ok" && $(find -O3 ${child_paths[@]} -name .valid 2>/dev/null | wc -l) -eq ${#child_paths[@]} ]]; then
         mkdir "$working_path/$dir_hierarchy/$id/.valid"
-        echo "validated self & children" &>> "$log"
+        echo "VALIDATED self & children" &>> "$log"
     fi
 fi
 val_end=$(date +%s.%N)

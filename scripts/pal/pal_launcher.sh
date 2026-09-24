@@ -7,22 +7,40 @@
 ##
 ##################
 
+## God bless @vaad for this comment:
+## https://stackoverflow.com/questions/6549663/how-to-set-process-group-of-a-shell-script/45112755#45112755
+## Make sure pal_launcher has its own process group to effectively clean up children
+pgid_from_pid() {
+    local pid=$1
+    ps -o pgid= "$pid" 2>/dev/null | egrep -o "[0-9]+"
+}
+pid="$$"
+if [ "$pid" != "$(pgid_from_pid $pid)" ]; then
+    exec setsid "$(readlink -f "$0")" "$@"
+fi
+## ====================================================
+
+
+## Start the actual script
 start=$(date +%s.%N)
 
 print_glob_time() {
     glob_end=$(date +%s.%N)
-    elapsed=$(echo "$glob_end - $glob_start" | bc -l)
+    elapsed=$(echo "$glob_end - $glob_start" | bc)
     echo "GLOB_WC_TIME=$elapsed" &>> "$log"
 }
 
-child_error() {
+handle_sigterm() {
     ## TODO: handle cleanup
     print_glob_time
-    echo "Caught abort signal" &>> "$log"
-    pkill -P $$     # kill children
-    exit 1          # end process
+    echo "Caught SIGTERM - terminate children and self" &>> "$log"
+    trap - TERM             # block recursive system calls
+    kill -TERM -$$          # terminate children
+    wait                    # wait for children to be terminated
+    echo "children terminated successsfully - TERMINATE"
+    exit 1
 }
-trap 'child_error' SIGABRT
+trap 'handle_sigterm' TERM
 
 # degree of cleanup after checking
 #  0: no cleanup
@@ -54,7 +72,7 @@ for arg in "$@"; do
         -execution-dir=*)
             working_dir="${arg#*=}" ;;
 
-        #pal
+        # Options to be passed on to pals
         -formula-path=*)
             formula_path="${arg#*=}" ;;
         -redist-strat=*)
@@ -83,36 +101,37 @@ for arg in "$@"; do
             best_effort="${arg#*=}" ;;
         -decomp-exe=*)
             decomp_exe="${arg#*=}" ;;
+        
         *)
-            echo "Unknown arg $arg"
+            echo "Unknown arg $arg - ABORT"
             exit 1
             ;;
     esac
 done
 ## TODO: check options?
 
-env="NUM_SOLVERS=$num_solvers \
-NUM_NODES=$num_nodes \
-NUM_PROCS_PER_NODE=$num_proc_per_node \
-FORMULA_PATH=$formula_path \
-PROOF_PALRUP=$proof_palrup \
-PROOF_WORKING=$proof_working \
-LOG_DIR=$log_dir \
-TIMEOUT=$timeout \
-REDIST_STRAT=$redist_strat \
-READ_BUFFER_SIZE=$read_buffer_size \
-WRITE_BUFFER_SIZE=$write_buffer_size \
-MERGE_BUFFER_SIZE=$merge_buffer_size \
-Q_SIZE=$q_size \
-Q_ALPHA=$q_alpha \
-PALRUP_BINARY=$palrup_binary \
-USE_LOCAL_DISKS=$use_local_discs \
-USE_DRUP=$use_drup \
-CONVERT=$convert \
-FULL_CHECK=$full_check \
-CLEANUP=$cleanup \
-BEST_EFFORT=$best_effort \
-DECOMP_EXE=$decomp_exe"
+# Argument list for pals
+args="-num-solvers=$num_solvers \
+-palrup-path=$proof_palrup \
+-working-path=$proof_working \
+-formula-path=$formula_path \
+-log-dir=$log_dir \
+-timeout=$timeout \
+-palrup-binary=$palrup_binary \
+-read-buffer-size=$read_buffer_size \
+-redist-strat=$redist_strat \
+-write-buffer-size=$write_buffer_size \
+-merge-buffer-size=$merge_buffer_size \
+-q-size=$q_size \
+-q-alpha=$q_alpha \
+-use-drup=$use_drup \
+-convert=$convert \
+-full-check=$full_check \
+-best-effort=$best_effort \
+-decomp-exe=$decomp_exe"
+
+
+## Init pal_launcher
 
 if [[ $working_dir ]]; then cd $(pwd)/$working_dir; fi
 
@@ -121,13 +140,12 @@ check_timeout() {
     curr_time=$(date +%s.%N)
     if (( $( echo "($curr_time - $glob_start) > $timeout" | bc ) )); then
         print_glob_time
-        echo "TIMEOUT in process of global_id=$global_id"
-        echo "TIMEOUT" &>> "$log"
+        echo "TIMEOUT in process of global_id=$global_id - ABORT"
         exit 1
     fi
     if [[ -d "$proof_working/.error" ]]; then
         print_glob_time
-        echo "ERROR detected" &>> "$log"
+        echo "ERROR detected - ABORT" &>> "$log"
         exit 1
     fi
 }
@@ -154,7 +172,7 @@ fi
 
 # fail save
 if [[ ! $local_id ]]; then
-    >&2 echo "Could not find a local id. Abort."
+    >&2 echo "Could not find a local id - ABORT"
     exit 1
 fi
 
@@ -200,7 +218,7 @@ log="$log_dir/$global_id/palrup.out"
 if [[ $use_drup -eq 1 ]]; then log="$log_dir/$global_id/palrup.out"; fi
 
 # Make mapping between mpi-rank and global_id possible
-echo "Created pal_launcher with global_id:$global_id, local_id:$local_id"
+echo "Created pal_launcher with global_id:$global_id, local_id:$local_id, pid:$$"
 
 echo "Initiated Pal launcher with global_id: $global_id and local_id: $local_id" &>> "$log"
 echo "num_comm_pals: $num_comm_pals" &>> "$log"
@@ -232,15 +250,16 @@ done
 ## start pals ##
 ################
 launch_pal() {
-    cmd="$env bash build/pal.sh $1"
+    cmd="build/pal.sh $1 $args"
     echo "Launch Pal $1: $cmd" &>> "$log"
-    eval $cmd &>> "$log"
+    $cmd &>> "$log"
     local res=$?
     
     if [[ $res -ne 0 ]]; then
         echo "ERROR in pal $1" &>> "$log"
         mkdir -p "$proof_working/.error/$1" 2>/dev/null
-        kill -s SIGABRT $$    # kill parent
+        kill -SIGTERM $$    # signal parent to terminate
+        exit 1
     fi
 }
 
@@ -285,7 +304,7 @@ else
 fi
 
 echo "FINISHED" &>> "$log"
-if [[ $cleanup -eq 0 ]]; then exit 0; fi
+if [[ $cleanup -eq 0 ]]; then echo "exiting happily" &>> "$log"; exit 0; fi
 
 # Wait for cleanup
 echo "wait for cleanup" &>> "$log"

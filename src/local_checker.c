@@ -91,6 +91,8 @@ extern struct u64_vec* deletions;
 #endif
 // ---------------------------------------------------
 
+bool _initialized = false;
+
 struct local_checker_stats {
     u64 nb_produced;
     u64 nb_imported;
@@ -373,6 +375,8 @@ static void parse_drup() {
 }
 
 void local_checker_init(struct options* options) {
+    if (_initialized) return;
+    
     lc_num_solvers = options->num_solvers;
     lc_pal_id = options->pal_id;
     lc_drup = options->drup;
@@ -422,9 +426,12 @@ void local_checker_init(struct options* options) {
     fclose(formula);
 
     import_handler_init(options);
+    _initialized = true;
 }
 
 int local_checker_run() {
+    if (!_initialized) return 1;
+
     lc_drup ? parse_drup() : parse_lrup();
     
     if (lc_drup ? drup_top_check_unsat_found() : lrat_top_check_validate_unsat(NULL)) {
@@ -443,6 +450,7 @@ int local_checker_run() {
 }
 
 void local_checker_end() {
+    if (!_initialized) return;
     import_handler_end();
     #ifdef DRUP_TO_LRUP_CONVERSION
     file_writer_free(lrup_out);
@@ -463,4 +471,5 @@ void local_checker_end() {
     lc_drup ? drup_top_check_end(sig) : lrat_top_check_end();
     siphash_cls_free(clause_hash);
     hash_table_free(import_table);
+    _initialized = false;
 }

@@ -20,6 +20,8 @@
 #undef TYPED
 #undef TYPE
 
+bool _initialized = false;
+
 // global values
 u64 rh_num_solvers;
 u64 rh_redist_strat;
@@ -85,6 +87,8 @@ static void init_strat3() {
 }
 
 void redist_handler_init(struct options* options) {
+    if (_initialized) return;
+
     rh_num_solvers = options->num_solvers;
     rh_redist_strat = options->redist_strat;
     rh_pal_id = options->pal_id;
@@ -108,9 +112,13 @@ void redist_handler_init(struct options* options) {
     import_merger_init(rh_msg_group_size_in, in_file_paths, &rh_current_ID, &rh_current_literals_data, &rh_current_literals_size, options->read_buffer_size, NULL, comm_sig_compute);
     write_buffer_init(options->write_buffer_size);
     write_buffer_swich_context(out_files[0]);
+
+    _initialized = true;
 }
 
 void redist_handler_run() {
+    if (!_initialized) return;
+
     u64 column = rh_pal_id % rh_msg_group_size_in;
     while (true) {
         import_merger_next();
@@ -131,24 +139,20 @@ void redist_handler_run() {
         // TODO: print out?
         rh_count_clauses[destination_index] += 1;
     }
-    snprintf(palrup_utils_msgstr, 512, "Done pal_id=%lu", rh_pal_id);
-    palrup_utils_log(palrup_utils_msgstr);
+    LOG("Done pal_id=%lu", rh_pal_id);
 }
 
 void redist_handler_end() {
+    if (!_initialized) return;
     // check signatures
     for (size_t i = 0; i < rh_msg_group_size_in; i++) {
         u8* computed_incoming_sig = comm_sig_digest(comm_sig_compute[i]);
         const u8 reported_incoming_sig[16];
         import_merger_read_sig((int*)reported_incoming_sig, i);
         if (!checker_utils_equal_signatures(reported_incoming_sig, computed_incoming_sig)) {
-            snprintf(palrup_utils_msgstr, MSG_LEN, "Signature does not match in import! local rank: %lu\n", rh_pal_id);
-            palrup_utils_log(palrup_utils_msgstr);
-            snprintf(palrup_utils_msgstr, MSG_LEN, "Signature A is: %lu\n", *((u64*)computed_incoming_sig));
-            palrup_utils_log(palrup_utils_msgstr);
-            snprintf(palrup_utils_msgstr, MSG_LEN, "Signature B is: %lu\n", *((u64*)reported_incoming_sig));
-            palrup_utils_log(palrup_utils_msgstr);
-            abort();
+            LOG_ERR("Signature does not match in import! local rank: %lu", rh_pal_id);
+            LOG_ERR("Signature A is: %lu", *((u64*)computed_incoming_sig));
+            LOG_ERR("Signature B is: %lu", *((u64*)reported_incoming_sig));
         }
         free(computed_incoming_sig);
     }
@@ -187,4 +191,6 @@ void redist_handler_end() {
     free(in_file_paths);
     u8_vec_free(write_buffer);
     import_merger_end();
+
+    _initialized = false;
 }
