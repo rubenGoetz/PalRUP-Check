@@ -75,7 +75,6 @@ struct clause_db {
     unsigned delete_count;
 } db;
 
-// TODO: check for duplicate lits somewhere?
 int nb_known_vars;
 bool unsat_found = false;
 bool formula_loaded = false;
