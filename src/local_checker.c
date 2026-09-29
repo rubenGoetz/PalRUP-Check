@@ -36,13 +36,14 @@
 #define WRITE_HINTS
 #define WRITE_IMPORT
 #define WRITE_DELETIONS
+#define LOG_IMPORT(C) import_handler_log(C)
 
-// TODO: add documantation for Compiler Flag
 #ifdef DRUP_TO_LRUP_CONVERSION
 
 #include "file_writer.h"
 file_writer* lrup_out;
 char* lrup_file_path;
+int convert_to_lrup;
 
 // Feels a bit hacky but effectively cleans up interfaces
 extern struct u64_vec* hints;
@@ -87,6 +88,9 @@ extern struct u64_vec* deletions;
         WRITE_CHAR(0);  \
         deletions->size = 0;    \
     } while (0)
+
+#undef LOG_IMPORT
+#define LOG_IMPORT(C) if (convert_to_lrup < 2) import_handler_log(C)
 
 #endif
 // ---------------------------------------------------
@@ -354,7 +358,7 @@ static void parse_drup() {
             lc_stats.nb_imported++;
 
             clause_ptr c = create_flat_clause(id, buf_lits->size, buf_lits->data);
-            import_handler_log(c);
+            LOG_IMPORT(c);
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
             parse_lits();
@@ -395,8 +399,10 @@ void local_checker_init(struct options* options) {
     import_table = hash_table_init(16);
 
     #ifdef DRUP_TO_LRUP_CONVERSION
+    convert_to_lrup = 0;
     FILE* lrup_file;
     if (options->convert_to_lrup && options->drup) {
+        convert_to_lrup = options->convert_to_lrup;     // only set convert_to_lrup if drup is also set
         lrup_file_path = palrup_utils_malloc(750);
         snprintf(lrup_file_path, 750, "%s/%u/%lu/%s~",
                  options->palrup_path, dir_hierarchy, options->pal_id, LRUP_FRAGMENT_NAME);
@@ -425,7 +431,12 @@ void local_checker_init(struct options* options) {
     lc_drup ? load_formula_drup(formula) : load_formula_lrat(formula);
     fclose(formula);
 
-    import_handler_init(options);
+    #ifdef DRUP_TO_LRUP_CONVERSION
+        if (convert_to_lrup < 2)    // only init import_handler if we actually log imports
+            import_handler_init(options);
+    #else
+        import_handler_init(options);
+    #endif
     _initialized = true;
 }
 
@@ -451,8 +462,9 @@ int local_checker_run() {
 
 void local_checker_end() {
     if (!_initialized) return;
-    import_handler_end();
     #ifdef DRUP_TO_LRUP_CONVERSION
+    if (convert_to_lrup < 2)
+        import_handler_end();
     file_writer_free(lrup_out);
     if (lrup_file_path) {
         // mark lrup file as finished
@@ -463,6 +475,8 @@ void local_checker_end() {
         rename(lrup_file_path, new_filename);
         free(lrup_file_path);
     }
+    #else
+    import_handler_end();
     #endif
     int_vec_free(buf_lits);
     u64_vec_free(buf_hints);

@@ -38,6 +38,7 @@ add_library(local_checker
             src/confirm.c
             src/vectors.c
             src/hash.c
+            src/hashset.c
             src/file_writer.c)
 target_link_libraries(local_checker m import_handler utils)
 target_compile_definitions(local_checker PRIVATE DRUP_TO_LRUP_CONVERSION)
@@ -154,6 +155,7 @@ add_executable(check_rup_proof
                src/drup_check.c
                src/siphash.c
                src/hash.c
+               src/hashset.c
                src/secret.c
                src/drup_clause.c
                src/vectors.c
@@ -169,6 +171,7 @@ add_executable(check_rup_proof_convert
                src/drup_check.c
                src/siphash.c
                src/hash.c
+               src/hashset.c
                src/secret.c
                src/drup_clause.c
                src/vectors.c
@@ -254,6 +257,7 @@ add_executable(test_drup_check
                src/utils/file_utils.c
                test/test_drup_check.c
                src/drup_check.c
+               src/hashset.c
                src/hash.c
                src/drup_clause.c
                src/vectors.c)
@@ -261,3 +265,11 @@ target_compile_definitions(test_drup_check PRIVATE UNIT_TEST)
 target_link_libraries(test_drup_check m test_utils)
 add_test(NAME Test_Drup_Check
          COMMAND test_drup_check)
+
+add_executable(test_hashset
+               test/test_hashset.c
+               src/hashset.c
+               src/utils/palrup_utils.c)
+target_link_libraries(test_hashset m test_utils)
+add_test(NAME Test_Hashset
+         COMMAND test_hashset)

@@ -14,7 +14,7 @@ struct options {
     u64 redist_strat;       // defaults to 3
     bool drup;              // defaults to false
     #ifdef DRUP_TO_LRUP_CONVERSION
-    bool convert_to_lrup;
+    int convert_to_lrup;    // defaults to 0. 1 to convert and log imports, 2 to not log imports and only convert
     #endif
 
     // partially needed
@@ -34,6 +34,7 @@ void options_free(struct options* options);
 
 void options_try_match_arg(char* arg, char* opt, char** out);
 void options_try_match_ul(const char* arg, const char* opt, u64* out);
+void options_try_match_int(const char* arg, const char* opt, int* out);
 void options_try_match_float(const char* arg, const char* opt, float* out);
 void options_try_match_bool(const char* arg, const char* opt, bool* out);
 void options_try_match_flag(const char* arg, const char* opt, bool* out);

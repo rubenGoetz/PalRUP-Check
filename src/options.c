@@ -14,7 +14,10 @@ struct options* options_init() {
     options->pal_id = 0;
     options->read_buffer_size = 4096 * 1024;
     options->redist_strat = 3;
-    options->drup=false;
+    options->drup = false;
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    options->convert_to_lrup = 0;
+    #endif
 
     // partially needed
     options->formula_path = 0;
@@ -49,6 +52,10 @@ void options_try_match_arg(char* arg, char* opt, char** out) {
 void options_try_match_ul(const char* arg, const char* opt, u64* out) {
     const char* start_of_number = arg + strlen(opt);
     if (begins_with(arg, opt)) *out = strtol(start_of_number, NULL, 10);
+}
+void options_try_match_int(const char* arg, const char* opt, int* out) {
+    const char* start_of_number = arg + strlen(opt);
+    if (begins_with(arg, opt)) *out = (int)strtol(start_of_number, NULL, 10);
 }
 void options_try_match_float(const char* arg, const char* opt, float* out) {
     const char* start_of_number = arg + strlen(opt);

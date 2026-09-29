@@ -44,11 +44,3 @@
 #include "vec.c"
 #undef TYPED
 #undef TYPE
-
-#ifdef DRUP_TO_LRUP_CONVERSION
-#define TYPE hint
-#define TYPED(THING) hint_##THING
-#include "vec.c"
-#undef TYPED
-#undef TYPE
-#endif

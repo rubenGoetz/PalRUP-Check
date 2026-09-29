@@ -88,6 +88,9 @@ for arg in "$@"; do
     esac
 done
 
+# Adapt convert option
+if [[ $convert -eq 1 && $full_check -eq 0 ]]; then convert=2; fi
+
 glob_start=$(date +%s.%N)
 print_glob_time() {
     glob_end=$(date +%s.%N)
@@ -230,7 +233,7 @@ if (( $id < $num_solvers )); then
 
     # run local check
     local_check="palrup_local_check_fast_rup"
-    if [[ $convert -eq 1 ]]; then local_check="palrup_local_check"; fi
+    if [[ $convert -gt 0 ]]; then local_check="palrup_local_check"; fi  # conversion is necessary
     cmd="./build/$local_check \
     -formula-path=$formula_path -palrup-path=$palrup_path \
     -working-path=$working_path -num-solvers=$num_solvers \

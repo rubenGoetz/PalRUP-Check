@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
         options_try_match_bool(argv[i], "-palrup-binary=", &(options->palrup_binary));
         options_try_match_bool(argv[i], "-drup=", &(options->drup));
         #ifdef DRUP_TO_LRUP_CONVERSION
-        options_try_match_bool(argv[i], "-convert-to-lrup=", &(options->convert_to_lrup));
+        options_try_match_int(argv[i], "-convert-to-lrup=", &(options->convert_to_lrup));
         #endif
     }
 

@@ -14,19 +14,12 @@ struct watcher {
         unsigned lit;
     } c;
     #ifdef DRUP_TO_LRUP_CONVERSION
-    unsigned padding; // enables memcmp
+    unsigned hint_lit; // integrate hint trimming into watches since padding is needed regardless
     u64 id;
     #endif
 };
 typedef struct watcher watcher;
 
-#ifdef DRUP_TO_LRUP_CONVERSION
-struct hint {
-    unsigned lit;   // TODO: put this into padding in watcher itself
-    watcher* ptr;   // if null: unit
-};
-typedef struct hint hint;
-#endif
 
 void drup_check_init(int nb_vars);
 void drup_check_end();

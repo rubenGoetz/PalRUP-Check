@@ -5,19 +5,19 @@
 #include "hash.h"
 #include "utils/palrup_utils.h"
 
-u64 compute_hash(u64 key) {
+u64 compute_hash_u64(u64 key) {
     return (0xcbf29ce484222325UL ^ key) * 0x00000100000001B3UL;
 }
-u64 compute_idx(struct hash_table* ht, u64 key) {
-    return compute_hash(key) & (ht->capacity-1);
+u64 compute_idx_u64(struct hash_table* ht, u64 key) {
+    return compute_hash_u64(key) & (ht->capacity-1);
 }
 
 bool cell_empty(struct hash_table_entry* entry) {
     return entry->key == 0;
 }
 
-bool find_entry(struct hash_table* ht, u64 key, u64* idx) {
-    u64 i = compute_idx(ht, key);
+bool hash_table_find_entry(struct hash_table* ht, u64 key, u64* idx) {
+    u64 i = compute_idx_u64(ht, key);
     const u64 orig_idx = i;
     while (i < ht->capacity) {
         struct hash_table_entry* entry = &ht->data[i];
@@ -43,7 +43,7 @@ bool find_entry(struct hash_table* ht, u64 key, u64* idx) {
     return false; // searched the entire table
 }
 
-bool realloc_table(struct hash_table* ht) {
+bool hash_table_realloc_table(struct hash_table* ht) {
     u64 new_capacity = (u64) (ht->growth_factor * ht->capacity);
     //printf("GROW %lu -> %lu\n", ht->capacity, new_capacity);
     struct hash_table_entry* old_data = ht->data;
@@ -64,7 +64,7 @@ bool realloc_table(struct hash_table* ht) {
     return true;
 }
 
-bool handle_gap(struct hash_table* ht, u64 idx_of_gap) {
+bool hash_table_handle_gap(struct hash_table* ht, u64 idx_of_gap) {
 
     u64 i = idx_of_gap;
     u64 j = i;
@@ -85,7 +85,7 @@ bool handle_gap(struct hash_table* ht, u64 idx_of_gap) {
             return true;
         }
 
-        u64 k = compute_idx(ht, ht->data[j].key);
+        u64 k = compute_idx_u64(ht, ht->data[j].key);
         if ((j > i && (k <= i || k > j)) 
             || (j < i && k <= i && k > j)) {
 
@@ -119,7 +119,7 @@ struct hash_table* hash_table_init(int log_init_capacity) {
 
 void* hash_table_find(struct hash_table* ht, u64 key) {
     u64 idx;
-    if (!find_entry(ht, key, &idx)) return 0;
+    if (!hash_table_find_entry(ht, key, &idx)) return 0;
     ht->last_found_idx = idx;
     assert(ht->data[idx].key == key);
     //assert(ht->data[idx].val); //sometimes i have to save zeroes now
@@ -130,13 +130,13 @@ bool hash_table_insert(struct hash_table* ht, u64 key, void* val) {
     if (key == 0) return false; // key 0 is reserved!
 
     if (ht->size == ht->max_size) {
-        if (!realloc_table(ht)) return false; // no memory left
+        if (!hash_table_realloc_table(ht)) return false; // no memory left
         if (ht->size >= ht->max_size)
             return false; // sth went very wrong during realloc
     }
 
     u64 idx = 0;
-    if (find_entry(ht, key, &idx))
+    if (hash_table_find_entry(ht, key, &idx))
         return false; // found an element with this key!
     if (!cell_empty(&ht->data[idx]))
         return false; // table completely full - shouldn't happen!
@@ -151,14 +151,14 @@ bool hash_table_insert(struct hash_table* ht, u64 key, void* val) {
 
 bool hash_table_delete(struct hash_table* ht, u64 key) {
     u64 idx;
-    if (!find_entry(ht, key, &idx)) return false;
-    if (!handle_gap(ht, idx)) return false;
+    if (!hash_table_find_entry(ht, key, &idx)) return false;
+    if (!hash_table_handle_gap(ht, idx)) return false;
     ht->size--;
     return true;
 }
 
 bool hash_table_delete_last_found(struct hash_table* ht) {
-    if (!handle_gap(ht, ht->last_found_idx)) return false;
+    if (!hash_table_handle_gap(ht, ht->last_found_idx)) return false;
     ht->size--;
     return true;
 }

@@ -44,25 +44,19 @@
 #undef TYPED
 #undef TYPE
 
-#define TYPE hint
-#define TYPED(THING) hint_##THING
-#include "vec.h"
-#undef TYPED
-#undef TYPE
+#include "hashset.h"
 
-struct hint_vec* detailed_hints;
+struct hash_set* marked_hints;
+struct watcher_vec* detailed_hints;
 struct u64_vec* hints;
 struct u64_vec* deletions;
 u64* unit_ids;
 
 #undef EMPTY_HINTS
-#define EMPTY_HINTS hint_vec_resize(detailed_hints, 0)
+#define EMPTY_HINTS watcher_vec_resize(detailed_hints, 0)
 
 #undef PUSH_HINT
-#define PUSH_HINT(H) (hint_vec_push(detailed_hints, H))
-
-//#undef PUSH_UNIT_HINT
-//#define PUSH_UNIT_HINT(LIT) if (assignment[lit] != POS_VAL) { assert(unit_ids[LIT]); PUSH_HINT(unit_ids[LIT]); }
+#define PUSH_HINT(H) (watcher_vec_push(detailed_hints, H))
 
 #endif
 // ---------------------------------------------------
@@ -236,57 +230,57 @@ static bool compare_lits(const unsigned* lits1, const unsigned* lits2, int nb_li
 }
 
 #ifdef DRUP_TO_LRUP_CONVERSION
-#include "hash.h"
 static void process_hints() {
     if (detailed_hints->size < 1) return;
 
-    struct hash_table* marks = hash_table_init(16);
     u64_vec_resize(hints, 0);
-    hint* hint = detailed_hints->data + detailed_hints->size - 1;
+    watcher* w = detailed_hints->data + detailed_hints->size - 1;
 
-    // handle first hint
-    if (hint->ptr) {    // non unit clause
-        u64_vec_push(hints, hint->ptr->id);
-        watcher* w = hint->ptr;
-        if (w->nb_lits == 2) {
-            hash_table_insert(marks, (u64)NEG(w->c.lit) + 1, (void*)1);
-            hash_table_insert(marks, (u64)NEG(w->blocking_lit) + 1, (void*)1);
-        } else {
-        unsigned* lits = db.lits + w->c.ptr;
+    // special last hint
+    u64_vec_push(hints, w->id);
+    switch (w->nb_lits) {
+        case 1:     // unit clause
+            hash_set_insert(marked_hints, NEG(w->hint_lit) + 1);
+            break;
+        case 2:     // binary clause
+            hash_set_insert(marked_hints, NEG(w->c.lit) + 1);
+            hash_set_insert(marked_hints, NEG(w->blocking_lit) + 1);
+            break;
+        default:
+            ;
+            unsigned* lits = db.lits + w->c.ptr;
             for (int i = 0; i < w->nb_lits; i++)
-                hash_table_insert(marks, (u64)NEG(lits[i]) + 1, (void*)1);
-        }
-    } else {            // unit clause
-        u64_vec_push(hints, unit_ids[hint->lit]);
-        hash_table_insert(marks, (u64)NEG(hint->lit) + 1, (void*)1);
+                hash_set_insert(marked_hints, NEG(lits[i]) + 1);
+            break;
     }
 
-    while (hint-- > detailed_hints->data) {
-        if (!hash_table_find(marks, (u64)hint->lit + 1))
+    // filter hints
+    while (w-- > detailed_hints->data) {
+        if (!hash_set_find(marked_hints, w->hint_lit + 1))
             continue;
+        hash_set_delete_last_found(marked_hints);    // remove mark
 
-        hash_table_delete_last_found(marks);    // remove mark
-        
-        if (hint->ptr) {    // non unit clause
-            u64_vec_push(hints, hint->ptr->id);     // add id to hints
-            // mark remaining lits
-            watcher* w = hint->ptr;
-            if (w->nb_lits == 2) {      // binary clauses are stored in watch directly
-                if (w->c.lit != hint->lit)
-                    hash_table_insert(marks, (u64)NEG(w->c.lit) + 1, (void*)1);
-                else hash_table_insert(marks, (u64)NEG(w->blocking_lit) + 1, (void*)1);
-            } else {
+        u64_vec_push(hints, w->id);
+        switch (w->nb_lits) {
+            case 1:     // unit clause
+                break;
+            case 2:     // binary clause
+                if (w->c.lit != w->hint_lit)
+                    hash_set_insert(marked_hints, NEG(w->c.lit) + 1);
+                else
+                    hash_set_insert(marked_hints, NEG(w->blocking_lit) + 1);
+                break;
+            default:    // long clause
+                ;
                 unsigned* lits = db.lits + w->c.ptr;
                 for (int i = 0; i < w->nb_lits; i++)
-                    if (lits[i] != hint->lit)
-                        hash_table_insert(marks, (u64)NEG(lits[i]) + 1, (void*)1);
-            }
-        } else {            // unit clause
-            u64_vec_push(hints, unit_ids[hint->lit]);   // add id to hints
+                    if (lits[i] != w->hint_lit)
+                        hash_set_insert(marked_hints, NEG(lits[i]) + 1);
+                break;
         }
     }
 
-    hash_table_light_free(marks);
+    hash_set_clear(marked_hints);
 }
 #endif
 
@@ -301,7 +295,13 @@ int drup_check_propagate() {
             // PUSH_UNIT_HINT(lit);
             #ifdef DRUP_TO_LRUP_CONVERSION
             if (assignment[lit] != POS_VAL) {
-                hint h = { .lit = lit, .ptr = NULL };
+                //hint h = { .lit = lit, .ptr = NULL };
+                watcher h = { .nb_lits = 1,
+                              .blocking_lit = lit,
+                              .c.ptr = -1,
+                              .hint_lit = lit,
+                              .id = unit_ids[lit]
+                            };
                 PUSH_HINT(h);
             }
             #endif
@@ -332,9 +332,9 @@ int drup_check_propagate() {
             int nb_lits = w->nb_lits;
             if (nb_lits == 1) {
                 #ifdef DRUP_TO_LRUP_CONVERSION
-                hint h = { .lit = first_watch, .ptr = NULL };
+                //hint h = { .lit = first_watch, .ptr = NULL };
                 #endif
-                PUSH_HINT(h);
+                PUSH_HINT(*w);  // unit watcher have the correct hint lit alredy set
                 return 1;   // conflict found
             }
             assert(nb_lits > 1);
@@ -366,9 +366,10 @@ int drup_check_propagate() {
                             assert(assignment[lits[j]] == NEG_VAL);
                     #endif
                     #ifdef DRUP_TO_LRUP_CONVERSION
-                    ;
-                    hint h = { .lit = second_watch, .ptr = w };
-                    PUSH_HINT(h);
+                    //;
+                    //hint h = { .lit = second_watch, .ptr = w };
+                    w->hint_lit = second_watch;
+                    PUSH_HINT(*w);
                     #endif
                     return 1;   // conflict found
                 default: break;
@@ -405,8 +406,9 @@ int drup_check_propagate() {
             if (assignment[second_watch] == NEUTRAL_VAL) {
                 // Save hint and mark lit as "on the stack".
                 // Only add lit to the stack if it is not already on it in some way
-                hint h = { .lit = second_watch, .ptr = w };
-                PUSH_HINT(h);
+                //hint h = { .lit = second_watch, .ptr = w };
+                w->hint_lit = second_watch;
+                PUSH_HINT(*w);
                 assignment[second_watch] = ON_STACK;
                 assignment[NEG(second_watch)] = -ON_STACK;
                 unsigned_vec_push(trail, second_watch);
@@ -416,16 +418,25 @@ int drup_check_propagate() {
             #ifdef DRUP_TO_LRUP_CONVERSION
             } else if (assignment[second_watch] == -ON_STACK) {
                 // conflicting unit is already on stack, we need to stop the hints here
-                hint h = { .lit = second_watch, .ptr = w };
-                PUSH_HINT(h);
+                //hint h = { .lit = second_watch, .ptr = w };
+                w->hint_lit = second_watch;
+                PUSH_HINT(*w);
                 return 1;
             } else if (assignment[second_watch] == -ON_UNITS) {
                 // Conflicting unit is a non propagated unit clause.
                 // Add both the current clause and the conflicting unit clause to hints.
-                hint h = { .lit = second_watch, .ptr = w };
+                //hint h = { .lit = second_watch, .ptr = w };
+                w->hint_lit = second_watch;
+                PUSH_HINT(*w);
+                //hint H = { .lit = NEG(second_watch), .ptr = NULL };
+                unsigned neg_sw = NEG(second_watch);
+                watcher h = { .nb_lits = 1,
+                              .blocking_lit = neg_sw,
+                              .c.ptr = -1,
+                              .hint_lit = neg_sw,
+                              .id = unit_ids[neg_sw]
+                            };
                 PUSH_HINT(h);
-                hint H = { .lit = NEG(second_watch), .ptr = NULL };
-                PUSH_HINT(H);
                 return 1;
             }
             #endif
@@ -469,7 +480,8 @@ void drup_check_init(int nb_vars) {
     units_propagated = 0;
     prop_stack_propagated = 0;
     #ifdef DRUP_TO_LRUP_CONVERSION
-    detailed_hints = hint_vec_init(16);
+    marked_hints = hash_set_init(16);
+    detailed_hints = watcher_vec_init(16);
     hints = u64_vec_init(16);
     deletions = u64_vec_init(16);
     unit_ids = palrup_utils_calloc(nb_lits, sizeof(u64));
@@ -498,7 +510,8 @@ void drup_check_end() {
     units_propagated = 0;
     prop_stack_propagated = 0;
     #ifdef DRUP_TO_LRUP_CONVERSION
-    hint_vec_free(detailed_hints);
+    hash_set_free(marked_hints);
+    watcher_vec_free(detailed_hints);
     u64_vec_free(hints);
     u64_vec_free(deletions);
     free(unit_ids);
@@ -569,7 +582,7 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
                       .blocking_lit = lit,
                       .c.ptr = -1
                       #ifdef DRUP_TO_LRUP_CONVERSION
-                      , .padding = 0
+                      , .hint_lit = lit
                       , .id = id
                       #endif
                     };
@@ -583,7 +596,7 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
                       .blocking_lit = ilits[0],
                       .c.lit = ilits[1]
                       #ifdef DRUP_TO_LRUP_CONVERSION
-                      , .padding = 0
+                      , .hint_lit = 0
                       , .id = id
                       #endif
                     };
@@ -599,7 +612,7 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
                   .blocking_lit = ilits[nb_lits - 1],
                   .c.ptr = db_offset
                   #ifdef DRUP_TO_LRUP_CONVERSION
-                  , .padding = 0
+                  , .hint_lit = 0
                   , .id = id
                   #endif
                 };
@@ -685,7 +698,14 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
                 struct watcher_vec * const v2 = &(occurences[second_watch]);
                 for (size_t k = 0; k < v2->size; k++) {
                     watcher w2 = v2->data[k];
+                    #ifdef DRUP_TO_LRUP_CONVERSION
+                    // skip hint_lit in comparison
+                    if (memcmp(&w, &w2, sizeof(unsigned) * 3) | (w.id != w2.id)) continue;
+                    #else
+                    // memcmp is possible, since the hint_lit will not be compiled into the watches here
                     if (memcmp(&w, &w2, sizeof(watcher))) continue;
+                    #endif
+                    
                     // watch points to same clause => delete watch
                     v2->data[k] = v2->data[--(v2->size)];
                     if (nb_lits > 2) delete_clause_from_db(w.c.ptr, w.nb_lits);
