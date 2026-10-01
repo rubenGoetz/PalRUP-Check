@@ -5,6 +5,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <assert.h>
+#include <signal.h>
+#include <time.h>
 
 #include "local_checker.h"
 #include "file_reader.h"
@@ -128,6 +130,18 @@ struct int_vec* buf_lits;
 struct u64_vec* buf_hints;
 struct hash_table* import_table;
 
+volatile bool poll = false;
+struct sigaction lc_sa = {0};
+struct sigevent lc_sev = {0};
+struct itimerspec lc_its = {0};
+timer_t lc_timer;
+static void timer_handler(int sig, siginfo_t *si, void *uc) {
+    (void)sig;
+    (void)si;
+    (void)uc;
+    poll = true;
+}
+
 static inline int parse_header(FILE* formula) {
     int nb_vars;
 
@@ -236,13 +250,26 @@ static inline void parse_lits() {
     }
 }
 static inline void poll_unsat() {
-    if (lc_unsat_id != (u64)-1) return;             // ID already parsed
-    if (access(unsat_details, R_OK)) return;        // File can not be read
+    if (!poll) return;                                          // only poll in time intervals
+    if (lc_unsat_id != (u64)-1) { poll = false; return; }       // ID already parsed
+    if (access(unsat_details, R_OK)) { poll = false; return; }  // File can not be read
     FILE* details = fopen(unsat_details, "rb");
-    if(!details) return;                            // Error opening the file
+    if(!details) {                                              // Error opening the file
+        LOG_ERR("Could not read file at %s", unsat_details);
+        poll = false;
+        return;
+    }
     lc_unsat_id = palrup_utils_read_ul(details);
     LOG("Received ID of empty clause: %lu", lc_unsat_id);
     fclose(details);
+    
+    // disarm timer
+    lc_its.it_value.tv_sec = 0;
+    lc_its.it_value.tv_nsec = 0;
+    if (timer_settime(lc_timer, 0, &lc_its, NULL) == -1)
+        LOG_ERR("Could not disarm timer");
+
+    poll = false;
 }
 
 static void parse_lrup() {
@@ -456,6 +483,35 @@ void local_checker_init(struct options* options) {
     #else
         import_handler_init(options);
     #endif
+
+    // setup poll timer if necessary
+    if (lc_drup) {
+        poll = false;
+
+        // create signal action
+        lc_sa.sa_sigaction = timer_handler;
+        sigemptyset(&lc_sa.sa_mask);
+        if (sigaction(SIGRTMIN, &lc_sa, NULL) == -1)
+            LOG_ERR("Could not create polling signal handler");
+
+        // create signal event
+        lc_sev.sigev_notify = SIGEV_SIGNAL;
+        lc_sev.sigev_signo = SIGRTMIN;
+        lc_sev.sigev_value.sival_ptr = &lc_timer;
+
+        // create timer
+        if (timer_create(CLOCK_THREAD_CPUTIME_ID, &lc_sev, &lc_timer) == -1)
+            LOG_ERR("Could not create timer");
+        
+        // arm timer
+        lc_its.it_value.tv_sec = 0.5;
+        lc_its.it_value.tv_nsec = 500000000;
+        lc_its.it_interval.tv_sec = lc_its.it_value.tv_sec;
+        lc_its.it_interval.tv_nsec = lc_its.it_value.tv_nsec;
+        if (timer_settime(lc_timer, 0, &lc_its, NULL) == -1)
+            LOG_ERR("Could not arm timer");
+    }
+
     _initialized = true;
 }
 
@@ -510,5 +566,7 @@ void local_checker_end() {
     siphash_cls_free(clause_hash);
     hash_table_free(import_table);
     lc_unsat_id = (u64)-1;
+    poll = false;
+    if (lc_drup) timer_delete(lc_timer);
     _initialized = false;
 }
