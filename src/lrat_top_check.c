@@ -3,6 +3,7 @@
 
 #include "utils/palrup_utils.h"
 #include "utils/checker_utils.h"
+#include "utils/define.h"
 #include "lrat_check.h"
 #include "siphash.h"
 #include "confirm.h"
@@ -102,3 +103,7 @@ bool lrat_top_check_validate_sat(int* model, u64 size, u8* out_signature_or_null
 }
 
 bool lrat_top_check_valid() {return lrat_valid;}
+
+u64 lrat_top_check_empty_clause_id() {
+    return lrat_check_empty_clause_id();
+}

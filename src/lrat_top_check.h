@@ -20,3 +20,4 @@ bool lrat_top_check_delete(const unsigned long* ids, int nb_ids);
 bool lrat_top_check_validate_unsat(u8* out_signature_or_null);
 bool lrat_top_check_validate_sat(int* model, u64 size, u8* out_signature_or_null);
 bool lrat_top_check_valid();
+u64 lrat_top_check_empty_clause_id();

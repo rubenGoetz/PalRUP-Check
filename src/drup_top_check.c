@@ -51,3 +51,6 @@ inline bool drup_top_check_valid() {
 u64 drup_top_check_mishaps() {
     return mishaps;
 }
+u64 drup_top_check_empty_clause_id() {
+    return drup_check_empty_clause_id();
+}

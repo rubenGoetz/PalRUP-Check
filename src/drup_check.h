@@ -37,6 +37,8 @@ bool drup_check_formula_loaded();
 u64 drup_check_get_clause_id(const int* lits, int nb_lits);
 drup_clause find_clause(const int* lits, int nb_lits);
 
+u64 drup_check_empty_clause_id();
+
 #ifdef UNIT_TEST
 struct watcher_vec* get_occurences();
 #endif

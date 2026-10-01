@@ -80,6 +80,7 @@ int nb_known_vars;
 bool unsat_found = false;
 bool formula_loaded = false;
 bool propagate_units = true;
+u64 drup_check_empty_id = 0;
 
 // occurence list for 2 watched literals
 // units do not need to be in occournce lists, since we assign them permanently
@@ -453,6 +454,7 @@ int drup_check_propagate() {
 void drup_check_init(int nb_vars) {
     nb_known_vars = nb_vars;
     unsat_found = false;
+    drup_check_empty_id = 0;
     formula_loaded = false;
     original_ids = 0;
     int nb_lits = 2 * nb_vars;
@@ -504,6 +506,7 @@ void drup_check_end() {
     // reset gloabl variables
     nb_known_vars = 0;
     unsat_found = false;
+    drup_check_empty_id = 0;
     formula_loaded = false;
     original_ids = 0;
     memset(&db, 0, sizeof(struct clause_db));
@@ -550,13 +553,11 @@ u64 drup_check_get_nb_loaded_clauses() {
 
 int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool internal_lits) {
     assert(nb_lits >= 0);
-    #ifndef DRUP_TO_LRUP_CONVERSION
-    (void)id;   // only need ids for hint generation
-    #endif
 
     // mark unsat as found
     if (nb_lits == 0) {
         unsat_found = true;
+        drup_check_empty_id = id;
         return 0;
     }
 
@@ -754,6 +755,10 @@ drup_clause find_clause(const int* lits, int nb_lits) {
     //    }
     //}
     //return NULL; // clause not found
+}
+
+u64 drup_check_empty_clause_id() {
+    return drup_check_empty_id;
 }
 
 #ifdef UNIT_TEST

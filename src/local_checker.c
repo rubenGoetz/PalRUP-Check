@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <assert.h>
 
 #include "local_checker.h"
 #include "file_reader.h"
@@ -111,10 +112,13 @@ long nb_clauses;
 u64 lc_num_solvers;
 u64 lc_pal_id;
 u64 lc_max_derived_id = 0;
+u64 lc_unsat_id = (u64)-1;
 bool lc_drup;
 bool palrup_binary;
 char fragment_path[512];
 char working_path[512];
+char unsat_folder[525];
+char unsat_details[533];
 struct file_reader* proof;
 struct siphash* clause_hash;
 struct local_checker_stats lc_stats;
@@ -231,6 +235,15 @@ static inline void parse_lits() {
         int_vec_push(buf_lits, lit);
     }
 }
+static inline void poll_unsat() {
+    if (lc_unsat_id != (u64)-1) return;             // ID already parsed
+    if (access(unsat_details, R_OK)) return;        // File can not be read
+    FILE* details = fopen(unsat_details, "rb");
+    if(!details) return;                            // Error opening the file
+    lc_unsat_id = palrup_utils_read_ul(details);
+    LOG("Received ID of empty clause: %lu", lc_unsat_id);
+    fclose(details);
+}
 
 static void parse_lrup() {
     u64 id;
@@ -325,8 +338,11 @@ static void parse_lrup() {
 static void parse_drup() {
     u64 id;
     while (true) {
+        poll_unsat();
         char c = file_reader_read_vbl_char(proof);
-        if (file_reader_eof_reached(proof)) {
+        if (file_reader_eof_reached(proof) | (id > lc_unsat_id)) {
+            if (id > lc_unsat_id)
+                LOG("Halt check for IDs > empty clause: %lu", lc_unsat_id);
             finish_parse();
             break;
 
@@ -386,6 +402,7 @@ void local_checker_init(struct options* options) {
     lc_drup = options->drup;
     palrup_binary = options->palrup_binary;
     lc_stats = local_checker_stats_init;
+    lc_unsat_id = (u64)-1;
     clause_hash = siphash_cls_init(SECRET_KEY);
     unsigned int dir_hierarchy = options->pal_id / palrup_utils_calc_root_ceil(lc_num_solvers);
     snprintf(fragment_path, 512, "%s/%u/%lu/%s",
@@ -393,6 +410,8 @@ void local_checker_init(struct options* options) {
              lc_drup ? DRUP_FRAGMENT_NAME : LRUP_FRAGMENT_NAME);
     snprintf(working_path, 512, "%s", options->working_path);
     lc_stats = local_checker_stats_init;
+    snprintf(unsat_folder, 525, "%s/.unsat_found", working_path);
+    snprintf(unsat_details, 533, "%s/details", unsat_folder);
 
     buf_lits = int_vec_init(1);
     buf_hints = u64_vec_init(1);
@@ -446,13 +465,18 @@ int local_checker_run() {
     lc_drup ? parse_drup() : parse_lrup();
     
     if (lc_drup ? drup_top_check_unsat_found() : lrat_top_check_validate_unsat(NULL)) {
-        char unsat_folder[525];
-        snprintf(unsat_folder, 525, "%s/.unsat_found", working_path);
-        if (mkdir(unsat_folder, 0777) == 0) {
-            char unsat_folder_sub[1024];
-            snprintf(unsat_folder_sub, 1024, "%s/%lu", unsat_folder, lc_pal_id);
-            mkdir(unsat_folder_sub, 0777);
-        }
+        u64 empty_id = lc_drup ? drup_top_check_empty_clause_id() : lrat_top_check_empty_clause_id();
+        assert(empty_id);
+        LOG("Found empty clause of ID %lu", empty_id);
+        if (mkdir(unsat_folder, 0777))
+            LOG_WARN("Could not create dir %s", unsat_folder);  // dir might already have been created by another pal
+
+        FILE* details = fopen(unsat_details, "ab");
+        if (details) {
+            // TODO: document this
+            palrup_utils_write_ul(empty_id, details);
+            fclose(details);
+        } else LOG_ERR("Could not open file %s", unsat_details);
     }
     LOG("rank:%lu prod:%lu imp:%lu imp_used:%lu del:%lu n_s:%lu",
         lc_pal_id, lc_stats.nb_produced, lc_stats.nb_imported, lc_stats.nb_imported_used, lc_stats.nb_deleted, lc_num_solvers);
@@ -485,5 +509,6 @@ void local_checker_end() {
     lc_drup ? drup_top_check_end(sig) : lrat_top_check_end();
     siphash_cls_free(clause_hash);
     hash_table_free(import_table);
+    lc_unsat_id = (u64)-1;
     _initialized = false;
 }

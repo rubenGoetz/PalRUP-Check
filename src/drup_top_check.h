@@ -18,3 +18,4 @@ bool drup_top_check_delete(const int* lits, int nb_lits);
 bool drup_top_check_unsat_found();
 bool drup_top_check_valid();
 u64 drup_top_check_mishaps();
+u64 drup_top_check_empty_clause_id();

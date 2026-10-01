@@ -42,6 +42,7 @@ u64 nb_loaded_clauses = 0;
 struct int_vec* clause_to_add;
 bool done_loading = false;
 bool unsat_proven = false;
+u64 lrat_check_empty_id = 0;
 
 u64 lrat_check_get_nb_loaded_clauses(){
     return nb_loaded_clauses;
@@ -172,7 +173,10 @@ bool lrat_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits) {
         }
         COND_ERR(!ok, "Insertion of clause %lu unsuccessful - already present?", id);
     }
-    else if (nb_lits == 0) unsat_proven = true; // added top-level empty clause!
+    else if (nb_lits == 0) {
+        unsat_proven = true; // added top-level empty clause!
+        lrat_check_empty_id = id;
+    }
     return ok;
 }
 
@@ -183,6 +187,7 @@ void lrat_check_init(int nb_vars, bool opt_check_model, bool opt_lenient) {
     assigned_units = int_vec_init(512);
     check_model = opt_check_model;
     lenient = opt_lenient;
+    lrat_check_empty_id = 0;
 }
 
 void lrat_check_end() {
@@ -190,6 +195,7 @@ void lrat_check_end() {
     int_vec_free(clause_to_add);
     i8_vec_free(var_values);
     int_vec_free(assigned_units);
+    lrat_check_empty_id = 0;
 }
 
 bool lrat_check_load(int lit) {
@@ -320,4 +326,8 @@ bool lrat_check_validate_sat(int* model, u64 size) {
     }
     // All original problem clauses are satisfied – correct model!
     return true;
+}
+
+u64 lrat_check_empty_clause_id() {
+    return lrat_check_empty_id;
 }
