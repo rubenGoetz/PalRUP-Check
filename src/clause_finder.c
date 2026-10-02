@@ -105,8 +105,10 @@ static void parse_lrat() {
             }
 
             // next line
-            if (id < current_ID)
+            if (id < current_ID) {
+                cf_parsed_lines++;
                 continue;
+            }
 
             // check if the clause is the same
             if (id == current_ID) {
@@ -161,6 +163,8 @@ static void parse_drup() {
             parse_lits();
             siphash_cls_update(proof_check_hash, (u8*)proof_lits->data, proof_lits->size * sizeof(int));
             
+            cf_parsed_lines++;
+
             // next line
             if (id < current_ID)
                 continue;
@@ -181,6 +185,7 @@ static void parse_drup() {
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
             // skip id
             id = file_reader_read_vbl_sl(proof_reader);
+            cf_parsed_lines++;
 
             // skip lits
             while (true) {
@@ -193,14 +198,13 @@ static void parse_drup() {
             while (true)
                 if (!file_reader_read_vbl_int(proof_reader))
                     break;
+            cf_parsed_lines++;
             
         } else {
             LOG_ERR("Invalid directive %c", c);
             fflush(stdout);
             abort();
         }
-
-        cf_parsed_lines++;
     }
 }
 
