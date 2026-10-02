@@ -18,7 +18,9 @@
 u64 cf_num_solvers;
 u64 cf_pal_id;
 u64 cf_msg_group_size;
-u64 cf_last_id = (u64)-1;
+u64 cf_last_line = (u64)-1;
+u64 cf_empty_clause_id = (u64)-1;
+u64 cf_parsed_lines = 0;
 bool cf_drup;
 u8 sig_res_reported[16];
 bool palrup_binary;
@@ -36,14 +38,26 @@ bool eof_proof_fragment = false;
 // per message
 struct siphash** import_check_hash;
 
-static inline void finish_parse() {
-    COND_ERR(current_ID != EMPTY_ID, "Error: clause left to check rank:%lu ID:%lu", cf_pal_id, current_ID);
+static inline void finish_parse(bool stop_prematurely) {
+    if (stop_prematurely) {
+        LOG("Finish parse at line %lu of %lu necessary lines", cf_parsed_lines, cf_last_line);
+        // allows termination of checking procedure if added clauses have higher that the empty clause,
+        // since any clause of higher ID can not be used to derive it regardless.
+        // Stop at line number given by local check, but make sure that the next important 
+        // clause addition would have a larger id than the empty clause.
+        COND_ERR(current_ID != EMPTY_ID && current_ID <= cf_empty_clause_id, "Error: clause left to check rank:%lu ID:%lu", cf_pal_id, current_ID);
+        // finish parsing of importfiles to assure corect communication via fingerprints.
+        while (current_ID != EMPTY_ID)
+            import_merger_next();
+    } else
+        COND_ERR(current_ID != EMPTY_ID, "Error: clause left to check rank:%lu ID:%lu", cf_pal_id, current_ID);
 
     const u8* sig_res_computed = siphash_cls_digest(proof_check_hash);
     if (!checker_utils_equal_signatures(sig_res_computed, sig_res_reported)) {
         LOG_ERR("Signature does not match in Proof!");
         LOG_ERR("Computed sig: %lu", *((u64*)sig_res_computed));
         LOG_ERR("Read sig: %lu", *((u64*)sig_res_reported));
+        fflush(stdout);
         abort();
     }
     siphash_cls_free(proof_check_hash);
@@ -55,6 +69,7 @@ static inline void finish_parse() {
             LOG_ERR("Signature does not match in import %lu!", i);
             LOG_ERR("Computed sig: %lu", *((u64*)sig_res_computed));
             LOG_ERR("Read sig: %lu", *((u64*)sig_res_reported));
+            fflush(stdout);
             abort();
         }
     }
@@ -74,7 +89,7 @@ static void parse_lrat() {
     while (true) {
         char c = file_reader_read_vbl_char(proof_reader);
         if (file_reader_eof_reached(proof_reader)) {
-            finish_parse();
+            finish_parse(false);
             break;
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
@@ -99,6 +114,7 @@ static void parse_lrat() {
                     break;
                 else {
                     LOG_ERR("Literals do not match in proof. pal_id:%lu clause_ID:%lu", cf_pal_id, current_ID);
+                    fflush(stdout);
                     abort();
                 }
             }
@@ -122,8 +138,11 @@ static void parse_lrat() {
             
         } else {
             LOG_ERR("Invalid directive %c", c);
+            fflush(stdout);
             abort();
         }
+
+        cf_parsed_lines++;
     }
 }
 
@@ -131,8 +150,8 @@ static void parse_drup() {
     u64 id = 0;
     while (true) {
         char c = file_reader_read_vbl_char(proof_reader);
-        if (file_reader_eof_reached(proof_reader) | (id >= cf_last_id)) {
-            finish_parse();
+        if (file_reader_eof_reached(proof_reader) | (cf_parsed_lines == cf_last_line)) {
+            finish_parse(true);
             break;
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
@@ -152,6 +171,7 @@ static void parse_drup() {
                     break;
                 else {
                     LOG_ERR("Literals do not match in proof. pal_id:%lu clause_ID:%lu", cf_pal_id, current_ID);
+                    fflush(stdout);
                     abort();
                 }
             }
@@ -160,7 +180,7 @@ static void parse_drup() {
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
             // skip id
-            file_reader_read_vbl_sl(proof_reader);
+            id = file_reader_read_vbl_sl(proof_reader);
 
             // skip lits
             while (true) {
@@ -176,8 +196,11 @@ static void parse_drup() {
             
         } else {
             LOG_ERR("Invalid directive %c", c);
+            fflush(stdout);
             abort();
         }
+
+        cf_parsed_lines++;
     }
 }
 
@@ -205,6 +228,9 @@ void clause_finder_init(struct options* options) {
     cf_num_solvers = options->num_solvers;
     cf_pal_id = options->pal_id;
     cf_drup = options->drup;
+    cf_last_line = (u64)-1;
+    cf_empty_clause_id = (u64)-1;
+    cf_parsed_lines = 0;
     palrup_binary = options->palrup_binary;
     proof_check_hash = siphash_cls_init(SECRET_KEY);
     proof_lits = int_vec_init(1);
@@ -233,9 +259,19 @@ void clause_finder_init(struct options* options) {
         snprintf(palrup_utils_msgstr, MSG_LEN, "Could not open proof fragment's signature at %s\n", sig_path);
         palrup_utils_log_err(palrup_utils_msgstr);
     }
-    cf_last_id = palrup_utils_read_ul(frag_sig);
+    cf_last_line = palrup_utils_read_ul(frag_sig);
+    LOG("Received last line number: %lu", cf_last_line);
     palrup_utils_read_sig(sig_res_reported, frag_sig);
     fclose(frag_sig);
+
+    char unsat_details[533];
+    snprintf(unsat_details, 533, "%s/.unsat_found/details", options->working_path);
+    FILE* details = fopen(unsat_details, "rb");
+    if(details) {
+        cf_empty_clause_id = palrup_utils_read_ul(details);
+        LOG("Received empty clause ID %lu", cf_empty_clause_id);
+    } else
+        LOG_WARN("Could not read unsat details at %s", unsat_details);
 
     // create .check_ok flag path
     snprintf(confirm_path, 512, "%s/%u/%lu/.check_ok",

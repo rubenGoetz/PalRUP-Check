@@ -105,7 +105,8 @@ struct local_checker_stats {
     u64 nb_imported;
     u64 nb_imported_used;
     u64 nb_deleted;
-} local_checker_stats_init = {0, 0, 0, 0};
+    u64 nb_lines_parsed;
+} local_checker_stats_init = {0, 0, 0, 0, 0};
 
 // formula
 long nb_clauses;
@@ -207,7 +208,7 @@ static void load_formula_drup(FILE* formula) {
     LOG("Formula loaded nb_clauses:%lu", lc_nb_loaded_clauses);
 }
 
-static inline void finish_parse(u64 id) {
+static inline void finish_parse() {
     u8* sig = siphash_cls_digest(clause_hash);
 
     // write .palrup.hash file
@@ -217,8 +218,8 @@ static inline void finish_parse(u64 id) {
     COND_ERR(!finger_print, "Can't open file %s", finger_print_path);
 
     // TODO: document
-    // encodes the id to which the fragment was parsed and thus the hash calculated
-    palrup_utils_write_ul(id, finger_print);
+    // encodes the line number to which the fragment was parsed and thus the hash calculated
+    palrup_utils_write_ul(lc_stats.nb_lines_parsed, finger_print);
     palrup_utils_write_sig(sig, finger_print);
     fclose(finger_print);
 }
@@ -280,7 +281,7 @@ static void parse_lrup() {
     while (true) {
         char c = file_reader_read_vbl_char(proof);
         if (file_reader_eof_reached(proof)) {
-            finish_parse(id);
+            finish_parse();
             break;
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
@@ -334,6 +335,7 @@ static void parse_lrup() {
             clause_ptr c = create_flat_clause(id, buf_lits->size, buf_lits->data);
             if (!hash_table_insert(import_table, id, c)) {
                 LOG_ERR("Could not insert clause of id %lu into hash table", id);
+                fflush(stdout);
                 abort();
             }
 
@@ -358,6 +360,7 @@ static void parse_lrup() {
             exit(1);
         }
 
+        lc_stats.nb_lines_parsed++;
         if (UNLIKELY(!lrat_top_check_valid())) {    
             LOG_ERR("Checker not valid anymore");
             exit(1);
@@ -373,7 +376,7 @@ static void parse_drup() {
         if (file_reader_eof_reached(proof) | (id > lc_unsat_id)) {
             if (id > lc_unsat_id)
                 LOG("Halt check for IDs > empty clause: %lu", lc_unsat_id);
-            finish_parse(id);
+            finish_parse();
             break;
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
@@ -417,6 +420,7 @@ static void parse_drup() {
             exit(1);
         }
 
+        lc_stats.nb_lines_parsed++;
         if (UNLIKELY(!drup_top_check_valid())) {    
             LOG_ERR("Checker not valid anymore");
             exit(1);
@@ -537,8 +541,8 @@ int local_checker_run() {
             fclose(details);
         } else LOG_ERR("Could not open file %s", unsat_details);
     }
-    LOG("rank:%lu prod:%lu imp:%lu imp_used:%lu del:%lu n_s:%lu",
-        lc_pal_id, lc_stats.nb_produced, lc_stats.nb_imported, lc_stats.nb_imported_used, lc_stats.nb_deleted, lc_num_solvers);
+    LOG("rank:%lu prod:%lu imp:%lu imp_used:%lu del:%lu lines_parsed:%lu n_s:%lu",
+        lc_pal_id, lc_stats.nb_produced, lc_stats.nb_imported, lc_stats.nb_imported_used, lc_stats.nb_deleted, lc_stats.nb_lines_parsed, lc_num_solvers);
 
     return 0;
 }
