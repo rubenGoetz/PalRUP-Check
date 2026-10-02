@@ -207,7 +207,7 @@ static void load_formula_drup(FILE* formula) {
     LOG("Formula loaded nb_clauses:%lu", lc_nb_loaded_clauses);
 }
 
-static inline void finish_parse() {
+static inline void finish_parse(u64 id) {
     u8* sig = siphash_cls_digest(clause_hash);
 
     // write .palrup.hash file
@@ -215,7 +215,10 @@ static inline void finish_parse() {
     snprintf(finger_print_path, 517, "%s.hash", fragment_path);
     FILE* finger_print = fopen(finger_print_path, "wb");
     COND_ERR(!finger_print, "Can't open file %s", finger_print_path);
-                
+
+    // TODO: document
+    // encodes the id to which the fragment was parsed and thus the hash calculated
+    palrup_utils_write_ul(id, finger_print);
     palrup_utils_write_sig(sig, finger_print);
     fclose(finger_print);
 }
@@ -277,7 +280,7 @@ static void parse_lrup() {
     while (true) {
         char c = file_reader_read_vbl_char(proof);
         if (file_reader_eof_reached(proof)) {
-            finish_parse();
+            finish_parse(id);
             break;
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
@@ -363,14 +366,14 @@ static void parse_lrup() {
 }
 
 static void parse_drup() {
-    u64 id;
+    u64 id = 0;
     while (true) {
         poll_unsat();
         char c = file_reader_read_vbl_char(proof);
         if (file_reader_eof_reached(proof) | (id > lc_unsat_id)) {
             if (id > lc_unsat_id)
                 LOG("Halt check for IDs > empty clause: %lu", lc_unsat_id);
-            finish_parse();
+            finish_parse(id);
             break;
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {

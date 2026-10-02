@@ -18,6 +18,7 @@
 u64 cf_num_solvers;
 u64 cf_pal_id;
 u64 cf_msg_group_size;
+u64 cf_last_id = (u64)-1;
 bool cf_drup;
 u8 sig_res_reported[16];
 bool palrup_binary;
@@ -127,14 +128,15 @@ static void parse_lrat() {
 }
 
 static void parse_drup() {
+    u64 id = 0;
     while (true) {
         char c = file_reader_read_vbl_char(proof_reader);
-        if (file_reader_eof_reached(proof_reader)) {
+        if (file_reader_eof_reached(proof_reader) | (id >= cf_last_id)) {
             finish_parse();
             break;
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
-            u64 id = (u64)file_reader_read_vbl_sl(proof_reader);
+            id = (u64)file_reader_read_vbl_sl(proof_reader);
             siphash_cls_update(proof_check_hash, (u8*)&id, sizeof(u64));
 
             parse_lits();
@@ -231,6 +233,7 @@ void clause_finder_init(struct options* options) {
         snprintf(palrup_utils_msgstr, MSG_LEN, "Could not open proof fragment's signature at %s\n", sig_path);
         palrup_utils_log_err(palrup_utils_msgstr);
     }
+    cf_last_id = palrup_utils_read_ul(frag_sig);
     palrup_utils_read_sig(sig_res_reported, frag_sig);
     fclose(frag_sig);
 
