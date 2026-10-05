@@ -133,6 +133,7 @@ static inline int get_elit(unsigned ilit) {
     return sign ? ulit : -ulit;
 }
 static void compress_db() {
+    LOG("Compress drup check data base");
     unsigned i = db.earliest_delete - 1;
     unsigned new_size = db.earliest_delete;
     do {
@@ -171,6 +172,7 @@ static inline unsigned add_clause_to_db(const unsigned* lits, int nb_lits) {
     if (db.lits_size + nb_lits >= db.lits_capacity) {  // resize DB if necessary
         LOG("resize clause db");
         int new_cap = MIN((unsigned)-1, db.lits_size * 1.3);
+        LOG("[GROW] data base from %u to %lu bytes.", db.lits_capacity, new_cap * sizeof(unsigned));
         db.lits = palrup_utils_realloc(db.lits, new_cap * sizeof(unsigned));
         db.lits_capacity = new_cap;
     }
@@ -293,10 +295,8 @@ int drup_check_propagate() {
             lit = prop_stack->data[prop_stack_propagated++];
         else {
             lit = units->data[units_propagated];
-            // PUSH_UNIT_HINT(lit);
             #ifdef DRUP_TO_LRUP_CONVERSION
             if (assignment[lit] != POS_VAL) {
-                //hint h = { .lit = lit, .ptr = NULL };
                 watcher h = { .nb_lits = 1,
                               .blocking_lit = lit,
                               .c.ptr = -1,
@@ -332,9 +332,6 @@ int drup_check_propagate() {
             //__builtin_prefetch(db.lits + (w + 2)->c.ptr);
             int nb_lits = w->nb_lits;
             if (nb_lits == 1) {
-                #ifdef DRUP_TO_LRUP_CONVERSION
-                //hint h = { .lit = first_watch, .ptr = NULL };
-                #endif
                 PUSH_HINT(*w);  // unit watcher have the correct hint lit alredy set
                 return 1;   // conflict found
             }
@@ -367,8 +364,6 @@ int drup_check_propagate() {
                             assert(assignment[lits[j]] == NEG_VAL);
                     #endif
                     #ifdef DRUP_TO_LRUP_CONVERSION
-                    //;
-                    //hint h = { .lit = second_watch, .ptr = w };
                     w->hint_lit = second_watch;
                     PUSH_HINT(*w);
                     #endif
@@ -429,7 +424,6 @@ int drup_check_propagate() {
                 //hint h = { .lit = second_watch, .ptr = w };
                 w->hint_lit = second_watch;
                 PUSH_HINT(*w);
-                //hint H = { .lit = NEG(second_watch), .ptr = NULL };
                 unsigned neg_sw = NEG(second_watch);
                 watcher h = { .nb_lits = 1,
                               .blocking_lit = neg_sw,
@@ -474,15 +468,15 @@ void drup_check_init(int nb_vars) {
     db.earliest_delete = capacity;
     db.delete_count = 0;
 
-    add_buffer = int_vec_init(16);
+    add_buffer = int_vec_init(1024);
     assignment = palrup_utils_calloc(nb_lits, sizeof(u8));
-    trail = unsigned_vec_init(16);
-    prop_stack = unsigned_vec_init(16);
-    units = unsigned_vec_init(16);
+    trail = unsigned_vec_init(1024);
+    prop_stack = unsigned_vec_init(1024);
+    units = unsigned_vec_init(1024);
     units_propagated = 0;
     prop_stack_propagated = 0;
     #ifdef DRUP_TO_LRUP_CONVERSION
-    marked_hints = hash_set_init(16);
+    marked_hints = hash_set_init(18);
     detailed_hints = watcher_vec_init(16);
     hints = u64_vec_init(16);
     deletions = u64_vec_init(16);
@@ -633,8 +627,6 @@ int drup_check_add_clause(u64 id, const int* lits, int nb_lits) {
     nb_lits = checker_utils_remove_duplicates((int*)ilits, nb_lits);
 
     int res = 1;
-    //unsigned_vec_resize(prop_stack, units->size);
-    //memcpy(prop_stack->data, units->data, units->size * sizeof(int));
     units_propagated = 0;
     prop_stack_propagated = 0;
     unsigned_vec_resize(prop_stack, 0);
