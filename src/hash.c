@@ -46,6 +46,7 @@ bool hash_table_find_entry(struct hash_table* ht, u64 key, u64* idx) {
 bool hash_table_realloc_table(struct hash_table* ht) {
     u64 new_capacity = (u64) (ht->growth_factor * ht->capacity);
     //printf("GROW %lu -> %lu\n", ht->capacity, new_capacity);
+    LOG("[GROW] hashtable from %lu to %lu bytes.", ht->capacity, new_capacity);
     struct hash_table_entry* old_data = ht->data;
     u64 old_capacity = ht->capacity;
     ht->data = (struct hash_table_entry*) palrup_utils_calloc(new_capacity, sizeof(struct hash_table_entry));

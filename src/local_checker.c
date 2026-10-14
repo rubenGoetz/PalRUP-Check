@@ -370,6 +370,9 @@ static void parse_lrup() {
 
 static void parse_drup() {
     u64 id = 0;
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    u64 last_produced_id = 0;
+    #endif
     while (true) {
         poll_unsat();
         char c = file_reader_read_vbl_char(proof);
@@ -392,6 +395,10 @@ static void parse_drup() {
             // forward to checker
             drup_top_check_add(id, buf_lits->data, buf_lits->size);
             lc_stats.nb_produced++;
+
+            #ifdef DRUP_TO_LRUP_CONVERSION
+            last_produced_id = id;
+            #endif
 
             WRITE_HINTS;
 
@@ -421,6 +428,22 @@ static void parse_drup() {
         }
 
         lc_stats.nb_lines_parsed++;
+        #ifdef DRUP_TO_LRUP_CONVERSION
+        if (drup_top_check_unsat_found() == 2) {
+            // Earlier conflict than last clause in file was found.
+            // End conversion here with artificial empty clause.
+            u64 next_id = last_produced_id + lc_num_solvers;  // next possible id
+            WRITE_CHAR('a');
+            WRITE_SL(next_id);
+            WRITE_INT(0);
+            drup_top_check_generate_empty_clause_hints();
+            WRITE_HINTS;
+            lc_stats.nb_lines_parsed++;
+            finish_parse();
+            break;
+        }
+        #endif
+
         if (UNLIKELY(!drup_top_check_valid())) {    
             LOG_ERR("Checker not valid anymore");
             exit(1);

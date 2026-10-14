@@ -32,12 +32,13 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
 int drup_check_add_clause(u64 id, const int* lits, int nb_lits);
 int drup_check_delete_clause(const int* lits, int nb_lits);
 
-bool drup_check_unsat_found();
+int drup_check_unsat_found();
 bool drup_check_formula_loaded();
 u64 drup_check_get_clause_id(const int* lits, int nb_lits);
 drup_clause find_clause(const int* lits, int nb_lits);
 
 u64 drup_check_empty_clause_id();
+void drup_check_generate_empty_clause_hints();
 
 #ifdef UNIT_TEST
 struct watcher_vec* get_occurences();

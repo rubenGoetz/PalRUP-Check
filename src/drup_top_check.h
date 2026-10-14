@@ -15,7 +15,8 @@ bool drup_top_check_add(u64 id, const int* lits, int nb_lits);
 bool drup_top_check_import(u64 id, const int* lits, int nb_lits);
 bool drup_top_check_delete(const int* lits, int nb_lits);
 
-bool drup_top_check_unsat_found();
+int drup_top_check_unsat_found();
 bool drup_top_check_valid();
 u64 drup_top_check_mishaps();
 u64 drup_top_check_empty_clause_id();
+void drup_top_check_generate_empty_clause_hints();

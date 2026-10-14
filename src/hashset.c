@@ -5,10 +5,10 @@
 #include <stdlib.h>  // for free
 #include <string.h>  // for memset
 
-u32 compute_hash_u32(u32 key) {
+static inline u32 compute_hash_u32(u32 key) {
     return (0x811C9DC5U ^ key) * 0x01000193U;
 }
-u32 compute_idx_u32(struct hash_set* ht, u32 key) {
+static inline u32 compute_idx_u32(struct hash_set* ht, u32 key) {
     return compute_hash_u32(key) & (ht->capacity-1);
 }
 
@@ -42,7 +42,7 @@ bool hash_set_find_entry(struct hash_set* ht, u32 key, u32* idx) {
 bool hash_set_realloc_table(struct hash_set* ht) {
     u32 new_capacity = (u32) (ht->growth_factor * ht->capacity);
     //printf("GROW %lu -> %lu\n", ht->capacity, new_capacity);
-    LOG("[GROW] hashset from %u to %u bytes.", ht->capacity, new_capacity);
+    LOG("[GROW] hashset from %u to %u element capazity.", ht->capacity, new_capacity);
     u32* old_data = ht->data;
     u32 old_capacity = ht->capacity;
     ht->data = (u32*) palrup_utils_calloc(new_capacity, sizeof(u32));
@@ -155,7 +155,8 @@ bool hash_set_delete_last_found(struct hash_set* ht) {
 }
 
 void hash_set_clear(struct hash_set* ht) {
-    memset((void*) ht->data, 0, ht->size * sizeof(u32));
+    ht->size = 0;
+    memset((void*) ht->data, 0, ht->capacity * sizeof(u32));
 }
 
 void hash_set_free(struct hash_set* ht) {

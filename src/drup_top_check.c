@@ -42,7 +42,7 @@ bool drup_top_check_delete(const int* lits, int nb_lits) {
     return drup_top_check_valid();
 }
 
-bool drup_top_check_unsat_found() {
+int drup_top_check_unsat_found() {
     return drup_check_unsat_found();
 }
 inline bool drup_top_check_valid() {
@@ -54,3 +54,7 @@ u64 drup_top_check_mishaps() {
 u64 drup_top_check_empty_clause_id() {
     return drup_check_empty_clause_id();
 }
+void drup_top_check_generate_empty_clause_hints() {
+    drup_check_generate_empty_clause_hints();
+}
+
