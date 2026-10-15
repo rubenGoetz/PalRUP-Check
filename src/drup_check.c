@@ -35,7 +35,6 @@
 #define EMPTY_HINTS
 #define PUSH_HINT(H)
 #define UPDATE_HINT_PREFIX
-#define PROPAGATE_UNIT(LIT) (void)LIT;
 
 #ifdef DRUP_TO_LRUP_CONVERSION
 
@@ -124,6 +123,19 @@ struct unsigned_vec* units;
         ILITS[i] = get_ilit(LITS[i]);
 #define DEFINE_ILITS INTERNALIZE_LITS(ilits, lits, nb_lits)
 
+#define PROPAGATE_UNIT(LIT) do { \
+        prop_stack_propagated = 0;  \
+        unsigned_vec_resize(prop_stack, 1); \
+        prop_stack->data[0] = LIT;  \
+        if (drup_check_propagate()) {   \
+            LOG("Early conflict found at clause %lu for lit %u", id, LIT);    \
+            unsat_found = 2; \
+            drup_check_empty_id = id;   \
+            return 0;   \
+        }   \
+        unsigned_vec_resize(trail, 0);  \
+    } while (0)
+
 static inline unsigned get_ilit(int elit) {
     assert(elit != 0);
     assert(ABS(elit) <= nb_known_vars);
@@ -209,13 +221,6 @@ static void drup_check_reset_assignment() {
     }
     // clear trail
     unsigned_vec_resize(trail, 0);
-
-    #ifndef NDEBUG
-        #ifndef DRUP_TO_LRUP_CONVERSION
-            for (char *a = assignment, *end = assignment + (2 * nb_known_vars); a < end; a++)
-                assert(*a == 0);
-        #endif
-    #endif
 }
 static bool compare_lits(const unsigned* lits1, const unsigned* lits2, int nb_lits) {
     // lits are unsorted => quadratic
@@ -251,21 +256,6 @@ static void update_hint_prefix() {
         }
     }
 }
-
-#undef PROPAGATE_UNIT
-#define PROPAGATE_UNIT(LIT) do { \
-        prop_stack_propagated = 0;  \
-        unsigned_vec_resize(prop_stack, 1); \
-        prop_stack->data[0] = LIT;  \
-        if (drup_check_propagate()) {   \
-            LOG("Early conflict found at clause %lu for lit %u", id, LIT);    \
-            unsat_found = 2; \
-            drup_check_empty_id = id;   \
-            return 0;   \
-        }   \
-        unsigned_vec_resize(trail, 0);  \
-        update_hint_prefix(); \
-    } while (0)
 
 static void process_hints(int nb_lits) {
     if (detailed_hints->size < 1) return;
@@ -473,116 +463,20 @@ static void process_hints(int nb_lits) {
     hash_set_clear(marked_hints);
 }
 
-/*static void process_hints(int nb_lits) {
-    if (detailed_hints->size < 1) return;
-    // TODO: BFS over hint tree implizitly stored in derived_unit_hints:
-    // Store watches directly in derived_unit_hints
-    // Find a way to keep order
-    // Make seperate hint_db for hint lits, to enable db compression
-    // replace complex hints with unit ones if possible
-    
-    // Alternative: DFS -> build hints in correct order and keep hashset of already hinted lits
-
-    // Hotfix: check if w->hint_lit \in derived_unit_hints and only add to hashset if so
-
-    u64_vec_resize(hints, 0);
-    //marked_hints = hash_set_init(16);
-    //clause_lits = hash_set_init(16);
-    watcher* w = detailed_hints->data + detailed_hints->size - 1;
-    watcher* prefix = detailed_hints->data + hint_prefix;
-
-    for (int i = 0; i < nb_lits; i++)
-        hash_set_insert(clause_lits, prop_stack->data[i] + 1);
-
-    if (!w->id) {   // Prefix already contains conflict.
-        w = &(detailed_hints->data[derived_unit_hints[w->hint_lit]]);
-        assert(w < detailed_hints->data + hint_prefix);
-    }
-    assert(w);
-    assert(w >= detailed_hints->data);
-    assert(w < detailed_hints->data + detailed_hints->size);
-
-    // special last hint
-    u64_vec_push(hints, w->id);
-    switch (w->nb_lits) {
-        case 1:     // unit clause
-            if (!hash_set_find(clause_lits, NEG(w->hint_lit) + 1))
-                hash_set_insert(marked_hints, NEG(w->hint_lit) + 1);
-            break;
-        case 2:     // binary clause
-            if (!hash_set_find(clause_lits, NEG(w->c.lit) + 1))
-                hash_set_insert(marked_hints, NEG(w->c.lit) + 1);
-            if (!hash_set_find(clause_lits, NEG(w->blocking_lit) + 1))
-                hash_set_insert(marked_hints, NEG(w->blocking_lit) + 1);
-            break;
-        default:
-            ;
-            unsigned* lits = w < prefix ? hint_db.lits + w->c.ptr : db.lits + w->c.ptr;
-            for (int i = 0; i < w->nb_lits; i++)
-                if (!hash_set_find(clause_lits, NEG(lits[i]) + 1))
-                    hash_set_insert(marked_hints, NEG(lits[i]) + 1);
-            break;
-    }
-
-    // filter hints
-    while (w-- > detailed_hints->data) {
-        if (!hash_set_find(marked_hints, w->hint_lit + 1))
-            continue;
-        if (derived_unit_hints[w->hint_lit] &&
-            w > detailed_hints->data + derived_unit_hints[w->hint_lit])
-            continue;
-
-        u64_vec_push(hints, w->id);
-        switch (w->nb_lits) {
-            case 1:     // unit clause
-                break;
-            case 2:     // binary clause
-                if (hash_set_find(clause_lits, w->c.lit + 1)) {
-                    assert(derived_unit_hints[NEG(w->c.lit)]);
-                    LOG("Found satisfied lit during hint processing, try restart");
-                    watcher_vec_push(detailed_hints, detailed_hints->data[derived_unit_hints[NEG(w->c.lit)]]);
-                }
-                if (hash_set_find(clause_lits, w->blocking_lit + 1)) {
-                    assert(derived_unit_hints[NEG(w->c.lit)]);
-                    LOG("Found satisfied lit during hint processing, try restart");
-                    watcher_vec_push(detailed_hints, detailed_hints->data[derived_unit_hints[NEG(w->blocking_lit)]]);
-                }
-
-                //if (w->c.lit != w->hint_lit) {
-                    if (!hash_set_find(clause_lits, NEG(w->c.lit) + 1))
-                        hash_set_insert(marked_hints, NEG(w->c.lit) + 1);
-                //} else {
-                    if (!hash_set_find(clause_lits, NEG(w->blocking_lit) + 1))
-                        hash_set_insert(marked_hints, NEG(w->blocking_lit) + 1);
-                //}
-                break;
-            default:    // long clause
-                ;
-                //unsigned* lits = hint_db.lits + w->c.ptr;
-                unsigned* lits = w < prefix ? hint_db.lits + w->c.ptr : db.lits + w->c.ptr;
-                for (unsigned* lit = lits; *lit != -1U; lit++)
-                    if (hash_set_find(clause_lits, *lit + 1)) {
-                        assert(derived_unit_hints[NEG(*lit)]);
-                        LOG("Found satisfied lit during hint processing, try restart");
-                        watcher_vec_push(detailed_hints, detailed_hints->data[derived_unit_hints[NEG(*lit)]]);
-                    }
-
-                for (int i = 0; i < w->nb_lits; i++)
-                    //if (lits[i] != w->hint_lit)
-                        if (!hash_set_find(clause_lits, NEG(lits[i]) + 1))
-                            hash_set_insert(marked_hints, NEG(lits[i]) + 1);
-                break;
-        }
-        
-        hash_set_delete_last_found(marked_hints);    // remove mark
-    }
-
-    EMPTY_HINTS;
-    hash_set_clear(marked_hints);
-    hash_set_clear(clause_lits);
-    //hash_set_free(marked_hints);
-    //hash_set_free(clause_lits);
-}*/
+#undef PROPAGATE_UNIT
+#define PROPAGATE_UNIT(LIT) do { \
+        prop_stack_propagated = 0;  \
+        unsigned_vec_resize(prop_stack, 1); \
+        prop_stack->data[0] = LIT;  \
+        if (drup_check_propagate()) {   \
+            LOG("Early conflict found at clause %lu for lit %u", id, LIT);    \
+            unsat_found = 2; \
+            drup_check_empty_id = id;   \
+            return 0;   \
+        }   \
+        unsigned_vec_resize(trail, 0);  \
+        update_hint_prefix(); \
+    } while (0)
 #endif
 
 int drup_check_propagate() {
@@ -874,8 +768,8 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
                           .id = id
                         };
             PUSH_HINT(w);
-            PROPAGATE_UNIT(lit);
         #endif
+        PROPAGATE_UNIT(lit);
         return 0;
     }
 

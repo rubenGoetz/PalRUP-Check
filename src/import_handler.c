@@ -19,6 +19,8 @@
 #define unit_static static
 #endif
 
+bool ih_initialized = false;
+
 struct import_handler_stats {
     u64 nb_clauses;
     u64 nb_duplicates;
@@ -128,8 +130,9 @@ static void init_strat_1(struct options* options) {
         out_files[i] = fopen(file_names[i], "wb+");
 
         if (!(out_files[i])) {
-            snprintf(palrup_utils_msgstr, MSG_LEN, "Could not create file at %s\n", file_names[i]);
+            snprintf(palrup_utils_msgstr, MSG_LEN, "Could not create file at %s", file_names[i]);
             palrup_utils_log_err(palrup_utils_msgstr);
+            exit(1);
         }
     }
 }
@@ -151,8 +154,9 @@ static void init_strat_2(struct options* options) {
         out_files[i] = fopen(file_names[i], "wb+");
 
         if (!(out_files[i])) {
-            snprintf(palrup_utils_msgstr, MSG_LEN, "Could not create file at %s\n", file_names[i]);
+            snprintf(palrup_utils_msgstr, MSG_LEN, "Could not create file at %s", file_names[i]);
             palrup_utils_log_err(palrup_utils_msgstr);
+            exit(1);
         }
     }
 }
@@ -170,8 +174,9 @@ static void init_strat_3(struct options* options) {
     out_files[0] = fopen(file_names[0], "wb+");
 
     if (!(out_files[0])) {
-        snprintf(palrup_utils_msgstr, MSG_LEN, "Could not create file at %s\n", file_names[0]);
+        snprintf(palrup_utils_msgstr, MSG_LEN, "Could not create file at %s", file_names[0]);
         palrup_utils_log_err(palrup_utils_msgstr);
+        exit(1);
     }
 }
 
@@ -281,6 +286,8 @@ unit_static void flush_heap_to_file(struct clause_heap* clause_heap, int file_id
 }
 
 void import_handler_init(struct options* options) {
+    if (ih_initialized) return;
+
     ih_num_solvers = options->num_solvers;
     ih_redist_strat = options->redist_strat;
     ih_pal_id = options->pal_id;
@@ -305,6 +312,8 @@ void import_handler_init(struct options* options) {
         palrup_utils_log_err(palrup_utils_msgstr);
         break;
     }
+
+    ih_initialized = true;
 }
 
 void import_handler_log(clause_ptr clause) {
@@ -324,6 +333,8 @@ void import_handler_log(clause_ptr clause) {
 }
 
 void import_handler_end() {
+    if (!ih_initialized) return;
+
     for (size_t i = 0; i < ih_msg_group_size; i++) {
         // wrap up out file
         flush_heap_to_file(clause_heaps[i], i, 0);
@@ -357,4 +368,6 @@ void import_handler_end() {
     merge_buffer_free(merge_buffer);
     write_buffer_end();
     print_stats();
+
+    ih_initialized = false;
 }
