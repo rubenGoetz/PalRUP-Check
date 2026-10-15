@@ -71,7 +71,7 @@ extern struct u64_vec* deletions;
 
 #undef WRITE_HINTS
 #define WRITE_HINTS do {    \
-        for (long i = hints->size - 1; i >= 0; i--)   \
+        for (unsigned long i = 0; i < hints->size; i++)   \
             WRITE_SL(hints->data[i]);   \
         WRITE_CHAR(0);  \
     } while (0)

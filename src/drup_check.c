@@ -54,9 +54,11 @@ struct hash_table* derived_hints;
 u64 hint_prefix = 0;
 struct watcher_vec* detailed_hints;
 struct u64_vec* hints;
+struct u64_vec* hints_tail;
 struct u64_vec* deletions;
+struct unsigned_vec* dfs_stack;
 u64* unit_ids;
-u64* derived_unit_hints;
+watcher* derived_unit_hints;
 
 #undef EMPTY_HINTS
 #define EMPTY_HINTS watcher_vec_resize(detailed_hints, hint_prefix)
@@ -235,19 +237,16 @@ static bool compare_lits(const unsigned* lits1, const unsigned* lits2, int nb_li
 
 #ifdef DRUP_TO_LRUP_CONVERSION
 static void update_hint_prefix() {
-    assert(hint_prefix <= detailed_hints->size);
-    for (; hint_prefix < detailed_hints->size; hint_prefix++) {
-        watcher* hint = detailed_hints->data + hint_prefix;
-
-        // TODO: replace prefix by dfs in derived_unit_hints?
+    for (watcher *hint = detailed_hints->data, *end = hint + detailed_hints->size; hint < end; hint++) {
         // add clause into immutable hint_db
         if (hint->nb_lits > 2) {
             unsigned offset = add_clause_to_db(&hint_db, db.lits + hint->c.ptr, hint->nb_lits);
             hint->c.ptr = offset;
         }
 
-        if (!derived_unit_hints[hint->hint_lit]) {
-            derived_unit_hints[hint->hint_lit] = hint_prefix;
+        if (!derived_unit_hints[hint->hint_lit].id) {
+            derived_unit_hints[hint->hint_lit] = *hint;
+            derived_unit_hints[hint->hint_lit].hint_lit = 0;        // used to mark hint
             hash_table_insert(derived_hints, hint->id, (void*)1);
         }
     }
@@ -269,6 +268,212 @@ static void update_hint_prefix() {
     } while (0)
 
 static void process_hints(int nb_lits) {
+    if (detailed_hints->size < 1) return;
+
+    u64_vec_resize(hints, 0);
+    u64_vec_resize(hints_tail, 0);
+    unsigned_vec_resize(dfs_stack, 0);
+    //struct unsigned_vec* dfs_stack = unsigned_vec_init(256);        // TODO: make static
+
+    // mark negated clause lits as satisfied
+    for (int i = 0; i < nb_lits; i++)
+        hash_set_insert(marked_hints, prop_stack->data[i] + 1);
+    
+    // put lits from detailed hints on stack
+    watcher* w = detailed_hints->data + detailed_hints->size - 1;
+    if (!w->id) {
+        // derived_unit_hints already contain conflict => skip detailed_hints iteration
+        //unsigned_vec_push(dfs_stack, w->hint_lit);
+        watcher *hint = &(derived_unit_hints[w->hint_lit]);
+        u64_vec_push(hints_tail, hint->id);
+
+        switch (hint->nb_lits) {
+            case 1: break;
+            case 2:
+                ;
+                unsigned neg_c_lit = NEG(hint->c.lit);
+                unsigned neg_block = NEG(hint->blocking_lit);
+                if (!hash_set_find(marked_hints, neg_c_lit + 1))
+                    unsigned_vec_push(dfs_stack, neg_c_lit);
+                if (!hash_set_find(marked_hints, neg_block + 1))
+                    unsigned_vec_push(dfs_stack, neg_block);
+                break;
+            default:
+                for (unsigned *lit = hint_db.lits + hint->c.ptr; *lit != -1U; lit++) {
+                    unsigned neg_lit = NEG(*lit);
+                    if (!hash_set_find(marked_hints, neg_lit + 1))    
+                        unsigned_vec_push(dfs_stack, neg_lit);
+                }
+                break;
+        }
+        
+    } else {
+        assert(w);
+        assert(w >= detailed_hints->data);
+        assert(w < detailed_hints->data + detailed_hints->size);
+
+        switch (w->nb_lits) {
+            case 1: break;
+            case 2:
+                ;
+                unsigned neg_c_lit = NEG(w->c.lit);
+                unsigned neg_block = NEG(w->blocking_lit);
+                if (!hash_set_find(marked_hints, neg_c_lit + 1)) {
+                    unsigned_vec_push(dfs_stack, neg_c_lit);
+                    derived_unit_hints[neg_c_lit].hint_lit = 1;
+                }
+                if (!hash_set_find(marked_hints, neg_block + 1)) {
+                    unsigned_vec_push(dfs_stack, neg_block);
+                    derived_unit_hints[neg_block].hint_lit = 1;
+                }
+                break;
+            default:
+                for (unsigned *lit = db.lits + w->c.ptr; *lit != -1U; lit++) {
+                    unsigned neg_lit = NEG(*lit);
+                    if (!hash_set_find(marked_hints, neg_lit + 1)) {
+                        unsigned_vec_push(dfs_stack, neg_lit);
+                        derived_unit_hints[neg_lit].hint_lit = 1;
+                    }
+                }
+                break;
+        }
+        u64_vec_push(hints_tail, w->id);
+
+        while (w-- > detailed_hints->data) {
+            if (!derived_unit_hints[w->hint_lit].hint_lit)
+                continue;
+            //if (derived_unit_hints[w->hint_lit].id &&
+            //    w > detailed_hints->data + derived_unit_hints[w->hint_lit])
+            //    continue;
+
+            switch (w->nb_lits) {
+                case 1:     // unit clause
+                    ;
+                    unsigned neg_lit = NEG(w->hint_lit);
+                    if (hash_set_find(marked_hints, neg_lit + 1)) break;
+                    derived_unit_hints[neg_lit].hint_lit = 1;  // mark hint
+                    unsigned_vec_push(dfs_stack, neg_lit);
+                    break;
+                case 2:     // binary clause
+                    ;
+                    unsigned neg_c_lit = NEG(w->c.lit);
+                    unsigned neg_block = NEG(w->blocking_lit);
+                    if (w->blocking_lit == w->hint_lit) {
+                        if (!hash_set_find(marked_hints, neg_c_lit + 1)) {
+                            derived_unit_hints[neg_c_lit].hint_lit = 1;  // mark hint
+                            unsigned_vec_push(dfs_stack, neg_c_lit);
+                        }
+                    } else
+                        if (!hash_set_find(marked_hints, neg_block + 1)) {
+                            derived_unit_hints[neg_block].hint_lit = 1;  // mark hint
+                            unsigned_vec_push(dfs_stack, neg_block);
+                        }
+                    break;
+                default:
+                    ;
+                    for (unsigned *lit = db.lits + w->c.ptr; *lit != -1U; lit++) {
+                        if (*lit == w->hint_lit) continue;
+                        unsigned neg_lit = NEG(*lit);
+                        if (hash_set_find(marked_hints, neg_lit + 1)) continue;
+                        derived_unit_hints[neg_lit].hint_lit = 1;  // mark hint
+                        unsigned_vec_push(dfs_stack, neg_lit);
+                    }
+                    break;
+            }
+
+            u64_vec_push(hints_tail, w->id);
+            derived_unit_hints[w->hint_lit].hint_lit = 0;  // unmark hint
+        }
+    }
+
+    // Begin DFS
+    while (dfs_stack->size) {
+        unsigned lit = dfs_stack->data[dfs_stack->size - 1];
+        watcher *hint = &(derived_unit_hints[lit]);
+        hint->hint_lit = 0;     // revert potential marks
+
+        if (!hint->id) {    // skip hints from detailed_hints
+            dfs_stack->size--;
+            continue;
+        }
+
+        if (hash_set_find(marked_hints, lit + 1)) {
+            // lit is already processed
+            
+            dfs_stack->size--;
+            continue;
+        }
+
+        if (hint->nb_lits == 1) {
+            u64_vec_push(hints, hint->id);
+            hash_set_insert(marked_hints, lit + 1);
+
+            dfs_stack->size--;
+            continue;
+        }
+
+        // put children on stack
+        if (hint->nb_lits == 2) {
+            bool done = true;
+            unsigned neg_c_lit = NEG(hint->c.lit);
+            unsigned neg_block = NEG(hint->blocking_lit);
+            if (hint->blocking_lit == lit) {
+                if (!hash_set_find(marked_hints, neg_c_lit + 1)) {
+                    unsigned_vec_push(dfs_stack, neg_c_lit);
+                    done = false;
+                }
+            } else
+                if (!hash_set_find(marked_hints, neg_block + 1)) {
+                    unsigned_vec_push(dfs_stack, neg_block);
+                    done = false;
+                }
+
+            if (done) {
+                // all children are already in hints
+                u64_vec_push(hints, hint->id);
+                hash_set_insert(marked_hints, lit + 1);
+                hint->hint_lit = 0;
+
+                dfs_stack->size--;
+            }
+            continue;
+        }
+
+        if (hint->nb_lits > 2) {
+            unsigned* c_lits = hint_db.lits + hint->c.ptr;
+            bool done = true;
+            for (unsigned* c_lit = c_lits; *c_lit != -1U; c_lit++) {
+                if (*c_lit == lit) continue;
+                unsigned neg_lit = NEG(*c_lit);
+                if (!hash_set_find(marked_hints, neg_lit + 1)) {    // neg_lit is already in hints
+                    unsigned_vec_push(dfs_stack, neg_lit);
+                    done = false;
+                }
+            }
+
+            if (done) {
+                // all children are already in hints
+                u64_vec_push(hints, hint->id);
+                hash_set_insert(marked_hints, lit + 1);
+                hint->hint_lit = 0;
+
+                dfs_stack->size--;
+            }
+
+            continue;
+        }
+        dfs_stack->size--;
+    }
+    
+    // append tail to hints
+    for (u64 *hint_id = hints_tail->data + hints_tail->size - 1; hint_id >= hints_tail->data; hint_id--)
+        u64_vec_push(hints, *hint_id);
+
+    EMPTY_HINTS;
+    hash_set_clear(marked_hints);
+}
+
+/*static void process_hints(int nb_lits) {
     if (detailed_hints->size < 1) return;
     // TODO: BFS over hint tree implizitly stored in derived_unit_hints:
     // Store watches directly in derived_unit_hints
@@ -377,7 +582,7 @@ static void process_hints(int nb_lits) {
     hash_set_clear(clause_lits);
     //hash_set_free(marked_hints);
     //hash_set_free(clause_lits);
-}
+}*/
 #endif
 
 int drup_check_propagate() {
@@ -555,14 +760,16 @@ void drup_check_init(int nb_vars) {
     #ifdef DRUP_TO_LRUP_CONVERSION
     hint_prefix = 0;
     // TODO: try max size for hash set/table
-    marked_hints = hash_set_init(10);
+    marked_hints = hash_set_init(12);
     clause_lits = hash_set_init(10);
     derived_hints = hash_table_init(16);
     detailed_hints = watcher_vec_init(256);
+    dfs_stack = unsigned_vec_init(256);
     hints = u64_vec_init(16);
+    hints_tail = u64_vec_init(16);
     deletions = u64_vec_init(16);
     unit_ids = palrup_utils_calloc(nb_lits, sizeof(u64));
-    derived_unit_hints = palrup_utils_calloc(nb_lits, sizeof(u64));
+    derived_unit_hints = palrup_utils_calloc(nb_lits, sizeof(watcher));
     #endif
 }
 void drup_check_end() {
@@ -595,7 +802,9 @@ void drup_check_end() {
     hash_table_light_free(derived_hints);
     watcher_vec_free(detailed_hints);
     u64_vec_free(hints);
+    u64_vec_free(hints_tail);
     u64_vec_free(deletions);
+    unsigned_vec_free(dfs_stack);
     free(unit_ids);
     free(derived_unit_hints);
     #endif
@@ -800,6 +1009,7 @@ int drup_check_delete_clause(const int* lits, int nb_lits) {
             // lits are stored inside watch if nb_lits < 3
             if (nb_lits > 2 ? compare_lits(ilits, db.lits + w.c.ptr, nb_lits) : compare_lits(ilits, &(w.blocking_lit), nb_lits)) {
                 #ifdef DRUP_TO_LRUP_CONVERSION
+                // TODO: find more elegant solution
                 if (!hash_table_find(derived_hints, w.id))   // do not delete in lrup if the clause is a hint
                     u64_vec_push(deletions, w.id);
                 #endif
