@@ -35,6 +35,9 @@
 #undef TYPE
 
 // ----- Definitions for DRUP to LRUP conversion -----
+#define WRITE_SL(X)
+#define WRITE_INT(X)
+#define WRITE_CHAR(X)
 #define WRITE_ADDITION
 #define WRITE_HINTS
 #define WRITE_IMPORT
@@ -52,8 +55,11 @@ int convert_to_lrup;
 extern struct u64_vec* hints;
 extern struct u64_vec* deletions;
 
+#undef WRITE_SL
 #define WRITE_SL(X) file_writer_vbl_sl(lrup_out, X)
+#undef WRITE_INT
 #define WRITE_INT(X) file_writer_vbl_int(lrup_out, X)
+#undef WRITE_CHAR
 #define WRITE_CHAR(X) file_writer_vbl_char(lrup_out, X)
 
 #define WRITE_LIT_BUFFER do {   \
@@ -428,21 +434,20 @@ static void parse_drup() {
         }
 
         lc_stats.nb_lines_parsed++;
-        #ifdef DRUP_TO_LRUP_CONVERSION
         if (drup_top_check_unsat_found() == 2) {
             // Earlier conflict than last clause in file was found.
             // End conversion here with artificial empty clause.
+            #ifdef DRUP_TO_LRUP_CONVERSION
             u64 next_id = last_produced_id + lc_num_solvers;  // next possible id
             WRITE_CHAR('a');
             WRITE_SL(next_id);
             WRITE_INT(0);
+            #endif
             drup_top_check_generate_empty_clause_hints();
             WRITE_HINTS;
-            lc_stats.nb_lines_parsed++;
             finish_parse();
             break;
         }
-        #endif
 
         if (UNLIKELY(!drup_top_check_valid())) {    
             LOG_ERR("Checker not valid anymore");
