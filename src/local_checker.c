@@ -377,7 +377,10 @@ static void parse_lrup() {
 static void parse_drup() {
     u64 id = 0;
     #ifdef DRUP_TO_LRUP_CONVERSION
-    u64 last_produced_id = 0;
+    u64 nb_loaded_clauses = drup_top_check_get_nb_loaded_clauses();
+    u64 last_produced_id = nb_loaded_clauses - (nb_loaded_clauses % lc_num_solvers) + lc_pal_id;
+    assert(last_produced_id % lc_num_solvers == lc_pal_id);
+    assert(last_produced_id + lc_num_solvers > nb_loaded_clauses);
     #endif
     while (true) {
         poll_unsat();

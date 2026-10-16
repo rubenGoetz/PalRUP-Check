@@ -78,6 +78,7 @@ watcher* derived_unit_hints;
 struct clause_db {
     unsigned* lits;
     unsigned lits_size;
+    unsigned lits_deleted;
     unsigned lits_capacity;
     unsigned earliest_delete;
     unsigned delete_count;
@@ -185,11 +186,12 @@ static void compress_db(struct clause_db* db) {
     db->lits_size = new_size;
     db->earliest_delete = db->lits_capacity;
     db->delete_count = 0;
+    db->lits_deleted = 0;
 }
 static inline unsigned add_clause_to_db(struct clause_db* db, const unsigned* lits, int nb_lits) {
     assert(db->lits_size + nb_lits > db->lits_size);    // check for uint overflow
-    if (db->lits_size + nb_lits >= db->lits_capacity)   // compress DB if necessary
-        compress_db(db);
+    //if (db->lits_size + nb_lits >= db->lits_capacity)   // compress DB if necessary
+    //    compress_db(db);
     if (db->lits_size + nb_lits >= db->lits_capacity) {  // resize DB if necessary
         int new_cap = MIN((unsigned)-1, db->lits_size * 1.3);
         LOG("[GROW] data base from %u to %lu bytes.", db->lits_capacity, new_cap * sizeof(unsigned));
@@ -210,7 +212,10 @@ static inline void delete_clause_from_db(struct clause_db* db, const unsigned of
     memset(db->lits + offset, -1U, nb_lits * sizeof(unsigned));    // mark unused space with -1U
     db->earliest_delete = MIN(db->earliest_delete, offset);
     // TODO: try some "empty factor" instead of fixed number of deletions
-    if (++db->delete_count >= 10000) // TODO: tune parameter and make option?
+    //if (++db->delete_count >= 10000) // TODO: tune parameter and make option?
+    //    compress_db(db);
+    db->lits_deleted += nb_lits;
+    if (db->lits_deleted > (db->lits_size / 2))
         compress_db(db);
 }
 static void drup_check_reset_assignment() {
@@ -255,6 +260,8 @@ static void update_hint_prefix() {
             hash_table_insert(derived_hints, hint->id, (void*)1);
         }
     }
+
+    EMPTY_HINTS;
 }
 
 static void process_hints(int nb_lits) {
@@ -266,14 +273,12 @@ static void process_hints(int nb_lits) {
     //struct unsigned_vec* dfs_stack = unsigned_vec_init(256);        // TODO: make static
 
     // mark negated clause lits as satisfied
-    for (int i = 0; i < nb_lits; i++)
-        hash_set_insert(marked_hints, prop_stack->data[i] + 1);
+    for (unsigned *lit = prop_stack->data, *end = prop_stack->data + nb_lits; lit < end; lit++)
+        hash_set_insert(marked_hints, *lit + 1);
     
     // put lits from detailed hints on stack
     watcher* w = detailed_hints->data + detailed_hints->size - 1;
     if (!w->id) {
-        // derived_unit_hints already contain conflict => skip detailed_hints iteration
-        //unsigned_vec_push(dfs_stack, w->hint_lit);
         watcher *hint = &(derived_unit_hints[w->hint_lit]);
         u64_vec_push(hints_tail, hint->id);
 
@@ -332,9 +337,6 @@ static void process_hints(int nb_lits) {
         while (w-- > detailed_hints->data) {
             if (!derived_unit_hints[w->hint_lit].hint_lit)
                 continue;
-            //if (derived_unit_hints[w->hint_lit].id &&
-            //    w > detailed_hints->data + derived_unit_hints[w->hint_lit])
-            //    continue;
 
             switch (w->nb_lits) {
                 case 1:     // unit clause
@@ -456,8 +458,12 @@ static void process_hints(int nb_lits) {
     }
     
     // append tail to hints
-    for (u64 *hint_id = hints_tail->data + hints_tail->size - 1; hint_id >= hints_tail->data; hint_id--)
-        u64_vec_push(hints, *hint_id);
+    u64_vec_reserve(hints, hints->size + hints_tail->size);
+    u64* hint_ptr = hints->data + hints->size;
+    u64 *hint_id = hints_tail->data + hints_tail->size - 1;
+    while (hint_id >= hints_tail->data)
+        *(hint_ptr++) = *hint_id--;
+    hints->size = hints->size + hints_tail->size;
 
     EMPTY_HINTS;
     hash_set_clear(marked_hints);
@@ -736,6 +742,9 @@ u64 drup_check_get_nb_loaded_clauses() {
 
 int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool internal_lits) {
     assert(nb_lits >= 0);
+
+    // If a conflict was already derived, checking is done
+    if (unsat_found) return 0;
 
     // mark unsat as found
     if (nb_lits == 0) {
