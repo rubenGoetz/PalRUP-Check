@@ -8,6 +8,11 @@
 #define TYPED(THING) int_ ## THING
 #endif
 
+// Make vectors potentially prefetchable
+#ifndef PREFETCH_OFFSET
+#define PREFETCH_OFFSET 0
+#endif
+
 struct TYPED(vec) {
     u64 capacity;
     u64 size;

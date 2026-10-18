@@ -25,8 +25,16 @@
 #undef TYPED
 #undef TYPE
 
+#define TYPE u64
+#define TYPED(THING) u64_##THING
+#include "vec.h"
+#undef TYPED
+#undef TYPE
+
 #define TYPE watcher
 #define TYPED(THING) watcher_##THING
+#undef PREFETCH_OFFSET
+#define PREFETCH_OFFSET 2
 #include "vec.h"
 #undef TYPED
 #undef TYPE
@@ -37,12 +45,6 @@
 #define UPDATE_HINT_PREFIX
 
 #ifdef DRUP_TO_LRUP_CONVERSION
-
-#define TYPE u64
-#define TYPED(THING) u64_##THING
-#include "vec.h"
-#undef TYPED
-#undef TYPE
 
 #include "hashset.h"
 #include "hash.h"
@@ -525,6 +527,8 @@ int drup_check_propagate() {
         watcher* w = v->data;
         watcher* end = v->data + v->size;
         while (w != end) {
+            // TODO: check on superMUC
+            __builtin_prefetch(db.lits + (w + PREFETCH_OFFSET)->c.ptr);
             int nb_lits = w->nb_lits;
             assert(nb_lits > 1);    // there are no unit watches
 

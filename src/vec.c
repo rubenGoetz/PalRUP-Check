@@ -7,7 +7,7 @@ struct TYPED(vec)* TYPED(vec_init)(u64 capacity) {
     struct TYPED(vec)* vector = palrup_utils_malloc(sizeof(struct TYPED(vec)));
     vector->size = 0;
     vector->capacity = capacity;
-    vector->data = palrup_utils_calloc(capacity, sizeof(TYPE));
+    vector->data = palrup_utils_calloc(capacity + PREFETCH_OFFSET, sizeof(TYPE));
     return vector;
 }
 
@@ -18,7 +18,7 @@ void TYPED(vec_free)(struct TYPED(vec)* vec) {
 
 void TYPED(vec_reserve)(struct TYPED(vec)* vec, u64 new_cap) {
     if (new_cap > vec->capacity) {
-        vec->data = (TYPE*) palrup_utils_realloc(vec->data, new_cap * sizeof(TYPE));
+        vec->data = (TYPE*) palrup_utils_realloc(vec->data, (new_cap * sizeof(TYPE)) + PREFETCH_OFFSET);
         vec->capacity = new_cap;
     }
     //if (vec->size > new_cap) vec->size = new_cap; // shrink // <- this can only cause to trigger unnecessary reallocs later
