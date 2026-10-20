@@ -400,6 +400,10 @@ static void process_hints(int nb_lits) {
 
         if (hint->nb_lits == 1) {
             u64_vec_push(hints, hint->id);
+            if (hash_set_find(marked_hints, NEG(lit) + 1)){
+                hints_tail->size = 0;
+                break;  // early conflict found
+            }
             hash_set_insert(marked_hints, lit + 1);
 
             dfs_stack->size--;
@@ -425,6 +429,10 @@ static void process_hints(int nb_lits) {
             if (done) {
                 // all children are already in hints
                 u64_vec_push(hints, hint->id);
+                if (hash_set_find(marked_hints, NEG(lit) + 1)) {
+                    hints_tail->size = 0;
+                    break;  // early conflict found
+                }
                 hash_set_insert(marked_hints, lit + 1);
                 hint->hint_lit = 0;
 
@@ -448,6 +456,10 @@ static void process_hints(int nb_lits) {
             if (done) {
                 // all children are already in hints
                 u64_vec_push(hints, hint->id);
+                if (hash_set_find(marked_hints, NEG(lit) + 1)){
+                    hints_tail->size = 0;
+                    break;  // early conflict found
+                }
                 hash_set_insert(marked_hints, lit + 1);
                 hint->hint_lit = 0;
 
