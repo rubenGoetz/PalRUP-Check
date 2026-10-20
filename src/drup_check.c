@@ -31,10 +31,11 @@
 #undef TYPED
 #undef TYPE
 
-#define TYPE watcher
-#define TYPED(THING) watcher_##THING
 #undef PREFETCH_OFFSET
 #define PREFETCH_OFFSET 2
+
+#define TYPE watcher
+#define TYPED(THING) watcher_##THING
 #include "vec.h"
 #undef TYPED
 #undef TYPE
@@ -647,7 +648,7 @@ void drup_check_init(int nb_vars) {
         // init vectors manualy to save indirection introduced by vec_init
         struct watcher_vec * const vec = &(occurences[i]);
         vec->size = 0;
-        vec->capacity = 4;
+        vec->capacity = 4 + PREFETCH_OFFSET;
         vec->data = palrup_utils_calloc(vec->capacity, sizeof(watcher));
     }
 

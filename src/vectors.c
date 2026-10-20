@@ -39,6 +39,9 @@
 #undef TYPED
 #undef TYPE
 
+#undef PREFETCH_OFFSET
+#define PREFETCH_OFFSET 2
+
 #define TYPE watcher
 #define TYPED(THING) watcher_##THING
 #include "vec.c"
