@@ -1,5 +1,6 @@
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "../src/utils/palrup_utils.h"
 #include "../src/clause_flat.h"
@@ -21,7 +22,7 @@
 #undef TYPE
 
 // TODO: make runtime option
-#define USE_RUP true
+bool drup = false;
 
 char* PATH_IN;
 char* PATH_OUT;
@@ -30,15 +31,20 @@ struct file_reader* reader;
 struct int_vec* lits_buffer;
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
+    if (argc == 2) {
+        // INIT
+        PATH_IN = argv[1];
+        PATH_OUT = palrup_utils_malloc(1024 * sizeof(char));
+        snprintf(PATH_OUT, 1024, "%s.txt", PATH_IN);
+        printf("* Set outpath to %s\n", PATH_OUT);
+    } else if (argc == 3) {
+        PATH_IN = argv[1];
+        PATH_OUT = argv[2];
+    } else {
         printf("* [ERROR] Need arguments <path_in> and <path_out>. ABORT.\n");
         abort();
     }
     
-    // INIT
-    PATH_IN = argv[1];
-    PATH_OUT = argv[2];
-
     // open files
     FILE* input = fopen(PATH_IN, "rb");
     FILE* output = fopen(PATH_OUT, "w");
@@ -51,6 +57,12 @@ int main(int argc, char *argv[]) {
     if (!output) {
         printf("* [ERROR] Could not open output file at %s. ABORT.\n", PATH_OUT);
     }
+
+    // check for format drup
+    size_t in_length = strlen(PATH_IN);
+    size_t suffix_len = strlen(DRUP_FRAGMENT_NAME);
+    drup = !memcmp(PATH_IN + in_length - suffix_len, DRUP_FRAGMENT_NAME, strlen(DRUP_FRAGMENT_NAME));
+    printf("* recognized %s format\n", drup ? DRUP_FORMAT : LRUP_FORMAT);
 
     lits_buffer = int_vec_init(1);
     siphash_init(SECRET_KEY);
@@ -89,7 +101,7 @@ int main(int argc, char *argv[]) {
             }
             siphash_update((u8*)lits_buffer->data, nb_lits * sizeof(int));
 
-            if (!USE_RUP) {
+            if (!drup) {
                 // parse hints
                 int nb_hints = 0;
                 while (true) {
@@ -123,7 +135,7 @@ int main(int argc, char *argv[]) {
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
             fprintf(output, "%c", c);
 
-            if (!USE_RUP) {
+            if (!drup) {
                 // parse hints
                 int nb_hints = 0;
                 while (true) {

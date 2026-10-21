@@ -30,10 +30,12 @@ typedef u8 signature[SIG_SIZE_BYTES];
 // Checker constants
 #define EMPTY_ID (u64)-1
 
-// Filenames
+// Format Names
+#define LRUP_FORMAT "PalRUP"
+#define DRUP_FORMAT "blind-PalRUP"
 
+// Filenames
 #define LRUP_FRAGMENT_NAME "out.palrup"
-#define DRUP_FRAGMENT_NAME "out.padrup"
 #define DRUP_FRAGMENT_NAME "out.padrup"
 #define PROXY_FILE_NAME "out.palrup_proxy"
 #define IMPORT_FILE_NAME "out.palrup_import"
