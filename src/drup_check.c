@@ -214,9 +214,6 @@ static inline void delete_clause_from_db(struct clause_db* db, const unsigned of
     assert(offset < offset + nb_lits);
     memset(db->lits + offset, -1U, nb_lits * sizeof(unsigned));    // mark unused space with -1U
     db->earliest_delete = MIN(db->earliest_delete, offset);
-    // TODO: try some "empty factor" instead of fixed number of deletions
-    //if (++db->delete_count >= 10000) // TODO: tune parameter and make option?
-    //    compress_db(db);
     db->lits_deleted += nb_lits;
     if (db->lits_deleted > (db->lits_size / 2))
         compress_db(db);

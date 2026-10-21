@@ -5,8 +5,6 @@ PalRUP-Check is a standalone proof checker for the [**PalRUP** (Parallel LRUP) f
 
 A PalRUP proof consists of $n$ *proof fragments* that are usually created by $n$ solver threads of a clause sharing solver.
 
-<!-- TODO: link paper when published -->
-
 # Setup
 
 To build PalRUP-Check, run `bash scripts/setup/build` or execute the following code manually:

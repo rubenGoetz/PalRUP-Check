@@ -1,7 +1,7 @@
 
 ##
 ## Generate plots for SAT'26 Paper "A Natively Parallel Proof Framework for Clause-Sharing SAT Solving"
-## Data can be found at: TODO
+## Data available at: https://github.com/rubenGoetz/SAT26_experimental_data
 ##
 
 import pandas as pd
