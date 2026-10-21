@@ -12,21 +12,22 @@ struct options {
     u64 pal_id;
     u64 read_buffer_size;   // defaults to 4096 KiB
     u64 redist_strat;       // defaults to 3
-    bool drup;              // defaults to false
-    #ifdef DRUP_TO_LRUP_CONVERSION
-    int convert_to_lrup;    // defaults to 0. 1 to convert and log imports, 2 to not log imports and only convert
-    #endif
 
     // partially needed
     char* formula_path;
     char* palrup_path;
     bool palrup_binary;     // defaults to true
     u64 write_buffer_size;  // defaults to 4096 KiB
+    bool drup;              // defaults to false
 
     // local_checker
     u64 merge_buffer_size;  // defaults to 4096 KiB
     u64 q_size;             // defaults to 2 * 4096 KiB
     float q_alpha;          // defaults to .5
+    bool poll_unsat;        // defaults to true
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    int convert_to_lrup;    // defaults to 0. 1 to convert and log imports, 2 to not log imports and only convert
+    #endif
 };
 
 struct options* options_init();

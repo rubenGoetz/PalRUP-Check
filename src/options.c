@@ -14,21 +14,22 @@ struct options* options_init() {
     options->pal_id = 0;
     options->read_buffer_size = 4096 * 1024;
     options->redist_strat = 3;
-    options->drup = false;
-    #ifdef DRUP_TO_LRUP_CONVERSION
-    options->convert_to_lrup = 0;
-    #endif
 
     // partially needed
     options->formula_path = 0;
     options->palrup_path = 0;
     options->palrup_binary = true;
     options->write_buffer_size = 4096 * 1024;
+    options->drup = false;
     
     // local_checker
     options->merge_buffer_size = 4096 * 1024;
     options->q_size = 2 * 4096 * 1024;
     options->q_alpha = .5;
+    options->poll_unsat = true;
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    options->convert_to_lrup = 0;
+    #endif
 
     return options;
 }
@@ -123,16 +124,6 @@ void options_print(struct options* options) {
         add_str(op_list, &str_cap, " -redist-strat=");
         add_u64(op_list, &str_cap, options->redist_strat);
     }
-    if (options->drup) {
-        add_str(op_list, &str_cap, " -drup=");
-        add_u64(op_list, &str_cap, options->drup);
-    }
-    #ifdef DRUP_TO_LRUP_CONVERSION
-    if (options->convert_to_lrup) {
-        add_str(op_list, &str_cap, " -convert-to-lrup=");
-        add_u64(op_list, &str_cap, options->convert_to_lrup);
-    }
-    #endif
 
     if (options->formula_path) {
         add_str(op_list, &str_cap, " -formula-path=");
@@ -150,6 +141,10 @@ void options_print(struct options* options) {
         add_str(op_list, &str_cap, " -write-buffer-size=");
         add_u64(op_list, &str_cap, options->write_buffer_size);
     }
+    if (options->drup) {
+        add_str(op_list, &str_cap, " -drup=");
+        add_u64(op_list, &str_cap, options->drup);
+    }
 
     if (options->merge_buffer_size) {
         add_str(op_list, &str_cap, " -merge-buffer-size=");
@@ -163,6 +158,16 @@ void options_print(struct options* options) {
         add_str(op_list, &str_cap, " -q-alpha=");
         add_float(op_list, &str_cap, options->q_alpha);
     }
+    if (options->poll_unsat) {
+        add_str(op_list, &str_cap, " -poll-unsat=");
+        add_u64(op_list, &str_cap, options->poll_unsat);
+    }
+    #ifdef DRUP_TO_LRUP_CONVERSION
+    if (options->convert_to_lrup) {
+        add_str(op_list, &str_cap, " -convert-to-lrup=");
+        add_u64(op_list, &str_cap, options->convert_to_lrup);
+    }
+    #endif
 
     palrup_utils_log(op_list);
 }

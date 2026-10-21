@@ -523,7 +523,7 @@ void local_checker_init(struct options* options) {
     #endif
 
     // setup poll timer if necessary
-    if (lc_drup) {
+    if (lc_drup && options->poll_unsat) {
         poll = false;
 
         // create signal action
