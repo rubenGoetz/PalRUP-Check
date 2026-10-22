@@ -263,7 +263,6 @@ static void update_hint_prefix() {
 
     EMPTY_HINTS;
 }
-
 static void process_hints(int nb_lits) {
     if (detailed_hints->size < 1) return;
 
@@ -848,7 +847,7 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
 
     int effective_size = 0;
     unsigned unassigned_lit;
-    for(unsigned* ilit = ilits; ilit < ilits + nb_lits; ilit++)
+    for (unsigned* ilit = ilits; ilit < ilits + nb_lits; ilit++)
         if (assignment[*ilit] != NEG_VAL) {
             effective_size++;
             unassigned_lit = *ilit;
@@ -859,6 +858,15 @@ int drup_check_add_axiomatic_clause(u64 id, const int* lits, int nb_lits, bool i
         #endif
         PUSH_HINT(w);
         PROPAGATE_UNIT(unassigned_lit);
+    } else if (effective_size == 0) {
+        LOG("Early conflict found at clause %lu for lit %u", id, ilits[0]);
+        #ifdef DRUP_TO_LRUP_CONVERSION
+        w.hint_lit = ilits[0];
+        PUSH_HINT(w);
+        #endif
+        unsat_found = 2;
+        drup_check_empty_id = id;
+        return 0;
     }
 
     return 0;
