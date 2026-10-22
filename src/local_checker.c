@@ -378,9 +378,7 @@ static void parse_drup() {
     u64 id = 0;
     #ifdef DRUP_TO_LRUP_CONVERSION
     u64 nb_loaded_clauses = drup_top_check_get_nb_loaded_clauses();
-    u64 last_produced_id = nb_loaded_clauses - (nb_loaded_clauses % lc_num_solvers) + lc_pal_id;
-    assert(last_produced_id % lc_num_solvers == lc_pal_id);
-    assert(last_produced_id + lc_num_solvers > nb_loaded_clauses);
+    u64 largest_id = nb_loaded_clauses;
     #endif
     while (true) {
         poll_unsat();
@@ -406,7 +404,7 @@ static void parse_drup() {
             lc_stats.nb_produced++;
 
             #ifdef DRUP_TO_LRUP_CONVERSION
-            last_produced_id = id;
+            largest_id = MAX(largest_id, id);
             #endif
 
             WRITE_HINTS;
@@ -425,6 +423,10 @@ static void parse_drup() {
             clause_ptr c = create_flat_clause(id, buf_lits->size, buf_lits->data);
             LOG_IMPORT(c);
 
+            #ifdef DRUP_TO_LRUP_CONVERSION
+            largest_id = MAX(largest_id, id);
+            #endif
+
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
             parse_lits();
             if (!drup_top_check_delete(buf_lits->data, buf_lits->size))
@@ -441,7 +443,11 @@ static void parse_drup() {
             // Earlier conflict than last clause in file was found.
             // End conversion here with artificial empty clause.
             #ifdef DRUP_TO_LRUP_CONVERSION
-            u64 next_id = last_produced_id + lc_num_solvers;  // next possible id
+            // TODO: largest id, to make sure there are no hints > id
+            u64 next_id = largest_id - (largest_id % lc_num_solvers) + lc_num_solvers + lc_pal_id;  // some possible id
+            assert(next_id % lc_num_solvers == lc_pal_id);
+            assert(next_id > largest_id);
+    
             WRITE_CHAR('a');
             WRITE_SL(next_id);
             WRITE_INT(0);
