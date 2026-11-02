@@ -307,7 +307,14 @@ static void process_hints(int nb_lits) {
         assert(w < detailed_hints->data + detailed_hints->size);
 
         switch (w->nb_lits) {
-            case 1: break;
+            case 1:
+                ;
+                unsigned neg_lit = NEG(w->blocking_lit);
+                if (!hash_set_find(marked_hints, neg_lit + 1)) {
+                    unsigned_vec_push(dfs_stack, neg_lit);
+                    derived_unit_hints[neg_lit].hint_lit = 1;
+                }
+                break;
             case 2:
                 ;
                 unsigned neg_c_lit = NEG(w->c.lit);
@@ -340,7 +347,7 @@ static void process_hints(int nb_lits) {
             switch (w->nb_lits) {
                 case 1:     // unit clause
                     ;
-                    unsigned neg_lit = NEG(w->hint_lit);
+                    unsigned neg_lit = NEG(w->blocking_lit);
                     if (hash_set_find(marked_hints, neg_lit + 1)) break;
                     derived_unit_hints[neg_lit].hint_lit = 1;  // mark hint
                     unsigned_vec_push(dfs_stack, neg_lit);
@@ -536,8 +543,8 @@ int drup_check_propagate() {
         watcher* w = v->data;
         watcher* end = v->data + v->size;
         while (w != end) {
-            // TODO: check on superMUC
-            __builtin_prefetch(db.lits + (w + PREFETCH_OFFSET)->c.ptr);
+            // not portable :(
+            //__builtin_prefetch(db.lits + (w + PREFETCH_OFFSET)->c.ptr);
             int nb_lits = w->nb_lits;
             assert(nb_lits > 1);    // there are no unit watches
 
@@ -1017,6 +1024,11 @@ u64 drup_check_empty_clause_id() {
 }
 void drup_check_generate_empty_clause_hints() {
     #ifdef DRUP_TO_LRUP_CONVERSION
+    assert(detailed_hints->size);
+    if (detailed_hints->data[detailed_hints->size - 1].id == 0) {
+        assert(detailed_hints->size == 2);
+        detailed_hints->data[detailed_hints->size - 1] = detailed_hints->data[0];
+    }
     process_hints(0);
     #endif
 }
