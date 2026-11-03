@@ -122,6 +122,7 @@ u64 lc_num_solvers;
 u64 lc_pal_id;
 u64 lc_max_derived_id = 0;
 u64 lc_unsat_id = (u64)-1;
+u64 lc_empty_id = 0;
 bool lc_drup;
 bool palrup_binary;
 char fragment_path[512];
@@ -284,9 +285,12 @@ static inline void poll_unsat() {
 
 static void parse_lrup() {
     u64 id;
+    u64 last_produced_id = 0;
     while (true) {
         char c = file_reader_read_vbl_char(proof);
-        if (file_reader_eof_reached(proof)) {
+        if (file_reader_eof_reached(proof) | (last_produced_id >= lc_unsat_id)) {
+            if (id > lc_unsat_id)
+                LOG("Halt check for IDs > empty clause: %lu", lc_unsat_id);
             finish_parse();
             break;
 
@@ -294,6 +298,7 @@ static void parse_lrup() {
             u64_vec_resize(buf_hints, 0);
             
             id = (u64)file_reader_read_vbl_sl(proof);
+            last_produced_id = id;
             siphash_cls_update(clause_hash, (u8*)&id, sizeof(u64));
 
             check_id(id, true);
@@ -329,20 +334,22 @@ static void parse_lrup() {
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
             id = (u64)file_reader_read_vbl_sl(proof);
-            check_id(id, false);
-            parse_lits();
+            if (id < lc_unsat_id) {    // skip clauses that can not be necessary to derive empty clause
+                check_id(id, false);
+                parse_lits();
 
-            // forward to checker
-            buf_lits->size = checker_utils_remove_duplicates(buf_lits->data, buf_lits->size);
-            lrat_check_add_axiomatic_clause(id, buf_lits->data, buf_lits->size);
-            lc_stats.nb_imported++;
+                // forward to checker
+                buf_lits->size = checker_utils_remove_duplicates(buf_lits->data, buf_lits->size);
+                lrat_check_add_axiomatic_clause(id, buf_lits->data, buf_lits->size);
+                lc_stats.nb_imported++;
 
-            // hold to see if clause will be used
-            clause_ptr c = create_flat_clause(id, buf_lits->size, buf_lits->data);
-            if (!hash_table_insert(import_table, id, c)) {
-                LOG_ERR("Could not insert clause of id %lu into hash table", id);
-                fflush(stdout);
-                abort();
+                // hold to see if clause will be used
+                clause_ptr c = create_flat_clause(id, buf_lits->size, buf_lits->data);
+                if (!hash_table_insert(import_table, id, c)) {
+                    LOG_ERR("Could not insert clause of id %lu into hash table", id);
+                    fflush(stdout);
+                    abort();
+                }
             }
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
@@ -376,6 +383,7 @@ static void parse_lrup() {
 
 static void parse_drup() {
     u64 id = 0;
+    u64 last_produced_id = 0;
     #ifdef DRUP_TO_LRUP_CONVERSION
     u64 nb_loaded_clauses = drup_top_check_get_nb_loaded_clauses();
     u64 largest_id = nb_loaded_clauses;
@@ -383,7 +391,7 @@ static void parse_drup() {
     while (true) {
         poll_unsat();
         char c = file_reader_read_vbl_char(proof);
-        if (file_reader_eof_reached(proof) | (id > lc_unsat_id)) {
+        if (file_reader_eof_reached(proof) | (last_produced_id >= lc_unsat_id)) {
             if (id > lc_unsat_id)
                 LOG("Halt check for IDs > empty clause: %lu", lc_unsat_id);
             finish_parse();
@@ -391,6 +399,7 @@ static void parse_drup() {
 
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
             id = (u64)file_reader_read_vbl_sl(proof);
+            last_produced_id = id;
             siphash_cls_update(clause_hash, (u8*)&id, sizeof(u64));
             check_id(id, true);
             parse_lits();
@@ -411,21 +420,23 @@ static void parse_drup() {
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
             id = (u64)file_reader_read_vbl_sl(proof);
-            check_id(id, false);
-            parse_lits();
+            if (id < lc_unsat_id) {    // skip clauses that can not be necessary to derive empty clause
+                check_id(id, false);
+                parse_lits();
 
-            WRITE_IMPORT;
+                WRITE_IMPORT;
 
-            // forward to checker
-            drup_top_check_import(id, buf_lits->data, buf_lits->size);
-            lc_stats.nb_imported++;
+                // forward to checker
+                drup_top_check_import(id, buf_lits->data, buf_lits->size);
+                lc_stats.nb_imported++;
 
-            clause_ptr c = create_flat_clause(id, buf_lits->size, buf_lits->data);
-            LOG_IMPORT(c);
+                clause_ptr c = create_flat_clause(id, buf_lits->size, buf_lits->data);
+                LOG_IMPORT(c);
 
-            #ifdef DRUP_TO_LRUP_CONVERSION
-            largest_id = MAX(largest_id, id);
-            #endif
+                #ifdef DRUP_TO_LRUP_CONVERSION
+                largest_id = MAX(largest_id, id);
+                #endif
+            }
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
             parse_lits();
@@ -444,12 +455,12 @@ static void parse_drup() {
             // End conversion here with artificial empty clause.
             #ifdef DRUP_TO_LRUP_CONVERSION
             // TODO: largest id, to make sure there are no hints > id
-            u64 next_id = largest_id - (largest_id % lc_num_solvers) + lc_num_solvers + lc_pal_id;  // some possible id
-            assert(next_id % lc_num_solvers == lc_pal_id);
-            assert(next_id > largest_id);
+            lc_empty_id = largest_id - (largest_id % lc_num_solvers) + lc_num_solvers + lc_pal_id;  // some possible id
+            assert(lc_empty_id % lc_num_solvers == lc_pal_id);
+            assert(lc_empty_id > largest_id);
     
             WRITE_CHAR('a');
-            WRITE_SL(next_id);
+            WRITE_SL(lc_empty_id);
             WRITE_INT(0);
             #endif
             drup_top_check_generate_empty_clause_hints();
@@ -474,6 +485,7 @@ void local_checker_init(struct options* options) {
     palrup_binary = options->palrup_binary;
     lc_stats = local_checker_stats_init;
     lc_unsat_id = (u64)-1;
+    lc_empty_id = 0;
     clause_hash = siphash_cls_init(SECRET_KEY);
     unsigned int dir_hierarchy = options->pal_id / palrup_utils_calc_root_ceil(lc_num_solvers);
     snprintf(fragment_path, 512, "%s/%u/%lu/%s",
@@ -565,16 +577,17 @@ int local_checker_run() {
     lc_drup ? parse_drup() : parse_lrup();
     
     if (lc_drup ? drup_top_check_unsat_found() : lrat_top_check_validate_unsat(NULL)) {
-        u64 empty_id = lc_drup ? drup_top_check_empty_clause_id() : lrat_top_check_empty_clause_id();
-        assert(empty_id);
-        LOG("Found empty clause of ID %lu", empty_id);
+        if (!lc_empty_id)
+            lc_empty_id = lc_drup ? drup_top_check_empty_clause_id() : lrat_top_check_empty_clause_id();
+        assert(lc_empty_id);
+        LOG("Found empty clause of ID %lu", lc_empty_id);
         if (mkdir(unsat_folder, 0777))
             LOG_WARN("Could not create dir %s", unsat_folder);  // dir might already have been created by another pal
 
         FILE* details = fopen(unsat_details, "ab");
         if (details) {
             // TODO: document this
-            palrup_utils_write_ul(empty_id, details);
+            palrup_utils_write_ul(lc_empty_id, details);
             fclose(details);
         } else LOG_ERR("Could not open file %s", unsat_details);
     }
@@ -610,6 +623,7 @@ void local_checker_end() {
     siphash_cls_free(clause_hash);
     hash_table_free(import_table);
     lc_unsat_id = (u64)-1;
+    lc_empty_id = 0;
     poll = false;
     if (lc_drup) timer_delete(lc_timer);
     _initialized = false;

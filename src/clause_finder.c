@@ -272,7 +272,13 @@ void clause_finder_init(struct options* options) {
     snprintf(unsat_details, 533, "%s/.unsat_found/details", options->working_path);
     FILE* details = fopen(unsat_details, "rb");
     if(details) {
-        cf_empty_clause_id = palrup_utils_read_ul(details);
+        // get lowest empty clause id
+        u64 read_id = -1UL;
+        while (!feof(details)) {
+            if (!fread(&read_id, sizeof(u64), 1, details))
+                break;
+            cf_empty_clause_id = MIN(cf_empty_clause_id, read_id);
+        }
         LOG("Received empty clause ID %lu", cf_empty_clause_id);
     } else
         LOG_WARN("Could not read unsat details at %s", unsat_details);
