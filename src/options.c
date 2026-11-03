@@ -78,6 +78,7 @@ void options_buffer_sizes_to_bytes(struct options* options) {
 }
 
 static void add_str(char* dest, size_t* dest_cap, const char* src) {
+    if (!src) return;
     // double length of dest if necessary
     if (strlen(dest) + strlen(src) > *dest_cap) {
         *dest_cap = *dest_cap * 2;
@@ -104,69 +105,51 @@ void options_print(struct options* options) {
     char op_list[str_cap];
     snprintf(op_list, str_cap, "Option list:");
     
-    if (options->working_path) {
-        add_str(op_list, &str_cap, " -working-path=");
-        add_str(op_list, &str_cap, options->working_path);
-    }
-    if (options->num_solvers) {
-        add_str(op_list, &str_cap, " -num-solvers=");
-        add_u64(op_list, &str_cap, options->num_solvers);
-    }
-    if (options->pal_id) {
-        add_str(op_list, &str_cap, " -pal-id=");
-        add_u64(op_list, &str_cap, options->pal_id);
-    }
-    if (options->read_buffer_size) {
-        add_str(op_list, &str_cap, " -read-buffer-size=");
-        add_u64(op_list, &str_cap, options->read_buffer_size);
-    }
-    if (options->redist_strat) {
-        add_str(op_list, &str_cap, " -redist-strat=");
-        add_u64(op_list, &str_cap, options->redist_strat);
-    }
+    add_str(op_list, &str_cap, " -working-path=");
+    add_str(op_list, &str_cap, options->working_path);
 
-    if (options->formula_path) {
-        add_str(op_list, &str_cap, " -formula-path=");
-        add_str(op_list, &str_cap, options->formula_path);
-    }
-    if (options->palrup_path) {
-        add_str(op_list, &str_cap, " -palrup-path=");
-        add_str(op_list, &str_cap, options->palrup_path);
-    }
-    if (options->palrup_binary) {
-        add_str(op_list, &str_cap, " -palrup-binary=");
-        add_u64(op_list, &str_cap, options->palrup_binary);
-    }
-    if (options->write_buffer_size) {
-        add_str(op_list, &str_cap, " -write-buffer-size=");
-        add_u64(op_list, &str_cap, options->write_buffer_size);
-    }
-    if (options->drup) {
-        add_str(op_list, &str_cap, " -drup=");
-        add_u64(op_list, &str_cap, options->drup);
-    }
+    add_str(op_list, &str_cap, " -num-solvers=");
+    add_u64(op_list, &str_cap, options->num_solvers);
 
-    if (options->merge_buffer_size) {
-        add_str(op_list, &str_cap, " -merge-buffer-size=");
-        add_u64(op_list, &str_cap, options->merge_buffer_size);
-    }
-    if (options->q_size) {
-        add_str(op_list, &str_cap, " -q-size=");
-        add_u64(op_list, &str_cap, options->q_size);
-    }
-    if (options->q_alpha) {
-        add_str(op_list, &str_cap, " -q-alpha=");
-        add_float(op_list, &str_cap, options->q_alpha);
-    }
-    if (options->poll_unsat) {
-        add_str(op_list, &str_cap, " -poll-unsat=");
-        add_u64(op_list, &str_cap, options->poll_unsat);
-    }
+    add_str(op_list, &str_cap, " -pal-id=");
+    add_u64(op_list, &str_cap, options->pal_id);
+
+    add_str(op_list, &str_cap, " -read-buffer-size=");
+    add_u64(op_list, &str_cap, options->read_buffer_size);
+
+    add_str(op_list, &str_cap, " -redist-strat=");
+    add_u64(op_list, &str_cap, options->redist_strat);
+
+    add_str(op_list, &str_cap, " -formula-path=");
+    add_str(op_list, &str_cap, options->formula_path);
+
+    add_str(op_list, &str_cap, " -palrup-path=");
+    add_str(op_list, &str_cap, options->palrup_path);
+
+    add_str(op_list, &str_cap, " -palrup-binary=");
+    add_u64(op_list, &str_cap, options->palrup_binary);
+
+    add_str(op_list, &str_cap, " -write-buffer-size=");
+    add_u64(op_list, &str_cap, options->write_buffer_size);
+
+    add_str(op_list, &str_cap, " -drup=");
+    add_u64(op_list, &str_cap, options->drup);
+
+    add_str(op_list, &str_cap, " -merge-buffer-size=");
+    add_u64(op_list, &str_cap, options->merge_buffer_size);
+
+    add_str(op_list, &str_cap, " -q-size=");
+    add_u64(op_list, &str_cap, options->q_size);
+
+    add_str(op_list, &str_cap, " -q-alpha=");
+    add_float(op_list, &str_cap, options->q_alpha);
+
+    add_str(op_list, &str_cap, " -poll-unsat=");
+    add_u64(op_list, &str_cap, options->poll_unsat);
+
     #ifdef DRUP_TO_LRUP_CONVERSION
-    if (options->convert_to_lrup) {
-        add_str(op_list, &str_cap, " -convert-to-lrup=");
-        add_u64(op_list, &str_cap, options->convert_to_lrup);
-    }
+    add_str(op_list, &str_cap, " -convert-to-lrup=");
+    add_u64(op_list, &str_cap, options->convert_to_lrup);
     #endif
 
     palrup_utils_log(op_list);
