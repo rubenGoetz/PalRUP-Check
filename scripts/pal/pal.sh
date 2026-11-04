@@ -104,6 +104,27 @@ check_timeout() {
         print_glob_time
         echo "TIMEOUT in pal $id/$comm_size with message: \"$1\""
         echo "TIMEOUT" &>> "$log"
+    fi
+    if [[ -d "$working_path/.error" ]]; then
+        print_glob_time
+        echo "ERROR detected" &>> "$log"
+        exit 1
+    fi
+}
+
+check_short_timeout() {
+    curr_time=$(date +%s.%N)
+    if (( $( echo "($curr_time - $glob_start) > 10" | bc ) )); then
+        print_glob_time
+        echo "SHORT TIMEOUT in pal $id/$comm_size with message: \"$1\""
+        echo "SHORT TIMEOUT" &>> "$log"
+        echo "----- INFO DUMP $working_path -----" &>> "$log"
+        echo "$(find $working_path)" &>> "$log"
+        echo "----- END INFO DUMP $working_path -----" &>> "$log"
+        echo "----- INFO DUMP $palrup_path -----" &>> "$log"
+        echo "$(find $palrup_path)" &>> "$log"
+        echo "----- END INFO DUMP $palrup_path -----" &>> "$log"
+        echo "SHORT TIMEOUT" &>> "$log"
         exit 1
     fi
     if [[ -d "$working_path/.error" ]]; then
@@ -189,14 +210,12 @@ if (( $id < $num_solvers )); then
 
     echo "wait until proof is finished.." &>> "$log"
     start=$(date +%s.%N)
-    timeout=3   # proof fragment should already exist, make timeout short to catch errors early
     until [[ $(find -O3 $palrup_path/$dir_hierarchy/$id -name $fragment_file_name -o -name $fragment_file_name.xz -o -name $fragment_file_name.vg 2>/dev/null) ]]; do
-        check_timeout "wait until proof is finished.."
+        check_short_timeout "wait until proof is finished.."
         sleep 0.1;
     done
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
-    timeout=$TIMEOUT
     echo "FP_WC_WAIT_TIME=$elapsed" &>> "$log"
 
     fragment_path="$palrup_path/$dir_hierarchy/$id/$fragment_file_name"
