@@ -86,19 +86,20 @@ for instance in instances:
                 for pal in pals:
                     executor.submit(parse_pal, pal, pal_data)
 
-            data_per_job[job][RUNTIME_LOCAL_CHECK].append(sum(pal_data[RUNTIME_LOCAL_CHECK]) / len(pals))
-            data_per_job[job][RUNTIME_REDISTRIBUTE].append(sum(pal_data[RUNTIME_REDISTRIBUTE]) / len(pals))
-            data_per_job[job][RUNTIME_CONFIRM].append(sum(pal_data[RUNTIME_CONFIRM]) / len(pals))
+            data_per_job[job][RUNTIME_LOCAL_CHECK].append(max(pal_data[RUNTIME_LOCAL_CHECK]) if len(pal_data[RUNTIME_LOCAL_CHECK]) else 0)
+            data_per_job[job][RUNTIME_REDISTRIBUTE].append(max(pal_data[RUNTIME_REDISTRIBUTE]) if len(pal_data[RUNTIME_REDISTRIBUTE]) else 0)
+            data_per_job[job][RUNTIME_CONFIRM].append(max(pal_data[RUNTIME_CONFIRM]) if len(pal_data[RUNTIME_CONFIRM]) else 0)
                     
             data_per_job[job][SIZE_PALRUP].append(sum(pal_data[SIZE_PALRUP]))
             data_per_job[job][SIZE_PROXY].append(sum(pal_data[SIZE_PROXY]))
             data_per_job[job][SIZE_IMPORT].append(sum(pal_data[SIZE_IMPORT]))
                     
-            data_per_job[job][WAITTIME_LOCAL_CHECK].append(sum(pal_data[WAITTIME_LOCAL_CHECK]) / len(pals))
-            data_per_job[job][WAITTIME_REDISTRIBUTE].append(sum(pal_data[WAITTIME_REDISTRIBUTE]) / len(pals))
-            data_per_job[job][WAITTIME_CONFIRM].append(sum(pal_data[WAITTIME_CONFIRM]) / len(pals))
+            data_per_job[job][WAITTIME_LOCAL_CHECK].append(max(pal_data[WAITTIME_LOCAL_CHECK]) if len(pal_data[WAITTIME_LOCAL_CHECK]) else 0)
+            data_per_job[job][WAITTIME_REDISTRIBUTE].append(max(pal_data[WAITTIME_REDISTRIBUTE]) if len(pal_data[WAITTIME_REDISTRIBUTE]) else 0)
+            data_per_job[job][WAITTIME_CONFIRM].append(max(pal_data[WAITTIME_CONFIRM]) if len(pal_data[WAITTIME_CONFIRM]) else 0)
 
 
+df_solving.to_csv(f"{logs_path}/qresults-solve.csv", index=False)
 for job in data_per_job:
     df = pd.DataFrame(data_per_job[job])
     df = df.merge(df_solving, on=INSTANCE_ID)

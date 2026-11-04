@@ -48,6 +48,7 @@ LP_WC_WAIT_TIME = 'LP_WC_WAIT_TIME=([0-9]*.[0-9]+)'
 READ_PALRUP_SIZE = 'READ_PALRUP_SIZE=([0-9]+)'
 WRITTEN_PROXY_SIZE = 'WRITTEN_PROXY_SIZE=([0-9]+)'
 WRITTEN_IMPORT_SIZE = 'WRITTEN_IMPORT_SIZE=([0-9]+)'
+SIGTERM = 'SIGTERM'
 
 def get_names(logs_path):
     instances = next(os.walk(logs_path))[1]
@@ -176,7 +177,7 @@ def get_validation_time(log_path):
 
     runtime_val = None
     if os.path.exists(log_path):
-        log = open(log_path).read()
+        log = open(log_path, errors='ignore').read()
         res = re.search(VAL_WC_TIME, log)
         if res:
             runtime_val = float(res[1])
@@ -210,6 +211,12 @@ def get_single_success_palrup(log_path):
     if os.path.exists(f"{log_path}/success.palrup"):
         return True
     if os.path.exists(f"{log_path}/failure.palrup"):
+        return False
+    palrup_outs = glob.glob(f"{log_path}/*/palrup.out")
+    logs = ''
+    for palrup_out in palrup_outs:
+        logs += open(palrup_out).read()
+    if re.search(SIGTERM, logs):
         return False
     return None
 
