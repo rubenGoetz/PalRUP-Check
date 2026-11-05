@@ -119,10 +119,10 @@ check_short_timeout() {
         echo "SHORT TIMEOUT in pal $id/$comm_size with message: \"$1\""
         echo "SHORT TIMEOUT" &>> "$log"
         echo "----- INFO DUMP $working_path -----" &>> "$log"
-        echo "$(find $working_path)" &>> "$log"
+        echo "$(ls -l -R $working_path)" &>> "$log"
         echo "----- END INFO DUMP $working_path -----" &>> "$log"
         echo "----- INFO DUMP $palrup_path -----" &>> "$log"
-        echo "$(find $palrup_path)" &>> "$log"
+        echo "$(ls -l -R $palrup_path)" &>> "$log"
         echo "----- END INFO DUMP $palrup_path -----" &>> "$log"
         echo "SHORT TIMEOUT" &>> "$log"
         exit 1
