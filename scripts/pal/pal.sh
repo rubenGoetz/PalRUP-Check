@@ -113,8 +113,10 @@ check_timeout() {
 }
 
 check_short_timeout() {
+    start=$glob_start
+    if [[ $2 ]]; then start=$2; fi
     curr_time=$(date +%s.%N)
-    if (( $( echo "($curr_time - $glob_start) > 10" | bc ) )); then
+    if (( $( echo "($curr_time - $start) > 10" | bc ) )); then
         print_glob_time
         echo "SHORT TIMEOUT in pal $id/$comm_size with message: \"$1\""
         echo "SHORT TIMEOUT" &>> "$log"
@@ -211,7 +213,7 @@ if (( $id < $num_solvers )); then
     echo "wait until proof is finished.." &>> "$log"
     start=$(date +%s.%N)
     until [[ $(find -O3 $palrup_path/$dir_hierarchy/$id -name $fragment_file_name -o -name $fragment_file_name.xz -o -name $fragment_file_name.vg 2>/dev/null) ]]; do
-        check_short_timeout "wait until proof is finished.."
+        check_short_timeout "wait until proof is finished.." $start
         sleep 0.1;
     done
     end=$(date +%s.%N)
