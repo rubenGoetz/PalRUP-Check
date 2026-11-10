@@ -40,16 +40,16 @@ def plot_square(df,
         plt.savefig(filename, bbox_inches='tight')
 
 def plot_CDF(dfs, labels,
-                          column_to_plot='runtime_solve',
-                          figsize=[5.5, 2.75],
-                          line_styles=['-', '--'],
-                          colors=['tab:blue', 'tab:blue', 'tab:orange', 'tab:orange'],
-                          xlim=None,
-                          ylim=None,
-                          show=False,
-                          legend_spacing=0,
-                          square=True,
-                          filename=None):
+             column_to_plot='runtime_solve',
+             figsize=[5.5, 2.75],
+             line_styles=['-', '--'],
+             colors=['tab:blue', 'tab:blue', 'tab:orange', 'tab:orange'],
+             xlim=None,
+             ylim=None,
+             show=False,
+             legend_spacing=0,
+             square=True,
+             filename=None):
     if len(dfs) != len(labels):
         raise ValueError("dfs and labels need to be of same length")
     line_style = itertools.cycle(line_styles)
