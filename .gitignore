@@ -6,3 +6,7 @@ working
 *.txt
 *.pdf
 __pycache__
+*.ipynb
+proofs/
+benchmark_*
+formulas
