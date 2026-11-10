@@ -49,6 +49,7 @@ READ_PALRUP_SIZE = 'READ_PALRUP_SIZE=([0-9]+)'
 WRITTEN_PROXY_SIZE = 'WRITTEN_PROXY_SIZE=([0-9]+)'
 WRITTEN_IMPORT_SIZE = 'WRITTEN_IMPORT_SIZE=([0-9]+)'
 SIGTERM = 'SIGTERM'
+PROOF_VALIDATED = 'PROOF_VALIDATED'
 
 def get_names(logs_path):
     instances = next(os.walk(logs_path))[1]
@@ -218,6 +219,8 @@ def get_single_success_palrup(log_path):
         logs += open(palrup_out).read()
     if re.search(SIGTERM, logs):
         return False
+    if re.search(PROOF_VALIDATED, logs):
+        return True
     return None
 
 def get_avg_itemized_checking_times(logs_path):
