@@ -285,7 +285,6 @@ if [[ $global_id == 0 ]]; then
     echo "check for validity" &>> "$log"
     if [[ -d "$proof_working/.unsat_found" && -d "$proof_working/0/0/.valid" ]]; then
         success_file_name="success.palrup"
-        if [[ $use_drup -eq 1 ]]; then success_file_name="success.palrup"; fi
         echo "PROOF VALIDATED" > "$log_dir/$success_file_name"
         echo "PROOF_VALIDATED" &>> "$log"
     fi
