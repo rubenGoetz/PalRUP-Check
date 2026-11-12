@@ -12,7 +12,7 @@ set(CMAKE_C_FLAGS "-Wall -Wextra -Werror -pedantic-errors -flto -flto -lm")
 include(FetchContent)
 FetchContent_Declare(BriefKAsten
   GIT_REPOSITORY https://github.com/niklas-uhl/BriefKAsten
-  GIT_TAG v0.2.1
+  GIT_TAG v0.3.0
 )
 FetchContent_Declare(robin-map
   GIT_REPOSITORY https://github.com/Tessil/robin-map

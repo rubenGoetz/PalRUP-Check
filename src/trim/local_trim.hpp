@@ -44,14 +44,15 @@ class ProofTrimmer {
     u64 last_importQ_id;
 
     // Encode false as negative. (Works, since proof generation is using singed ids)
-    bka::BufferedMessageQueue<
-        u64,
-        u64,
-        std::vector<u64>,
-        std::vector<u64>,
-        bka::aggregation::AppendMerger,
-        bka::aggregation::NoSplitter,
-        bka::aggregation::NoOpCleaner> queue;
+    bka::Config conf;
+    bka::BufferedMessageQueue<u64,
+                              u64,
+                              std::vector<u64>,
+                              std::vector<u64>,
+                              bka::aggregation::AppendMerger,
+                              bka::aggregation::NoSplitter,
+                              bka::aggregation::NoOpCleaner,
+                              bka::PersistentReceiver> queue;
 
     // TODO: cont. gathering stats
     struct local_trim_stats {

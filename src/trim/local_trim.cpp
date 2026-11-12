@@ -22,12 +22,11 @@ vector<string> ProofTrimmer::calc_input_paths() {
 }
 
 ProofTrimmer::ProofTrimmer(std::string proof_path, std::string working_path, u64 input_buffer_cap, u64 write_buffer_size) :
-    queue(briefkasten::IndirectionAdapter {
-            briefkasten::BufferedMessageQueueBuilder<u64>()
-                .with_merger(briefkasten::aggregation::AppendMerger{})
-                .with_splitter(briefkasten::aggregation::NoSplitter{})
-                .build(),
-            briefkasten::GridIndirectionScheme{MPI_COMM_WORLD}}),
+    queue(bka::BufferedMessageQueueBuilder<u64>(conf)
+            .with_merger(bka::aggregation::AppendMerger())
+            .with_splitter(bka::aggregation::NoSplitter())
+            .with_buffer_cleaner(bka::aggregation::NoOpCleaner())
+            .build()),
     working_path(working_path),
     delete_line(std::vector<u8>(16, 0)),
     write_buffer_cap(write_buffer_size),
@@ -68,11 +67,9 @@ static int encode_vbl(void* data, u64 x) {
     unsigned long tmp = x < 0 ? -x : x;
     tmp = (2 * tmp) + (x < 0);
     while (tmp & (~127UL)) {    // while more than 7 bits remain
-        //fputc((char)(tmp & 127UL) | 128, tracer->proof_fragment);
         *(write_ptr++) = (char)(tmp & 127UL) | 128;
         tmp >>= 7;
     }
-    //fputc((char)tmp, tracer->proof_fragment);
     *(write_ptr++) = (char)tmp;
     return (int)(write_ptr - (char*)data);
 }
@@ -136,7 +133,7 @@ void ProofTrimmer::trim() {
 
             } case TRUSTED_CHK_CLS_PRODUCE: {
                 id = back_file_reader_decode_sl(proof_fragment, line_idx+1);
-                if (id <= last_importQ_id)
+                while (id <= last_importQ_id)
                     mark_next_import();
 
                 auto mark = marked_clauses.find(id);
@@ -261,7 +258,10 @@ void ProofTrimmer::mark_next_import() {
     auto&& next = importQ.next();
     u64 id = next.first;
     int count = next.second;
-    if (!id) return;
+    if (!id) {
+        last_importQ_id = 0;
+        return;
+    }
 
     auto mark = marked_clauses.find(id);
     if (mark == marked_clauses.end()) {
@@ -321,11 +321,20 @@ void ProofTrimmer::reverse_outfile() {
     // (re)open file streams unbuffered
     fclose(out_file);
     out_file = fopen((fragment_path + ".trim~").c_str(), "rb+");
+    assert(out_file);
     setvbuf(out_file, NULL, _IONBF, 0);
     fseek(out_file, 0, SEEK_END);
     FILE* out_file_rev = fopen((fragment_path + ".trim~").c_str(), "rb+");
+    assert(out_file_rev);
     setvbuf(out_file_rev, NULL, _IONBF, 0);
     std::vector<u8> write_buffer_rev(write_buffer_cap);
+
+    write_buffer.resize(write_buffer_cap);
+    write_buffer_rev.resize(write_buffer_cap);
+    assert(write_buffer.capacity() >= write_buffer_cap);
+    assert(write_buffer.size() == write_buffer_cap);
+    assert(write_buffer_rev.capacity() >= write_buffer_cap);
+    assert(write_buffer_rev.size() == write_buffer_cap);
 
     u64 file_size = ftell(out_file);
     u64 reads = (file_size / 2) / write_buffer_cap;
