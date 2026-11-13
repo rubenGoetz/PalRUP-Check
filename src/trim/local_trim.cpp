@@ -76,7 +76,7 @@ static int encode_vbl(void* data, u64 x) {
 
 void ProofTrimmer::trim() {
     // Handle incoming messages
-    auto on_message = [&](auto envelope){
+    auto on_message = [&](auto envelope) {
         stats.messages_received++;
         for (auto it = envelope.message.begin(); it != envelope.message.end(); it++) {
             if (*it >> 63) {    // clasue was not used
@@ -112,6 +112,7 @@ void ProofTrimmer::trim() {
 
             case TRUSTED_CHK_CLS_IMPORT: {
                 id = back_file_reader_decode_sl(proof_fragment, line_idx+1);
+                assert(id);
                 auto mark = marked_clauses.find(id);
                 if (mark != marked_clauses.end()) {
                     stats.kept_imp_lines++;
@@ -133,6 +134,7 @@ void ProofTrimmer::trim() {
 
             } case TRUSTED_CHK_CLS_PRODUCE: {
                 id = back_file_reader_decode_sl(proof_fragment, line_idx+1);
+                assert(id);
                 while (id <= last_importQ_id)
                     mark_next_import();
 
@@ -231,7 +233,12 @@ void ProofTrimmer::trim() {
         }   // switch
 
         // finish line
-        back_file_reader_skip_to_idx(proof_fragment, line_idx ? line_idx - 1 : 0);
+        if (line_idx)
+            back_file_reader_skip_to_idx(proof_fragment, line_idx - 1);
+        else {
+            back_file_reader_skip_to_idx(proof_fragment, 0);
+            proof_fragment->buffer->size = 0;
+        }
     }
 
     // keep contributing to communication
