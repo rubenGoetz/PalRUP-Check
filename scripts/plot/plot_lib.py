@@ -106,6 +106,7 @@ def plot_tight_square(dfs,
                       figsize=[5.5, 2.75],
                       legend_spacing=0,
                       axis_limit=300,
+                      legend_outside=True,
                       show=False,
                       filename=None):
     if len(dfs) != len(labels):
@@ -150,7 +151,9 @@ def plot_tight_square(dfs,
     plt.title(title)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), labelspacing=legend_spacing)
+    if legend_outside:
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), labelspacing=legend_spacing)
+    else: plt.legend(labelspacing=legend_spacing)
     plt.grid()
     if filename:
         plt.savefig(filename, bbox_inches='tight')
