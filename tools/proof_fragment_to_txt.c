@@ -121,12 +121,10 @@ int main(int argc, char *argv[]) {
             fprintf(output, "%c %lu", c, id);
             
             // parse lits
-            int nb_lits = 0;
             while (true) {
                 int lit = file_reader_read_vbl_int(reader);
                 fprintf(output, " %i", lit);
                 if (!lit) break;
-                nb_lits++;
             }
 
             fprintf(output, "\n");
@@ -147,12 +145,10 @@ int main(int argc, char *argv[]) {
                 nb_deleted += nb_hints;
             } else {
                 // parse lits
-                int nb_lits = 0;
                 while (true) {
                     int lit = file_reader_read_vbl_int(reader);
                     fprintf(output, " %i", lit);
                     if (!lit) break;
-                    nb_lits++;
                 }
                 nb_deleted++;
             }
