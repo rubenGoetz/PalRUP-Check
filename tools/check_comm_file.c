@@ -46,6 +46,7 @@ int main(int argc, char *argv[]) {
         comm_sig_update_clause(expected_sig, id, lits_buffer->data, nb_lits);
         clause_count++;
     }
+    printf("* clause count: %ld\n", clause_count);
 
     printf("* read signature..\n");
     palrup_utils_read_sig(read_sig, file);

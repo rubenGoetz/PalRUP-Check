@@ -90,13 +90,11 @@ int main(int argc, char *argv[]) {
             siphash_update((u8*)lits_buffer->data, nb_lits * sizeof(int));
 
             // parse hints
-            int nb_hints = 0;
             while (true) {
                 u64 hint = (u64)file_reader_read_vbl_sl(reader);
                 fprintf(output, " %lu", hint);
                 if (!hint) break;
                 u64_vec_push(hints_buffer, hint);
-                nb_hints++;
             }
 
             fprintf(output, "\n");
@@ -109,15 +107,12 @@ int main(int argc, char *argv[]) {
             fprintf(output, "%c %lu", c, id);
             
             // parse lits
-            int nb_lits = 0;
             while (true) {
                 int lit = file_reader_read_vbl_int(reader);
                 fprintf(output, " %i", lit);
                 if (!lit) break;
                 int_vec_push(lits_buffer, lit);
-                nb_lits++;
             }
-
             fprintf(output, "\n");
             nb_imported++;
 
