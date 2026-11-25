@@ -174,6 +174,13 @@ add_executable(proof_fragment_to_txt
                src/vectors.c
                tools/proof_fragment_to_txt.c)
 
+add_executable(add_line_breaks
+               src/utils/palrup_utils.c
+               src/siphash.c
+               src/secret.c
+               tools/add_line_breaks.c)
+
+
 # Tests
 include(CTest)
 add_library(test_utils

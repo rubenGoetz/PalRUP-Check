@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <assert.h>
 
 #include "clause_finder.h"
 #include "utils/checker_utils.h"
@@ -98,6 +99,11 @@ void parse() {
                 if (!hint) break;
             }
 
+            // End lines with 00 to make format backwards readable.
+            // First zero was already parsed with hints.
+            char zero = file_reader_read_char(proof_reader);
+            assert(zero == 0);
+
             // next line
             if (id < current_ID)
                 continue;
@@ -129,15 +135,26 @@ void parse() {
                 if (!lit) break;
             }
 
+            // End lines with 00 to make format backwards readable.
+            // First zero was already parsed with hints.
+            char zero = file_reader_read_char(proof_reader);
+            assert(zero == 0);
+
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
             // skip hints
             while (true) {
                 u64 hint = (u64)file_reader_read_vbl_sl(proof_reader);
                 if (!hint) break;
             }
-            
+
+            // End lines with 00 to make format backwards readable.
+            // First zero was already parsed with hints.
+            char zero = file_reader_read_char(proof_reader);
+            assert(zero == 0);
+
+
         } else {
-            palrup_utils_log_err("Invalid directive!");
+            LOG_ERR("Invalid directive %i!", c);
             abort();
         }
     }

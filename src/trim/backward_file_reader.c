@@ -213,75 +213,40 @@ u64 back_file_reader_get_start_line_idx(struct back_file_reader* bfr) {
         back_file_reader_fill(bfr);
 
     // TODO: Mark lineendings with 00. The current format is not generally backward readable
-    
+    // 00 marks line ending. Assert, that reader starts at the end of the current line.
     assert(data[bfr->read_idx] == 0);
-    long idx = bfr->read_idx;
-    long save_point = idx;
-    bool found_short_line = false;
-    bool finished_hints = false;
-    while (true) {
+    assert(data[bfr->read_idx - 1] == 0);
+
+    long idx = bfr->read_idx - 1;
+    while (data[--idx]) {       // skip line until next 0
         if (idx < 0) {
             long offset = back_file_reader_fill(bfr);
             idx += offset;
-            save_point += offset;
+            assert((u64)idx < bfr->buffer->capacity);
             if (idx < 0) {
-                snprintf(palrup_utils_msgstr, MSG_LEN, "Could not find beginning of line");
-                palrup_utils_log_err(palrup_utils_msgstr);
-                abort();
+                assert(back_file_reader_eof(bfr));
+                return 0;   // actual beginning of file
             }
         }
-        assert(idx >= 0);
-        assert(idx < (long)bfr->buffer->size);
-        switch (data[idx--]) {
-        case 0:
-            if (found_short_line)   // 0 marks hints in an 'a' line
-                return save_point;
-            finished_hints = true;
-            continue;
-        case TRUSTED_CHK_CLS_DELETE:
-        case TRUSTED_CHK_CLS_IMPORT:
-            if (idx < 0) {
-                long offset = back_file_reader_fill(bfr);
-                idx += offset;
-                save_point += offset;
-                if (idx < 0) {
-                    assert(back_file_reader_eof(bfr));
-                    return 0;   // actual beginning of file
-                }
-            }
-            if (data[idx] != 0)
-                continue;
-
-            // might be only the hints of an 'a' line
-            if (!found_short_line) {
-                save_point = idx + 1;
-                found_short_line = true;
-            } else
-                return save_point;
-            continue;
-        case TRUSTED_CHK_CLS_PRODUCE:
-            if (idx < 0) {
-                long offset = back_file_reader_fill(bfr);
-                idx += offset;
-                save_point += offset;
-                if (idx < 0) {
-                    assert(back_file_reader_eof(bfr));
-                    return 0;   // actual beginning of file
-                }
-            }
-            if (data[idx] == 0) {
-                if (found_short_line | finished_hints)   // found beginning of line
-                    return idx + 1;
-                else finished_hints = true;
-            }
-            continue;
-        default:
-            continue;
-        }
-        break;
     }
-    assert(false);
-    return 0; // should never be reached
+
+    if (!data[idx - 1])     // 00 found -> beginning of line
+        return idx + 1;
+    
+    while (data[--idx]) {       // skip line until next 0
+        if (idx < 0) {
+            long offset = back_file_reader_fill(bfr);
+            idx += offset;
+            assert((u64)idx < bfr->buffer->capacity);
+            if (idx < 0) {
+                assert(back_file_reader_eof(bfr));
+                return 0;   // actual beginning of file
+            }
+        }
+    }
+
+    assert(!data[idx - 1]);
+    return idx + 1;
 }
 
 // skip n bytes, skip to file end if not enough bytes remain

@@ -163,7 +163,7 @@ void ImportExtractor::run() {
                 if (!hint)
                     break;
             }
-            continue;
+            break;
         
         case TRUSTED_CHK_CLS_IMPORT:
             stats.nb_imported++;
@@ -171,7 +171,7 @@ void ImportExtractor::run() {
             while (true)    // skip lits
                 if (!file_reader_read_vbl_int(proof_fragment))
                     break;
-            continue;
+            break;
 
         case TRUSTED_CHK_CLS_PRODUCE:
             stats.nb_produced++;
@@ -188,13 +188,16 @@ void ImportExtractor::run() {
                 if (!file_reader_read_vbl_sl(proof_fragment))
                     break;
             }
-            continue;
+            break;
 
         default:
             snprintf(palrup_utils_msgstr, MSG_LEN, "Unknown directive %c", c);
             palrup_utils_log_err(palrup_utils_msgstr);
             abort();
         }
+
+        char zero = file_reader_read_char(proof_fragment);
+        assert(zero == 0);
     }
 }
 

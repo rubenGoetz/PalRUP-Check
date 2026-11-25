@@ -174,7 +174,8 @@ void ProofTrimmer::trim() {
                         proof_fragment->read_idx = hint_idx;
 
                         // mark hints
-                        back_file_reader_vbl_sl(proof_fragment);   // skip 0
+                        back_file_reader_vbl_sl(proof_fragment);   // skip 00
+                        back_file_reader_vbl_sl(proof_fragment);
                         while (true) {
                             u64 hint = back_file_reader_vbl_sl(proof_fragment);
                             if (hint == 0)
@@ -210,8 +211,9 @@ void ProofTrimmer::trim() {
                 u64 hint_idx = proof_fragment->read_idx;
 
                 // mark hints
-                back_file_reader_vbl_sl(proof_fragment);   // skip 0
-                delete_line.resize(1);  // first byte should always be 0
+                back_file_reader_vbl_sl(proof_fragment);   // skip 00
+                back_file_reader_vbl_sl(proof_fragment);
+                delete_line.resize(2);  // first bytes should always be 00
                 while (true) {
                     u64 hint = back_file_reader_vbl_sl(proof_fragment);
                     if (hint == 0)

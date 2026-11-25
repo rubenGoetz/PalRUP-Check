@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <assert.h>
 
 #include "local_checker.h"
 #include "file_reader.h"
@@ -257,6 +258,11 @@ static void parse() {
             palrup_utils_log_err(errlog);
             exit(1);
         }
+
+        // End lines with 00 to make format backwards readable.
+        // First zero was already parsed with hints.
+        char zero = file_reader_read_char(proof);
+        assert(zero == 0);
 
         if (UNLIKELY(!top_check_valid())) {    
             palrup_utils_log_err(palrup_utils_msgstr);

@@ -1,5 +1,6 @@
 
 #include <stdlib.h>
+#include <assert.h>
 
 #include "../src/utils/palrup_utils.h"
 #include "../src/clause_flat.h"
@@ -104,7 +105,6 @@ int main(int argc, char *argv[]) {
                 nb_hints++;
             }
 
-            fprintf(output, "\n");
             nb_produced++;
 
         } else if (c == TRUSTED_CHK_CLS_IMPORT) {
@@ -123,7 +123,6 @@ int main(int argc, char *argv[]) {
                 nb_lits++;
             }
 
-            fprintf(output, "\n");
             nb_imported++;
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
@@ -140,13 +139,17 @@ int main(int argc, char *argv[]) {
                 nb_hints++;
             }
 
-            fprintf(output, "\n");
             nb_deleted += nb_hints;
 
         } else {
             printf("* [ERROR] Invalid directive %d\n", c);
             break;
         }
+        
+        char zero = file_reader_read_char(reader);
+        assert(zero == 0);
+        fprintf(output, "0\n");
+
     }
 
     file_reader_end(reader);
