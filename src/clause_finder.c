@@ -152,7 +152,8 @@ static void parse_drup() {
     u64 id = 0;
     while (true) {
         char c = file_reader_read_vbl_char(proof_reader);
-        if (file_reader_eof_reached(proof_reader) | (cf_parsed_lines == cf_last_line)) {
+        // TODO: should this not be part of the lrup parsing as well?
+        if (file_reader_eof_reached(proof_reader) | (cf_parsed_lines >= cf_last_line)) {
             finish_parse(true);
             break;
 

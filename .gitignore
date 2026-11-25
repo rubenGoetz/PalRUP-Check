@@ -12,3 +12,5 @@ benchmark_*
 formulas
 *.csv
 *.gz
+trim_*/
+error/

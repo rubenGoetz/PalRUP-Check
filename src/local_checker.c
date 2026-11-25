@@ -299,7 +299,7 @@ static void parse_lrup() {
             
             id = (u64)file_reader_read_vbl_sl(proof);
             last_produced_id = id;
-            if (last_produced_id >= lc_unsat_id)    // parsing is done
+            if (last_produced_id > lc_unsat_id)    // parsing is done
                 continue;
             siphash_cls_update(clause_hash, (u8*)&id, sizeof(u64));
 
@@ -404,7 +404,7 @@ static void parse_drup() {
         } else if (c == TRUSTED_CHK_CLS_PRODUCE) {
             id = (u64)file_reader_read_vbl_sl(proof);
             last_produced_id = id;
-            if (last_produced_id >= lc_unsat_id)    // parsing is done
+            if (last_produced_id > lc_unsat_id)    // parsing is done
                 continue;
             
             siphash_cls_update(clause_hash, (u8*)&id, sizeof(u64));

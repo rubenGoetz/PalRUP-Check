@@ -104,6 +104,7 @@ check_timeout() {
         print_glob_time
         echo "TIMEOUT in pal $id/$comm_size with message: \"$1\""
         echo "TIMEOUT" &>> "$log"
+        exit 1
     fi
     if [[ -d "$working_path/.error" ]]; then
         print_glob_time
