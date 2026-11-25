@@ -12,19 +12,19 @@ struct options* options_init() {
     options->working_path = 0;
     options->num_solvers = 0;
     options->pal_id = 0;
-    options->read_buffer_size = 4096 * 1024;
+    options->read_buffer_size = 4096;
     options->redist_strat = 3;
 
     // partially needed
     options->formula_path = 0;
     options->palrup_path = 0;
     options->palrup_binary = true;
-    options->write_buffer_size = 4096 * 1024;
+    options->write_buffer_size = 4096;
     options->drup = false;
     
     // local_checker
-    options->merge_buffer_size = 4096 * 1024;
-    options->q_size = 2 * 4096 * 1024;
+    options->merge_buffer_size = 4096;
+    options->q_size = 2 * 4096;
     options->q_alpha = .5;
     options->poll_unsat = true;
     #ifdef DRUP_TO_LRUP_CONVERSION

@@ -125,6 +125,7 @@ u64 lc_unsat_id = (u64)-1;
 u64 lc_empty_id = 0;
 bool lc_drup;
 bool palrup_binary;
+bool formula_parsed = false;
 char fragment_path[512];
 char working_path[512];
 char unsat_folder[525];
@@ -494,6 +495,7 @@ void local_checker_init(struct options* options) {
     lc_stats = local_checker_stats_init;
     lc_unsat_id = (u64)-1;
     lc_empty_id = 0;
+    formula_parsed = false;
     clause_hash = siphash_cls_init(SECRET_KEY);
     unsigned int dir_hierarchy = options->pal_id / palrup_utils_calc_root_ceil(lc_num_solvers);
     snprintf(fragment_path, 512, "%s/%u/%lu/%s",
@@ -536,14 +538,18 @@ void local_checker_init(struct options* options) {
     }
     proof = file_reader_init(options->read_buffer_size, proof_fragment, options->pal_id);
 
-    FILE* formula;
-    formula = fopen(options->formula_path, "rb");
-    if (!formula) {
-        snprintf(palrup_utils_msgstr, MSG_LEN, "Formula could not be opened at %s", options->formula_path);
-        palrup_utils_log_err(palrup_utils_msgstr);
-    }        
-    lc_drup ? load_formula_drup(formula) : load_formula_lrat(formula);
-    fclose(formula);
+    if (!file_reader_peek_eof(proof)) {
+        FILE* formula;
+        formula = fopen(options->formula_path, "rb");
+        if (!formula) {
+            snprintf(palrup_utils_msgstr, MSG_LEN, "Formula could not be opened at %s", options->formula_path);
+            palrup_utils_log_err(palrup_utils_msgstr);
+        }
+        lc_drup ? load_formula_drup(formula) : load_formula_lrat(formula);
+        fclose(formula);
+        formula_parsed = true;
+    } else
+        LOG_WARN("Proof fragment is empty. Skip parsing of formula.");
 
     #ifdef DRUP_TO_LRUP_CONVERSION
         if (convert_to_lrup < 2)    // only init import_handler if we actually log imports
@@ -630,7 +636,8 @@ void local_checker_end() {
     int_vec_free(buf_lits);
     u64_vec_free(buf_hints);
     file_reader_end(proof);
-    lc_drup ? drup_top_check_end() : lrat_top_check_end();
+    if (formula_parsed)
+        lc_drup ? drup_top_check_end() : lrat_top_check_end();
     siphash_cls_free(clause_hash);
     hash_table_free(import_table);
     lc_unsat_id = (u64)-1;

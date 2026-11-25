@@ -22,6 +22,11 @@ void file_reader_end(file_reader* reader) {
 bool file_reader_eof_reached(file_reader* reader) {
     return feof(reader->file);
 }
+bool file_reader_peek_eof(file_reader* reader) {
+    char c = fgetc(reader->file);
+    ungetc(c, reader->file);
+    return file_reader_eof_reached(reader);
+}
 
 char file_reader_read_vbl_char(file_reader* reader) {
     return UNLOCKED_IO(fgetc)(reader->file);
