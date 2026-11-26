@@ -14,6 +14,10 @@ void run_trim(std::string palrup_path, std::string working_path) {
 int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
 
+    options_init();
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, (int*)&(options.pal_id));
+
     // TODO: implement options
 
     // DEBUG Barrier
