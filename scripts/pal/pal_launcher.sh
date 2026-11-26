@@ -66,9 +66,9 @@ for arg in "$@"; do
             log_dir="${arg#*=}" ;;
         -timeout=*)
             timeout="${arg#*=}" ;;
-        -use-local-discs=*)
+        -use-local-disks=*)
             # set to true if proof is written on distributed local disks
-            use_local_discs="${arg#*=}" ;;
+            use_local_disks="${arg#*=}" ;;
         -execution-dir=*)
             working_dir="${arg#*=}" ;;
 
