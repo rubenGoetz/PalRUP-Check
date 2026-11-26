@@ -21,7 +21,9 @@ for formula in formulas/debug/*; do
     elapsed=$( echo "$end - $start" | bc )
     echo -n "$elapsed," >> "$log_runtime"
     if [[ ! $(grep "s VALIDATED" "$log_dir/precheck_$formula_name") ]]; then
-        echo "    * ERROR in precheck. Skip instance."
+        echo "ERROR"
+        echo "    * Skip instance."
+        echo -n "," >> "$log_runtime"
         continue
     fi
     echo "DONE"
@@ -48,9 +50,10 @@ for formula in formulas/debug/*; do
     scripts/run/simple_palrup_check.sh "$formula" "$proof_dir_trim" 0 > "$log_dir/postcheck_$formula_name"
     end=$(date +%s.%N)
     elapsed=$( echo "$end - $start" | bc )
-    echo -n "$elapsed," >> "$log_runtime"
+    echo -n "$elapsed" >> "$log_runtime"
     if [[ ! $(grep "s VALIDATED" "$log_dir/postcheck_$formula_name") ]]; then
-        echo "    * ERROR in postcheck. ABORT."
+        echo "ERROR"
+        echo "    * ABORT"
         exit 1
     fi
     echo "DONE"
