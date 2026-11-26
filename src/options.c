@@ -5,31 +5,32 @@
 #include "options.h"
 #include "utils/palrup_utils.h"
 
-struct options* options_init() {
-    struct options* options = palrup_utils_malloc(sizeof(struct options));
+struct options options;
+
+void options_init() {
+    //struct options* options = palrup_utils_malloc(sizeof(struct options));
+    options.initialized = true;
     
     // universally needed
-    options->working_path = 0;
-    options->num_solvers = 0;
-    options->pal_id = 0;
-    options->read_buffer_size = 4096 * 1024;
-    options->redist_strat = 3;
+    options.working_path = 0;
+    options.num_solvers = 0;
+    options.pal_id = 0;
+    options.read_buffer_size = 4096 * 1024;
+    options.redist_strat = 3;
 
     // partially needed
-    options->formula_path = 0;
-    options->palrup_path = 0;
-    options->palrup_binary = true;
-    options->write_buffer_size = 4096 * 1024;
+    options.formula_path = 0;
+    options.palrup_path = 0;
+    options.palrup_binary = true;
+    options.write_buffer_size = 4096 * 1024;
     
     // local_checker
-    options->merge_buffer_size = 4096 * 1024;
-    options->q_size = 2 * 4096 * 1024;
-    options->q_alpha = .5;
+    options.merge_buffer_size = 4096 * 1024;
+    options.q_size = 2 * 4096 * 1024;
+    options.q_alpha = .5;
 
     // local_trim
-    options->use_checker_comm_files = false;
-
-    return options;
+    options.use_checker_comm_files = false;
 }
 
 static bool begins_with(const char* str, const char* prefix) {
@@ -40,9 +41,6 @@ static bool begins_with(const char* str, const char* prefix) {
         if (str[i] != prefix[i]) return false;
         i++;
     }
-}
-void options_free(struct options* options) {
-    free(options);
 }
 
 void options_try_match_arg(char* arg, char* opt, char** out) {
@@ -64,11 +62,11 @@ void options_try_match_flag(const char* arg, const char* opt, bool* out) {
     if (begins_with(arg, opt)) *out = true;
 }
 
-void options_buffer_sizes_to_bytes(struct options* options) {
-    options->read_buffer_size *= 1024;
-    options->write_buffer_size *= 1024;
-    options->merge_buffer_size *= 1024;
-    options->q_size *= 1024;
+void options_buffer_sizes_to_bytes() {
+    options.read_buffer_size *= 1024;
+    options.write_buffer_size *= 1024;
+    options.merge_buffer_size *= 1024;
+    options.q_size *= 1024;
 }
 
 static void add_str(char* dest, size_t* dest_cap, const char* src) {
@@ -93,65 +91,65 @@ static void add_float(char* dest, size_t* dest_cap, float src) {
     add_str(dest, dest_cap, buff);
 }
 
-void options_print(struct options* options) {
+void options_print() {
     size_t str_cap = 512;
     char op_list[str_cap];
     snprintf(op_list, str_cap, "Option list:");
     
-    if (options->working_path) {
+    if (options.working_path) {
         add_str(op_list, &str_cap, " -working-path=");
-        add_str(op_list, &str_cap, options->working_path);
+        add_str(op_list, &str_cap, options.working_path);
     }
-    if (options->num_solvers) {
+    if (options.num_solvers) {
         add_str(op_list, &str_cap, " -num-solvers=");
-        add_u64(op_list, &str_cap, options->num_solvers);
+        add_u64(op_list, &str_cap, options.num_solvers);
     }
     // pal_id=0 is valid value
-    //if (options->pal_id) {
+    //if (options.pal_id) {
         add_str(op_list, &str_cap, " -pal-id=");
-        add_u64(op_list, &str_cap, options->pal_id);
+        add_u64(op_list, &str_cap, options.pal_id);
     //}
-    if (options->read_buffer_size) {
+    if (options.read_buffer_size) {
         add_str(op_list, &str_cap, " -read-buffer-size=");
-        add_u64(op_list, &str_cap, options->read_buffer_size);
+        add_u64(op_list, &str_cap, options.read_buffer_size);
     }
-    if (options->redist_strat) {
+    if (options.redist_strat) {
         add_str(op_list, &str_cap, " -redist-strat=");
-        add_u64(op_list, &str_cap, options->redist_strat);
+        add_u64(op_list, &str_cap, options.redist_strat);
     }
 
-    if (options->formula_path) {
+    if (options.formula_path) {
         add_str(op_list, &str_cap, " -formula-path=");
-        add_str(op_list, &str_cap, options->formula_path);
+        add_str(op_list, &str_cap, options.formula_path);
     }
-    if (options->palrup_path) {
+    if (options.palrup_path) {
         add_str(op_list, &str_cap, " -palrup-path=");
-        add_str(op_list, &str_cap, options->palrup_path);
+        add_str(op_list, &str_cap, options.palrup_path);
     }
-    if (options->palrup_binary) {
+    if (options.palrup_binary) {
         add_str(op_list, &str_cap, " -palrup-binary=");
-        add_u64(op_list, &str_cap, options->palrup_binary);
+        add_u64(op_list, &str_cap, options.palrup_binary);
     }
-    if (options->write_buffer_size) {
+    if (options.write_buffer_size) {
         add_str(op_list, &str_cap, " -write-buffer-size=");
-        add_u64(op_list, &str_cap, options->write_buffer_size);
+        add_u64(op_list, &str_cap, options.write_buffer_size);
     }
 
-    if (options->merge_buffer_size) {
+    if (options.merge_buffer_size) {
         add_str(op_list, &str_cap, " -merge-buffer-size=");
-        add_u64(op_list, &str_cap, options->merge_buffer_size);
+        add_u64(op_list, &str_cap, options.merge_buffer_size);
     }
-    if (options->q_size) {
+    if (options.q_size) {
         add_str(op_list, &str_cap, " -q-size=");
-        add_u64(op_list, &str_cap, options->q_size);
+        add_u64(op_list, &str_cap, options.q_size);
     }
-    if (options->q_alpha) {
+    if (options.q_alpha) {
         add_str(op_list, &str_cap, " -q-alpha=");
-        add_float(op_list, &str_cap, options->q_alpha);
+        add_float(op_list, &str_cap, options.q_alpha);
     }
-    if (options->use_checker_comm_files) {
+    if (options.use_checker_comm_files) {
         add_str(op_list, &str_cap, " -use-checker-comm-files=");
-        add_u64(op_list, &str_cap, options->use_checker_comm_files);
+        add_u64(op_list, &str_cap, options.use_checker_comm_files);
     }
 
     palrup_utils_log(op_list);

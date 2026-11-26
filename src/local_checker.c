@@ -274,15 +274,16 @@ static void parse() {
     }
 }
 
-void local_checker_init(struct options* options) {
-    lc_num_solvers = options->num_solvers;
-    lc_pal_id = options->pal_id;
-    palrup_binary = options->palrup_binary;
+//void local_checker_init(struct options* options) {
+void local_checker_init() {
+    lc_num_solvers = options.num_solvers;
+    lc_pal_id = options.pal_id;
+    palrup_binary = options.palrup_binary;
     lc_stats = local_checker_stats_init;
     clause_hash = siphash_cls_init(SECRET_KEY);
-    unsigned int dir_hierarchy = options->pal_id / palrup_utils_calc_root_ceil(lc_num_solvers);
-    snprintf(fragment_path, 512, "%s/%u/%lu/out.palrup", options->palrup_path, dir_hierarchy, options->pal_id);
-    snprintf(working_path, 512, "%s", options->working_path);
+    unsigned int dir_hierarchy = options.pal_id / palrup_utils_calc_root_ceil(lc_num_solvers);
+    snprintf(fragment_path, 512, "%s/%u/%lu/out.palrup", options.palrup_path, dir_hierarchy, options.pal_id);
+    snprintf(working_path, 512, "%s", options.working_path);
     lc_stats = local_checker_stats_init;
 
     buf_lits = int_vec_init(1);
@@ -294,19 +295,19 @@ void local_checker_init(struct options* options) {
         snprintf(palrup_utils_msgstr, MSG_LEN, "Proof fragment could not be opened at %s", fragment_path);
         palrup_utils_log_err(palrup_utils_msgstr);
     }
-    proof = file_reader_init(options->read_buffer_size, proof_fragment, options->pal_id);
+    proof = file_reader_init(options.read_buffer_size, proof_fragment, options.pal_id);
 
     FILE* formula;
-    formula = fopen(options->formula_path, "rb");
+    formula = fopen(options.formula_path, "rb");
     if (!formula) {
-        snprintf(palrup_utils_msgstr, MSG_LEN, "Formula could not be opened at %s", options->formula_path);
+        snprintf(palrup_utils_msgstr, MSG_LEN, "Formula could not be opened at %s", options.formula_path);
         palrup_utils_log_err(palrup_utils_msgstr);
     }        
     if (!load_formula(formula))
         exit(0);
     fclose(formula);
 
-    import_handler_init(options);
+    import_handler_init();
 }
 
 int local_checker_run() {

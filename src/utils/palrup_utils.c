@@ -9,13 +9,13 @@
 char palrup_utils_msgstr[MSG_LEN] = "";
 
 void palrup_utils_log(const char* msg) {
-    printf("c [CORE %i] %s\n", getpid(), msg);
+    printf("c [PAL %lu] %s\n", options.pal_id, msg);
 }
 void palrup_utils_log_err(const char* msg) {
-    printf("c [CORE %i] [ERROR] %s\n", getpid(), msg);
+    printf("c [PAL %lu] [ERROR] %s\n", options.pal_id, msg);
 }
 void palrup_utils_log_warn(const char* msg) {
-    printf("c [CORE %i] [WARNING] %s\n", getpid(), msg);
+    printf("c [PAL %lu] [WARNING] %s\n", options.pal_id, msg);
 }
 
 void palrup_utils_exit_eof() {

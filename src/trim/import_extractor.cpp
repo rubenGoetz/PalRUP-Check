@@ -98,11 +98,11 @@ void ImportExtractor::empty_clause_found() {
     }
 }
 
-void ImportExtractor::init_strat_3(struct options* options) {
+void ImportExtractor::init_strat_3() {
     msg_group_size = 1;
     file_max_ids = { 0 };
     Qs = { priority_queue<u64, vector<u64>, std::greater<u64>>() };
-    file_names = { string(options->working_path) + "/"
+    file_names = { string(options.working_path) + "/"
                     + to_string(pal_id / palrup_utils_calc_root_ceil(num_solvers)) + "/"
                     + to_string(pal_id) + "/"
                     + "out.palrup_trim_proxy" };
@@ -114,33 +114,33 @@ void ImportExtractor::init_strat_3(struct options* options) {
     }
 }
 
-ImportExtractor::ImportExtractor(struct options* options) {
-    pal_id = options->pal_id;
-    num_solvers = options->num_solvers;
-    Q_max = options->q_size / 8;
-    Q_alpha = options->q_alpha;
+ImportExtractor::ImportExtractor() {
+    pal_id = options.pal_id;
+    num_solvers = options.num_solvers;
+    Q_max = options.q_size / 8;
+    Q_alpha = options.q_alpha;
 
     // open proof fragment
-    string frag_path = string(options->palrup_path) + "/"
+    string frag_path = string(options.palrup_path) + "/"
                         + to_string(pal_id / palrup_utils_calc_root_ceil(num_solvers)) + "/"
                         + to_string(pal_id) + "/"
                         + "out.palrup";
-    proof_fragment = file_reader_init(options->read_buffer_size,
+    proof_fragment = file_reader_init(options.read_buffer_size,
                                       fopen(frag_path.c_str(), "rb"),
                                       pal_id);
 
     // init flag for if empty clause was found 
-    unsat_folder = string(options->working_path) + "/.unsat_found";
+    unsat_folder = string(options.working_path) + "/.unsat_found";
 
     // init strat specific data structures
-    switch (options->redist_strat) {
+    switch (options.redist_strat) {
     case 1:
     case 2:
     case 3:
-        init_strat_3(options);
+        init_strat_3();
         break;
     default:
-        snprintf(palrup_utils_msgstr, MSG_LEN, "Redistribution strategy %lu not available.", options->redist_strat);
+        snprintf(palrup_utils_msgstr, MSG_LEN, "Redistribution strategy %lu not available.", options.redist_strat);
         palrup_utils_log_err(palrup_utils_msgstr);
         break;
     }

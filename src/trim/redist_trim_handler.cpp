@@ -26,17 +26,17 @@ void TrimRedistributor::init_msg_group() {
     out_files = vector<ofstream>(msg_group_size_out);
 }
 
-void TrimRedistributor::init_strat_3(struct options* options) {
-    msg_group_size_in = palrup_utils_calc_root_ceil(options->num_solvers);
+void TrimRedistributor::init_strat_3() {
+    msg_group_size_in = palrup_utils_calc_root_ceil(options.num_solvers);
     msg_group_size_out = 1;
     init_msg_group();
-    column = options->pal_id % msg_group_size_in;
-    size_t dir_hierarchy = options->pal_id / msg_group_size_in;
+    column = options.pal_id % msg_group_size_in;
+    size_t dir_hierarchy = options.pal_id / msg_group_size_in;
 
     // open out files
-    out_file_names[0] = string(options->working_path) + "/"
+    out_file_names[0] = string(options.working_path) + "/"
                          + to_string(dir_hierarchy) + "/"
-                         + to_string(options->pal_id) + "/"
+                         + to_string(options.pal_id) + "/"
                          + "out.palrup_trim_import";
     out_files[0].open(out_file_names[0] + "~", ios::binary);
     if (!out_files[0]) {
@@ -48,7 +48,7 @@ void TrimRedistributor::init_strat_3(struct options* options) {
     size_t offset = dir_hierarchy * msg_group_size_in;  // row number * pals in row
     for (size_t i = 0; i < msg_group_size_in; i++) {
         // calc input file paths
-        in_file_names[i] = string(options->working_path) + "/"
+        in_file_names[i] = string(options.working_path) + "/"
                             + to_string(dir_hierarchy) + "/"
                             + to_string(offset + i) + "/"
                             + "out.palrup_trim_proxy";
@@ -56,18 +56,18 @@ void TrimRedistributor::init_strat_3(struct options* options) {
     }
 } 
 
-TrimRedistributor::TrimRedistributor(struct options* options) {
-    num_solvers = options->num_solvers;
+TrimRedistributor::TrimRedistributor() {
+    num_solvers = options.num_solvers;
 
-    switch (options->redist_strat) {
+    switch (options.redist_strat) {
     // TODO: implement strat 1 and 2
     case 1:
     case 2:
     case 3:
-        init_strat_3(options);
+        init_strat_3();
         break;
     default:
-        snprintf(palrup_utils_msgstr, MSG_LEN, "Redistribution strategy %lu not available.", options->redist_strat);
+        snprintf(palrup_utils_msgstr, MSG_LEN, "Redistribution strategy %lu not available.", options.redist_strat);
         palrup_utils_log_err(palrup_utils_msgstr);
         break;
     }

@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include "define.h"
+#include "../options.h"
 
 #define MSG_LEN 1024
 

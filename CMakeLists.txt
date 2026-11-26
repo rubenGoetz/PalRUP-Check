@@ -40,6 +40,7 @@ target_link_libraries(import_handler m)
 add_library(local_checker
             src/utils/palrup_utils.c
             src/utils/checker_utils.c
+            src/options.c
             src/local_checker.c
             src/file_reader.c
             src/secret.c
@@ -54,6 +55,7 @@ target_link_libraries(local_checker m import_handler)
 
 add_library(import_merger
             src/utils/palrup_utils.c
+            src/options.c
             src/utils/checker_utils.c
             src/import_merger.c
             src/file_reader.c
@@ -62,6 +64,7 @@ add_library(import_merger
 
 add_library(redist_handler
             src/utils/palrup_utils.c
+            src/options.c
             src/utils/checker_utils.c
             src/redist_handler.c
             src/comm_sig.c
@@ -73,6 +76,7 @@ target_link_libraries(redist_handler m import_merger)
 
 add_library(clause_finder
             src/utils/palrup_utils.c
+            src/options.c
             src/utils/checker_utils.c
             src/clause_finder.c
             src/file_reader.c
@@ -87,13 +91,14 @@ add_library(local_trim
             src/trim/backward_import_merger.cpp
             src/trim/watchdog.cpp
             src/trim/backward_file_reader.c
-            src/utils/palrup_utils.c
+            src/options.c
             src/vectors.c)
 target_link_libraries(local_trim BriefKAsten::BriefKAsten m)
 add_compile_definitions(KASSERT_ASSERTION_LEVEL=30) # silence warnings
 
 add_library(palrup_tracer STATIC
             src/utils/palrup_utils.c
+            src/options.c
             src/hash.c
             src/vectors.c
             src/file_reader.c
@@ -101,6 +106,7 @@ add_library(palrup_tracer STATIC
 
 add_library(palrup_tracer_hpp STATIC
             src/utils/palrup_utils.c
+            src/options.c
             src/hash.c
             src/vectors.c
             src/file_reader.c
@@ -110,13 +116,13 @@ set_target_properties(palrup_tracer_hpp PROPERTIES LINKER_LANGUAGE CXX)
 
 # Executables
 
-add_executable(palrup_local_check src/main_local_check.c src/options.c)
+add_executable(palrup_local_check src/main_local_check.c)
 target_link_libraries(palrup_local_check local_checker)
 
-add_executable(palrup_redistribute src/main_redistribute.c src/options.c)
+add_executable(palrup_redistribute src/main_redistribute.c)
 target_link_libraries(palrup_redistribute redist_handler)
 
-add_executable(palrup_confirm src/main_confirm.c src/options.c)
+add_executable(palrup_confirm src/main_confirm.c)
 target_link_libraries(palrup_confirm clause_finder)
 
 add_executable(palrup_extract_imports
@@ -149,6 +155,7 @@ add_custom_target(copy_scripts ALL
 # Tools
 add_executable(check_comm_file
                src/utils/palrup_utils.c
+               src/options.c
                src/clause_flat.c
                src/comm_sig.c
                src/secret.c
@@ -157,16 +164,19 @@ add_executable(check_comm_file
 
 add_executable(comm_file_to_txt
                src/utils/palrup_utils.c
+               src/options.c
                src/clause_flat.c
                src/vectors.c
                tools/comm_file_to_txt.c)
                
 add_executable(comm_file_trim_to_txt
                src/utils/palrup_utils.c
+               src/options.c
                tools/comm_file_trim_to_txt.c)
 
 add_executable(proof_fragment_to_txt
                src/utils/palrup_utils.c
+               src/options.c
                src/clause_flat.c
                src/siphash.c
                src/secret.c
@@ -176,6 +186,7 @@ add_executable(proof_fragment_to_txt
 
 add_executable(add_line_breaks
                src/utils/palrup_utils.c
+               src/options.c
                src/siphash.c
                src/secret.c
                tools/add_line_breaks.c)
@@ -185,6 +196,7 @@ add_executable(add_line_breaks
 include(CTest)
 add_library(test_utils
             src/utils/palrup_utils.c
+            src/options.c
             src/utils/checker_utils.c
             src/vectors.c
             test/test_utils.c)

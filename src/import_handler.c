@@ -114,17 +114,17 @@ static void init_msg_group() {
 
 // write out file for each pal
 // TODO: fix strat 1
-static void init_strat_1(struct options* options) {
+static void init_strat_1() {
     ih_msg_group_size = ih_num_solvers;
     init_msg_group();
 
     for (size_t i = 0; i < ih_msg_group_size; i++) {
         signatures[i] = comm_sig_init(SECRET_KEY_2);
-        clause_heaps[i] = heap_init(options->q_size);
+        clause_heaps[i] = heap_init(options.q_size);
         file_names[i] = palrup_utils_malloc(1024 * sizeof(char));
         u64 dir_hierarchy = i / palrup_utils_calc_root_ceil(ih_num_solvers);
         snprintf(file_names[i], 1024, "%s/%lu/%lu/%lu.palrup_proxy~",
-                 options->working_path, dir_hierarchy, i, ih_pal_id);
+                 options.working_path, dir_hierarchy, i, ih_pal_id);
         out_files[i] = fopen(file_names[i], "wb+");
 
         if (!(out_files[i])) {
@@ -136,18 +136,18 @@ static void init_strat_1(struct options* options) {
 
 // write out files for each pal in row
 // TODO: fix strat 2
-static void init_strat_2(struct options* options) {
+static void init_strat_2() {
     ih_msg_group_size = palrup_utils_calc_root_ceil(ih_num_solvers);
     init_msg_group();
 
     int dir_hierarchy = ih_pal_id / ih_msg_group_size;
     for (size_t i = 0; i < ih_msg_group_size; i++) {
         signatures[i] = comm_sig_init(SECRET_KEY_2);
-        clause_heaps[i] = heap_init(options->q_size);
+        clause_heaps[i] = heap_init(options.q_size);
         file_names[i] = palrup_utils_malloc(1024 * sizeof(char));
         u64 target_pal_id = (dir_hierarchy * ih_msg_group_size) + i;
         snprintf(file_names[i], 1024, "%s/%i/%lu/%lu.palrup_proxy~",
-                 options->working_path, dir_hierarchy, target_pal_id, ih_pal_id % ih_msg_group_size);
+                 options.working_path, dir_hierarchy, target_pal_id, ih_pal_id % ih_msg_group_size);
         out_files[i] = fopen(file_names[i], "wb+");
 
         if (!(out_files[i])) {
@@ -158,15 +158,15 @@ static void init_strat_2(struct options* options) {
 }
 
 // write single out file in pals' own directory
-static void init_strat_3(struct options* options) {
+static void init_strat_3() {
     ih_msg_group_size = 1;
     init_msg_group();
     int dir_hierarchy = ih_pal_id / palrup_utils_calc_root_ceil(ih_num_solvers);
     file_names[0] = palrup_utils_malloc(1024 * sizeof(char));
-    snprintf(file_names[0], 1024, "%s/%u/%lu/out.palrup_proxy~", options->working_path, dir_hierarchy, ih_pal_id);
+    snprintf(file_names[0], 1024, "%s/%u/%lu/out.palrup_proxy~", options.working_path, dir_hierarchy, ih_pal_id);
 
     signatures[0] = comm_sig_init(SECRET_KEY_2);
-    clause_heaps[0] = heap_init(options->q_size);
+    clause_heaps[0] = heap_init(options.q_size);
     out_files[0] = fopen(file_names[0], "wb+");
 
     if (!(out_files[0])) {
@@ -280,25 +280,25 @@ unit_static void flush_heap_to_file(struct clause_heap* clause_heap, int file_id
     }
 }
 
-void import_handler_init(struct options* options) {
-    ih_num_solvers = options->num_solvers;
-    ih_redist_strat = options->redist_strat;
-    ih_pal_id = options->pal_id;
-    alpha = options->q_alpha;
+void import_handler_init() {
+    ih_num_solvers = options.num_solvers;
+    ih_redist_strat = options.redist_strat;
+    ih_pal_id = options.pal_id;
+    alpha = options.q_alpha;
     ih_stats = import_handler_stats_init;
     
-    merge_buffer = merge_buffer_init(options->merge_buffer_size, NULL);
-    write_buffer_init(options->write_buffer_size);
+    merge_buffer = merge_buffer_init(options.merge_buffer_size, NULL);
+    write_buffer_init(options.write_buffer_size);
 
     switch (ih_redist_strat) {
     case 1:
-        init_strat_1(options);
+        init_strat_1();
         break;
     case 2:
-        init_strat_2(options);
+        init_strat_2();
         break;
     case 3:
-        init_strat_3(options);
+        init_strat_3();
         break;
     default:
         snprintf(palrup_utils_msgstr, MSG_LEN, "Redistribution strategy %lu not available.", ih_redist_strat);

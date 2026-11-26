@@ -84,13 +84,13 @@ static void init_strat3() {
     }
 }
 
-void redist_handler_init(struct options* options) {
-    rh_num_solvers = options->num_solvers;
-    rh_redist_strat = options->redist_strat;
-    rh_pal_id = options->pal_id;
-    working_path = options->working_path;
+void redist_handler_init() {
+    rh_num_solvers = options.num_solvers;
+    rh_redist_strat = options.redist_strat;
+    rh_pal_id = options.pal_id;
+    working_path = options.working_path;
 
-    write_buffer = u8_vec_init(options->write_buffer_size);
+    write_buffer = u8_vec_init(options.write_buffer_size);
 
     switch (rh_redist_strat) {
     // TODO: implement strat 1 and 2
@@ -105,8 +105,8 @@ void redist_handler_init(struct options* options) {
         break;
     }
 
-    import_merger_init(rh_msg_group_size_in, in_file_paths, &rh_current_ID, &rh_current_literals_data, &rh_current_literals_size, options->read_buffer_size, NULL, comm_sig_compute);
-    write_buffer_init(options->write_buffer_size);
+    import_merger_init(rh_msg_group_size_in, in_file_paths, &rh_current_ID, &rh_current_literals_data, &rh_current_literals_size, options.read_buffer_size, NULL, comm_sig_compute);
+    write_buffer_init(options.write_buffer_size);
     write_buffer_swich_context(out_files[0]);
 }
 

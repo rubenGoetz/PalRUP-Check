@@ -21,13 +21,10 @@ class ImportExtractorTest {
     ImportExtractor extractor;
 
     public:
-        ImportExtractorTest(struct options* options) :
-            extractor(options) {};
+        ImportExtractorTest() {};
         void log_id(u64 id) { extractor.log_id(id); };
         void flush_Q(float alpha, int file_id) { extractor.flush_Q(alpha, file_id); };
 };
-
-struct options* options;
 
 static void check_written_file() {
     std::cout << "   * check written file" << std::endl;
@@ -48,7 +45,7 @@ static void check_written_file() {
 
 static void check_simple_flush() {
     std::cout << "   * init new ImportExtractor" << std::endl;
-    ImportExtractorTest *extractor = new ImportExtractorTest(options);
+    ImportExtractorTest *extractor = new ImportExtractorTest();
 
     std::cout << "   * fill Q" << std::endl;
     for (size_t i = 0; i < QUEUE_CAP; i++)
@@ -66,7 +63,7 @@ static void check_simple_flush() {
 
 static void check_merge_flush() {
     std::cout << "   * init new ImportExtractor" << std::endl;
-    ImportExtractorTest *extractor = new ImportExtractorTest(options);
+    ImportExtractorTest *extractor = new ImportExtractorTest();
 
     std::cout << "   * fill Q" << std::endl;
     for (size_t i = 0; i < QUEUE_CAP - 2; i++)
@@ -92,22 +89,20 @@ static void test_flush_Q() {
 }
 
 static void init_tests() {
-    options = options_init();
-    options->q_size = QUEUE_CAP;
-    options->q_alpha = ALPHA;
-    options->pal_id = 0;
-    options->num_solvers = 1;
-    options->palrup_path = PALRUP_PATH;
-    options->working_path = WORKING_PATH;
+    options_init();
+    options.q_size = QUEUE_CAP;
+    options.q_alpha = ALPHA;
+    options.pal_id = 0;
+    options.num_solvers = 1;
+    options.palrup_path = PALRUP_PATH;
+    options.working_path = WORKING_PATH;
 
     std::filesystem::create_directories(WORKING_PATH "/0/0");
 
     std::srand(std::time({}));
 }
 
-static void wrap_up_tests() {
-    options_free(options);
-}
+static void wrap_up_tests() {}
 
 int main(int argc, char const *argv[]) {
     UNUSED(argc);

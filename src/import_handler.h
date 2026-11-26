@@ -4,7 +4,7 @@
 #include "options.h"
 #include "clause_flat.h"
 
-void import_handler_init(struct options* options);
+void import_handler_init();
 //void import_handler_log(u64 clause_id, const int* literals, int nb_literals);
 void import_handler_log(clause_ptr clause);
 void import_handler_end();

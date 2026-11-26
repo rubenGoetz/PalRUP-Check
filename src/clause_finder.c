@@ -169,7 +169,7 @@ void parse() {
     }
 }
 
-static void init_strat3(struct options* options) {
+static void init_strat3() {
     cf_msg_group_size = palrup_utils_calc_root_ceil(cf_num_solvers);
     import_check_hash = palrup_utils_malloc(sizeof(struct siphash*) * cf_msg_group_size);
     
@@ -180,19 +180,19 @@ static void init_strat3(struct options* options) {
         file_paths[i] = palrup_utils_malloc(512);
         int src_rank = (i * cf_msg_group_size) + column;
         snprintf(file_paths[i], 512, "%s/%lu/%i/out.palrup_import",
-                 options->working_path, src_rank / cf_msg_group_size, src_rank);
+                 options.working_path, src_rank / cf_msg_group_size, src_rank);
         import_check_hash[i] = siphash_cls_init(SECRET_KEY);
     }
 
-    import_merger_init(cf_msg_group_size, file_paths, &current_ID, &current_literals_data, &current_literals_size, options->read_buffer_size, import_check_hash, NULL);
+    import_merger_init(cf_msg_group_size, file_paths, &current_ID, &current_literals_data, &current_literals_size, options.read_buffer_size, import_check_hash, NULL);
     for (size_t i = 0; i < cf_msg_group_size; i++)
         free(file_paths[i]);
 }
 
-void clause_finder_init(struct options* options) {
-    cf_num_solvers = options->num_solvers;
-    cf_pal_id = options->pal_id;
-    palrup_binary = options->palrup_binary;
+void clause_finder_init() {
+    cf_num_solvers = options.num_solvers;
+    cf_pal_id = options.pal_id;
+    palrup_binary = options.palrup_binary;
     proof_check_hash = siphash_cls_init(SECRET_KEY);
     proof_lits = int_vec_init(1);
 
@@ -201,18 +201,18 @@ void clause_finder_init(struct options* options) {
     // init proof fragment
     char frag_path[512];
     snprintf(frag_path, 512, "%s/%u/%lu/out.palrup",
-             options->palrup_path, dir_hierarchy, cf_pal_id);
+             options.palrup_path, dir_hierarchy, cf_pal_id);
     FILE* proof_frag = fopen(frag_path, "rb");
     if (!proof_frag) {
         snprintf(palrup_utils_msgstr, MSG_LEN, "Could not open proof fragment at %s\n", frag_path);
         palrup_utils_log_err(palrup_utils_msgstr);
     }
-    proof_reader = file_reader_init(options->read_buffer_size, proof_frag, cf_pal_id);
+    proof_reader = file_reader_init(options.read_buffer_size, proof_frag, cf_pal_id);
     
     // read proof signature
     char sig_path[512];
     snprintf(sig_path, 512, "%s/%u/%lu/out.palrup.hash",
-             options->palrup_path, dir_hierarchy, cf_pal_id);
+             options.palrup_path, dir_hierarchy, cf_pal_id);
     FILE* frag_sig = fopen(sig_path, "rb");
     if (!frag_sig) {
         snprintf(palrup_utils_msgstr, MSG_LEN, "Could not open proof fragment's signature at %s\n", sig_path);
@@ -223,16 +223,16 @@ void clause_finder_init(struct options* options) {
 
     // create .check_ok flag path
     snprintf(confirm_path, 512, "%s/%u/%lu/.check_ok",
-             options->working_path, dir_hierarchy, cf_pal_id);
+             options.working_path, dir_hierarchy, cf_pal_id);
 
-    switch (options->redist_strat) {
+    switch (options.redist_strat) {
     case 1:
     case 2:
     case 3:
-        init_strat3(options);
+        init_strat3();
         break;
     default:
-        snprintf(palrup_utils_msgstr, MSG_LEN, "Redistribution strategy %lu not available.", options->redist_strat);
+        snprintf(palrup_utils_msgstr, MSG_LEN, "Redistribution strategy %lu not available.", options.redist_strat);
         palrup_utils_log_err(palrup_utils_msgstr);
         break;
     }

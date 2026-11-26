@@ -34,13 +34,13 @@ class TrimRedistributor {
     } stats;
 
     public:
-        TrimRedistributor(struct options* options);
+        TrimRedistributor();
         ~TrimRedistributor();
 
         void run();
 
     private:
-        void init_strat_3(struct options* options);
+        void init_strat_3();
         void init_msg_group();
         void log_id(u64 id);
         int get_out_file_id(u64 clause_id);

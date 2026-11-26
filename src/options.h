@@ -5,7 +5,9 @@
 
 #include "utils/define.h"
 
-struct options {
+extern struct options {
+    bool initialized;
+
     // universally needed
     char* working_path;
     u64 num_solvers;
@@ -26,10 +28,9 @@ struct options {
 
     // local_trim
     bool use_checker_comm_files;
-};
+} options;
 
-struct options* options_init();
-void options_free(struct options* options);
+void options_init();
 
 void options_try_match_arg(char* arg, char* opt, char** out);
 void options_try_match_ul(const char* arg, const char* opt, u64* out);
@@ -37,5 +38,5 @@ void options_try_match_float(const char* arg, const char* opt, float* out);
 void options_try_match_bool(const char* arg, const char* opt, bool* out);
 void options_try_match_flag(const char* arg, const char* opt, bool* out);
 
-void options_buffer_sizes_to_bytes(struct options* options);
-void options_print(struct options* options);
+void options_buffer_sizes_to_bytes();
+void options_print();

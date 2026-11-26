@@ -36,7 +36,6 @@ unsigned int NUM_CLAUSES;
 clause_ptr* clauses;
 struct clause_heap* heap;
 struct int_vec* lits_buffer;
-struct options* options;
 
 // ----- UTIL -----
 
@@ -69,7 +68,7 @@ static size_t fill_heap_with_duplicates(unsigned int offset) {
 
 static void check_simple_flush() {
     printf("   * init new importer: ");
-    import_handler_init(options);
+    import_handler_init();
     size_t unique_clause_cnt = fill_heap_with_duplicates(0);
 
     struct comm_sig* expected_sig = comm_sig_init(SECRET_KEY_2);
@@ -129,7 +128,7 @@ static void check_merge_flush() {
     struct comm_sig* expected_sig = comm_sig_init(SECRET_KEY_2);
     u8 read_sig[16];
     do_assert(heap->size == 0);
-    import_handler_init(options);
+    import_handler_init();
     size_t unique_clause_cnt = NUM_CLAUSES / 2;
     for (size_t i = 0; i < NUM_CLAUSES / 2; i++) {
         clause_ptr clause_cpy = create_flat_clause(get_clause_id(clauses[i]),
@@ -207,7 +206,7 @@ static void check_doubling_id() {
         if (!freopen("/dev/null", "w", stdout))
             printf("   * could not mute child process\n");
 
-        import_handler_init(options);
+        import_handler_init();
 
         int lits1[3] = {1,2,3};
         int lits2[3] = {4,5,6};
@@ -279,12 +278,12 @@ static void generate_random_clauses() {
 }
 
 static void init_options() {
-    options = options_init();
-    options->working_path = TEST_DIR;
-    options->pal_id = 0;
-    options->num_solvers = 1;
-    options->redist_strat = 3;
-    options->q_size = HEAP_CAPACITY;
+    options_init();
+    options.working_path = TEST_DIR;
+    options.pal_id = 0;
+    options.num_solvers = 1;
+    options.redist_strat = 3;
+    options.q_size = HEAP_CAPACITY;
 }
 
 static void init_tests() {

@@ -45,13 +45,13 @@ class ImportExtractor {
     } stats;
 
     public:
-        ImportExtractor(struct options* options);
+        ImportExtractor();
         ~ImportExtractor();
 
         void run();
 
     private:
-        void init_strat_3(struct options* options);
+        void init_strat_3();
         void empty_clause_found();
         void log_id(u64 id);
         void flush_Q(float alpha, int file_id);
