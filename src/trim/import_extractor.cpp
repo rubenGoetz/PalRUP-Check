@@ -196,7 +196,10 @@ void ImportExtractor::run() {
             abort();
         }
 
-        char zero = file_reader_read_char(proof_fragment);
+        #ifndef NDEBUG
+        char zero = 
+        #endif
+        file_reader_read_char(proof_fragment);
         assert(zero == 0);
     }
 }

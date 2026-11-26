@@ -146,7 +146,10 @@ int main(int argc, char *argv[]) {
             break;
         }
         
-        char zero = file_reader_read_char(reader);
+        #ifndef NDEBUG
+        char zero = 
+        #endif
+        file_reader_read_char(reader);
         assert(zero == 0);
         fprintf(output, "0\n");
 

@@ -261,7 +261,10 @@ static void parse() {
 
         // End lines with 00 to make format backwards readable.
         // First zero was already parsed with hints.
-        char zero = file_reader_read_char(proof);
+        #ifndef NDEBUG
+        char zero = 
+        #endif
+        file_reader_read_char(proof);
         assert(zero == 0);
 
         if (UNLIKELY(!top_check_valid())) {    

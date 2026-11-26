@@ -101,7 +101,10 @@ void parse() {
 
             // End lines with 00 to make format backwards readable.
             // First zero was already parsed with hints.
-            char zero = file_reader_read_char(proof_reader);
+            #ifndef NDEBUG
+            char zero = 
+            #endif
+            file_reader_read_char(proof_reader);
             assert(zero == 0);
 
             // next line
@@ -137,7 +140,10 @@ void parse() {
 
             // End lines with 00 to make format backwards readable.
             // First zero was already parsed with hints.
-            char zero = file_reader_read_char(proof_reader);
+            #ifndef NDEBUG
+            char zero = 
+            #endif
+            file_reader_read_char(proof_reader);
             assert(zero == 0);
 
         } else if (c == TRUSTED_CHK_CLS_DELETE) {
@@ -149,7 +155,10 @@ void parse() {
 
             // End lines with 00 to make format backwards readable.
             // First zero was already parsed with hints.
-            char zero = file_reader_read_char(proof_reader);
+            #ifndef NDEBUG
+            char zero = 
+            #endif
+            file_reader_read_char(proof_reader);
             assert(zero == 0);
 
 
